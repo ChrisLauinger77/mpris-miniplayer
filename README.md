@@ -8,15 +8,33 @@ It is not tied to a specific player. It is intended to work with Sidra, VLC, Spo
 
 ![MPRIS MiniPlayer showing a Sidra track](data/screenshots/miniplayer.png)
 
+## Install
+
+Download the latest Flatpak bundle from the [GitHub releases page](https://github.com/ChrisLauinger77/mpris-miniplayer/releases/latest), then install it with:
+
+```bash
+flatpak install --user ./MPRIS-MiniPlayer-<version>-x86_64.flatpak
+```
+
+Run it from your application launcher, or from a terminal:
+
+```bash
+flatpak run io.github.ChrisLauinger.MprisMiniPlayer
+```
+
+MPRIS MiniPlayer needs at least one running MPRIS-compatible media player to show playback controls.
+
 ## Features
 
 - Detects MPRIS players on the session bus
 - Selects the first available player automatically
 - Shows track title, artist, album, and album art
 - Provides previous, play/pause, and next controls
+- Shows playback progress and time
+- Lets you choose between available players
 - Updates the UI when player metadata changes
 
-## Build
+## Build from Source
 
 Install the typical development dependencies on Debian or Ubuntu:
 
@@ -38,7 +56,7 @@ Install locally:
 sudo meson install -C build
 ```
 
-## Release
+## Maintainer Release
 
 Pushing a version tag builds a Flatpak bundle and creates a GitHub release:
 
