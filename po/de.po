@@ -16,10 +16,10 @@ msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
 msgid "Control MPRIS-compatible media players"
-msgstr "MPRIS-kompatible Medienplayer steuern"
+msgstr "MPRIS-kompatible Medienspieler steuern"
 
 msgid "MPRIS MiniPlayer is a small GTK mini player for Linux media players that expose the MPRIS interface on the session bus."
-msgstr "MPRIS MiniPlayer ist ein kleiner GTK-Mini-Player für Linux-Medienplayer, die die MPRIS-Schnittstelle auf dem Sitzungsbus bereitstellen."
+msgstr "MPRIS MiniPlayer ist ein kleiner GTK-Mini-Player für Linux-Medienspieler, die die MPRIS-Schnittstelle auf dem Sitzungsbus bereitstellen."
 
 msgid "Initial development release."
 msgstr "Erste Entwicklungsversion."
@@ -28,10 +28,10 @@ msgid "Christian Lauinger"
 msgstr "Christian Lauinger"
 
 msgid "No player running"
-msgstr "Kein Spieler läuft"
+msgstr "Kein Medienspieler läuft"
 
 msgid "Start an MPRIS-compatible media player"
-msgstr "Starte einen MPRIS-kompatiblen Medienplayer"
+msgstr "Starte einen MPRIS-kompatiblen Medienspieler"
 
 msgid "Previous"
 msgstr "Zurück"
@@ -43,16 +43,16 @@ msgid "Next"
 msgstr "Weiter"
 
 msgid "Choose player"
-msgstr "Spieler auswählen"
+msgstr "Medienspieler auswählen"
 
 msgid "No player detected"
-msgstr "Kein Spieler erkannt"
+msgstr "Kein Medienspieler erkannt"
 
 msgid "Start any MPRIS-compatible player"
-msgstr "Starte einen MPRIS-kompatiblen Spieler"
+msgstr "Starte einen MPRIS-kompatiblen Medienspieler"
 
 msgid "Player unavailable"
-msgstr "Spieler nicht verfügbar"
+msgstr "Medienspieler nicht verfügbar"
 
 msgid "Unknown track"
 msgstr "Unbekannter Titel"
