@@ -38,6 +38,17 @@ Install locally:
 sudo meson install -C build
 ```
 
+## Release
+
+Pushing a version tag builds a Flatpak bundle and creates a GitHub release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` to the generated release.
+
 ## License
 
 MPRIS MiniPlayer is licensed under the GNU General Public License v3.0 or later.
@@ -66,8 +77,6 @@ v0.2:
 v0.3:
 
 - Add compact mode
-- Remember window size and position if possible
-- Add an always-on-top option if GTK/Wayland support permits it
 - Add keyboard shortcuts
 - Improve the empty state when no player is running
 
@@ -75,8 +84,5 @@ v1.0:
 
 - Polish AppStream metadata
 - Add icons
-- Add screenshots
-- Add translations
-- Add a Flatpak manifest
 - Add Debian packaging
 - Add CI build workflow
