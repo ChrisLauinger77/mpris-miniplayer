@@ -16,6 +16,8 @@ namespace MprisMiniPlayer {
         public string identity { get; private set; default = ""; }
         public string desktop_entry { get; private set; default = ""; }
         public string playback_status { get; private set; default = "Stopped"; }
+        public int64 position_us { get; private set; default = 0; }
+        public int64 duration_us { get; private set; default = 0; }
         public bool can_go_next { get; private set; default = false; }
         public bool can_go_previous { get; private set; default = false; }
         public bool can_play { get; private set; default = false; }
@@ -74,6 +76,25 @@ namespace MprisMiniPlayer {
                 changed();
             } catch (Error error) {
                 warning("Unable to refresh %s: %s", bus_name, error.message);
+            }
+        }
+
+        public void refresh_position() {
+            try {
+                Variant result = bus.call_sync(
+                    bus_name,
+                    OBJECT_PATH,
+                    PROPERTIES_IFACE,
+                    "Get",
+                    new Variant("(ss)", PLAYER_IFACE, "Position"),
+                    new VariantType("(v)"),
+                    DBusCallFlags.NONE,
+                    -1
+                );
+
+                position_us = unwrap_variant(result.get_child_value(0)).get_int64();
+            } catch (Error error) {
+                debug("Unable to refresh position for %s: %s", bus_name, error.message);
             }
         }
 
@@ -140,6 +161,7 @@ namespace MprisMiniPlayer {
             can_go_previous = get_bool_property(properties, "CanGoPrevious", can_go_previous);
             can_play = get_bool_property(properties, "CanPlay", can_play);
             can_pause = get_bool_property(properties, "CanPause", can_pause);
+            position_us = get_int64_property(properties, "Position", position_us);
         }
 
         private void update_metadata(Variant metadata_variant) {
@@ -147,6 +169,7 @@ namespace MprisMiniPlayer {
             title = get_metadata_string(metadata, "xesam:title", "Unknown track");
             album = get_metadata_string(metadata, "xesam:album", "");
             art_url = get_metadata_string(metadata, "mpris:artUrl", "");
+            duration_us = get_metadata_int64(metadata, "mpris:length", 0);
 
             Variant? artists_value = lookup_property(metadata, "xesam:artist");
             artist = "Unknown artist";
@@ -198,6 +221,15 @@ namespace MprisMiniPlayer {
             return unwrap_variant(value).get_boolean();
         }
 
+        private int64 get_int64_property(Variant properties, string key, int64 fallback) {
+            Variant? value = lookup_property(properties, key);
+            if (value == null) {
+                return fallback;
+            }
+
+            return unwrap_variant(value).get_int64();
+        }
+
         private string get_metadata_string(Variant metadata, string key, string fallback) {
             Variant? value = lookup_property(metadata, key);
             if (value == null) {
@@ -205,6 +237,15 @@ namespace MprisMiniPlayer {
             }
 
             return unwrap_variant(value).get_string();
+        }
+
+        private int64 get_metadata_int64(Variant metadata, string key, int64 fallback) {
+            Variant? value = lookup_property(metadata, key);
+            if (value == null) {
+                return fallback;
+            }
+
+            return unwrap_variant(value).get_int64();
         }
 
         private string get_string_array_value(Variant value) {

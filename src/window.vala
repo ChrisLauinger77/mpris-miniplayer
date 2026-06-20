@@ -7,6 +7,8 @@ namespace MprisMiniPlayer {
         private Gtk.Label title_label;
         private Gtk.Label artist_label;
         private Gtk.Label album_label;
+        private Gtk.Scale progress_scale;
+        private Gtk.Label time_label;
         private Gtk.Button previous_button;
         private Gtk.Button play_pause_button;
         private Gtk.Button next_button;
@@ -15,16 +17,18 @@ namespace MprisMiniPlayer {
         private Gtk.Label player_label;
         private Gtk.Popover player_popover;
         private Gtk.ListBox player_list;
+        private uint position_timeout_id = 0;
 
         public Window(Gtk.Application app) {
             Object(
                 application: app,
                 title: "MPRIS MiniPlayer",
                 default_width: 440,
-                default_height: 170
+                default_height: 190
             );
 
             build_ui();
+            start_position_timer();
 
             try {
                 manager = new MprisManager();
@@ -77,6 +81,20 @@ namespace MprisMiniPlayer {
             album_label.ellipsize = Pango.EllipsizeMode.END;
             album_label.add_css_class("dim-label");
             content.append(album_label);
+
+            var progress_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+            progress_row.margin_top = 2;
+            content.append(progress_row);
+
+            progress_scale = new Gtk.Scale.with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 1);
+            progress_scale.draw_value = false;
+            progress_scale.sensitive = false;
+            progress_scale.hexpand = true;
+            progress_row.append(progress_scale);
+
+            time_label = new Gtk.Label("0:00 / 0:00");
+            time_label.add_css_class("dim-label");
+            progress_row.append(time_label);
 
             var spacer = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
             spacer.vexpand = true;
@@ -185,6 +203,7 @@ namespace MprisMiniPlayer {
             player_label.label = player.display_name();
             player_icon.icon_name = player.icon_name();
             set_artwork(player.art_url);
+            update_progress();
             update_controls(true);
 
             if (player.playback_status == "Playing") {
@@ -201,6 +220,8 @@ namespace MprisMiniPlayer {
             player_label.label = "";
             player_icon.icon_name = "multimedia-player-symbolic";
             cover.paintable = null;
+            progress_scale.set_value(0);
+            time_label.label = "0:00 / 0:00";
             update_controls(false);
         }
 
@@ -284,6 +305,56 @@ namespace MprisMiniPlayer {
             }
 
             return false;
+        }
+
+        private void start_position_timer() {
+            if (position_timeout_id != 0) {
+                return;
+            }
+
+            position_timeout_id = Timeout.add_seconds(1, () => {
+                if (player != null) {
+                    if (player.playback_status == "Playing") {
+                        player.refresh_position();
+                    }
+                    update_progress();
+                }
+
+                return Source.CONTINUE;
+            });
+        }
+
+        private void update_progress() {
+            if (player == null || player.duration_us <= 0) {
+                progress_scale.set_range(0, 1);
+                progress_scale.set_value(0);
+                time_label.label = "0:00 / 0:00";
+                return;
+            }
+
+            double duration_seconds = player.duration_us / 1000000.0;
+            double position_seconds = player.position_us / 1000000.0;
+            if (position_seconds < 0) {
+                position_seconds = 0;
+            }
+            if (position_seconds > duration_seconds) {
+                position_seconds = duration_seconds;
+            }
+
+            progress_scale.set_range(0, duration_seconds);
+            progress_scale.set_value(position_seconds);
+            time_label.label = "%s / %s".printf(
+                format_time(player.position_us),
+                format_time(player.duration_us)
+            );
+        }
+
+        private string format_time(int64 microseconds) {
+            int64 total_seconds = microseconds / 1000000;
+            int minutes = (int) (total_seconds / 60);
+            int seconds = (int) (total_seconds % 60);
+
+            return "%d:%02d".printf(minutes, seconds);
         }
     }
 }
