@@ -20,3 +20,8 @@ gnome.compile_resources(
   app_id + '.gresource.xml',
   source_dir: '.',
 )
+
+install_data(
+  'icons' / (app_id + '.svg'),
+  install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'apps',
+)
