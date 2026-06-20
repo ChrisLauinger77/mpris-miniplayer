@@ -1,6 +1,7 @@
 namespace MprisMiniPlayer {
     public class MprisPlayer : Object {
         private const string OBJECT_PATH = "/org/mpris/MediaPlayer2";
+        private const string ROOT_IFACE = "org.mpris.MediaPlayer2";
         private const string PLAYER_IFACE = "org.mpris.MediaPlayer2.Player";
         private const string PROPERTIES_IFACE = "org.freedesktop.DBus.Properties";
 
@@ -12,6 +13,8 @@ namespace MprisMiniPlayer {
         public string artist { get; private set; default = "Unknown artist"; }
         public string album { get; private set; default = ""; }
         public string art_url { get; private set; default = ""; }
+        public string identity { get; private set; default = ""; }
+        public string desktop_entry { get; private set; default = ""; }
         public string playback_status { get; private set; default = "Stopped"; }
         public bool can_go_next { get; private set; default = false; }
         public bool can_go_previous { get; private set; default = false; }
@@ -43,7 +46,19 @@ namespace MprisMiniPlayer {
 
         public void refresh() {
             try {
-                Variant result = bus.call_sync(
+                Variant root_result = bus.call_sync(
+                    bus_name,
+                    OBJECT_PATH,
+                    PROPERTIES_IFACE,
+                    "GetAll",
+                    new Variant("(s)", ROOT_IFACE),
+                    new VariantType("(a{sv})"),
+                    DBusCallFlags.NONE,
+                    -1
+                );
+                update_from_root_properties(root_result.get_child_value(0));
+
+                Variant player_result = bus.call_sync(
                     bus_name,
                     OBJECT_PATH,
                     PROPERTIES_IFACE,
@@ -54,7 +69,7 @@ namespace MprisMiniPlayer {
                     -1
                 );
 
-                Variant properties = result.get_child_value(0);
+                Variant properties = player_result.get_child_value(0);
                 update_from_properties(properties);
                 changed();
             } catch (Error error) {
@@ -75,7 +90,19 @@ namespace MprisMiniPlayer {
         }
 
         public string display_name() {
+            if (identity != "") {
+                return identity;
+            }
+
             return bus_name.substring("org.mpris.MediaPlayer2.".length);
+        }
+
+        public string icon_name() {
+            if (desktop_entry != "") {
+                return desktop_entry;
+            }
+
+            return "multimedia-player-symbolic";
         }
 
         private void on_properties_changed(
@@ -95,6 +122,11 @@ namespace MprisMiniPlayer {
                 update_from_properties(changed_properties);
                 changed();
             }
+        }
+
+        private void update_from_root_properties(Variant properties) {
+            identity = get_string_property(properties, "Identity", identity);
+            desktop_entry = get_string_property(properties, "DesktopEntry", desktop_entry);
         }
 
         private void update_from_properties(Variant properties) {
