@@ -4,6 +4,10 @@ MPRIS MiniPlayer is a small GTK4/libadwaita mini player for Linux media players 
 
 It is not tied to a specific player. It is intended to work with Sidra, VLC, Spotify, Strawberry, Rhythmbox, Elisa, browsers exposing media sessions, Mopidy, spotifyd, mpv with an MPRIS plugin, and similar clients.
 
+## Screenshot
+
+![MPRIS MiniPlayer showing a Sidra track](data/screenshots/miniplayer.png)
+
 ## Features
 
 - Detects MPRIS players on the session bus
