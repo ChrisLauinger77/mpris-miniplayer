@@ -111,7 +111,7 @@ namespace MprisMiniPlayer {
         }
 
         private void update_metadata(Variant metadata_variant) {
-            Variant metadata = metadata_variant;
+            Variant metadata = unwrap_variant(metadata_variant);
             title = get_metadata_string(metadata, "xesam:title", "Unknown track");
             album = get_metadata_string(metadata, "xesam:album", "");
             art_url = get_metadata_string(metadata, "mpris:artUrl", "");
@@ -119,10 +119,9 @@ namespace MprisMiniPlayer {
             Variant? artists_value = lookup_property(metadata, "xesam:artist");
             artist = "Unknown artist";
             if (artists_value != null) {
-                string[] artists;
-                artists_value.get("^as", out artists);
-                if (artists.length > 0) {
-                    artist = string.joinv(", ", artists);
+                string artists = get_string_array_value(artists_value);
+                if (artists != "") {
+                    artist = artists;
                 }
             }
         }
@@ -141,13 +140,21 @@ namespace MprisMiniPlayer {
             return null;
         }
 
+        private Variant unwrap_variant(Variant value) {
+            if (value.get_type_string() == "v") {
+                return value.get_variant();
+            }
+
+            return value;
+        }
+
         private string get_string_property(Variant properties, string key, string fallback) {
             Variant? value = lookup_property(properties, key);
             if (value == null) {
                 return fallback;
             }
 
-            return value.get_string();
+            return unwrap_variant(value).get_string();
         }
 
         private bool get_bool_property(Variant properties, string key, bool fallback) {
@@ -156,7 +163,7 @@ namespace MprisMiniPlayer {
                 return fallback;
             }
 
-            return value.get_boolean();
+            return unwrap_variant(value).get_boolean();
         }
 
         private string get_metadata_string(Variant metadata, string key, string fallback) {
@@ -165,7 +172,29 @@ namespace MprisMiniPlayer {
                 return fallback;
             }
 
-            return value.get_string();
+            return unwrap_variant(value).get_string();
+        }
+
+        private string get_string_array_value(Variant value) {
+            Variant array = unwrap_variant(value);
+            if (array.get_type_string() != "as") {
+                return "";
+            }
+
+            var builder = new StringBuilder();
+            for (size_t i = 0; i < array.n_children(); i++) {
+                string item = array.get_child_value(i).get_string();
+                if (item == "") {
+                    continue;
+                }
+
+                if (builder.len > 0) {
+                    builder.append(", ");
+                }
+                builder.append(item);
+            }
+
+            return builder.str;
         }
 
         private void call_player_method(string method_name) {
