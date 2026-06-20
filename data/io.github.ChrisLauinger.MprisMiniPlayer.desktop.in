@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=MPRIS MiniPlayer
+Comment=Control MPRIS-compatible media players
+Exec=mpris-miniplayer
+Icon=io.github.ChrisLauinger.MprisMiniPlayer
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;GTK;
+StartupNotify=true
