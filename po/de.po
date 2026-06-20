@@ -1,0 +1,61 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mpris-miniplayer 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-20 00:00+0000\n"
+"PO-Revision-Date: 2026-06-20 00:00+0000\n"
+"Last-Translator: Christian Lauinger\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "MPRIS MiniPlayer"
+msgstr "MPRIS MiniPlayer"
+
+msgid "Control MPRIS-compatible media players"
+msgstr "MPRIS-kompatible Medienplayer steuern"
+
+msgid "MPRIS MiniPlayer is a small GTK mini player for Linux media players that expose the MPRIS interface on the session bus."
+msgstr "MPRIS MiniPlayer ist ein kleiner GTK-Mini-Player für Linux-Medienplayer, die die MPRIS-Schnittstelle auf dem Sitzungsbus bereitstellen."
+
+msgid "Initial development release."
+msgstr "Erste Entwicklungsversion."
+
+msgid "Christian Lauinger"
+msgstr "Christian Lauinger"
+
+msgid "No player running"
+msgstr "Kein Player läuft"
+
+msgid "Start an MPRIS-compatible media player"
+msgstr "Starte einen MPRIS-kompatiblen Medienplayer"
+
+msgid "Previous"
+msgstr "Zurück"
+
+msgid "Play or pause"
+msgstr "Wiedergabe oder Pause"
+
+msgid "Next"
+msgstr "Weiter"
+
+msgid "Choose player"
+msgstr "Player auswählen"
+
+msgid "No player detected"
+msgstr "Kein Player erkannt"
+
+msgid "Start any MPRIS-compatible player"
+msgstr "Starte einen MPRIS-kompatiblen Player"
+
+msgid "Player unavailable"
+msgstr "Player nicht verfügbar"
+
+msgid "Unknown track"
+msgstr "Unbekannter Titel"
+
+msgid "Unknown artist"
+msgstr "Unbekannter Künstler"

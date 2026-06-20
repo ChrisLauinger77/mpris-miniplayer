@@ -25,7 +25,7 @@ namespace MprisMiniPlayer {
         public Window(Gtk.Application app) {
             Object(
                 application: app,
-                title: "MPRIS MiniPlayer",
+                title: _("MPRIS MiniPlayer"),
                 default_width: 440,
                 default_height: 170
             );
@@ -76,13 +76,13 @@ namespace MprisMiniPlayer {
             content.hexpand = true;
             box.append(content);
 
-            title_label = new Gtk.Label("No player running");
+            title_label = new Gtk.Label(_("No player running"));
             title_label.halign = Gtk.Align.START;
             title_label.ellipsize = Pango.EllipsizeMode.END;
             title_label.add_css_class("title-2");
             content.append(title_label);
 
-            artist_label = new Gtk.Label("Start an MPRIS-compatible media player");
+            artist_label = new Gtk.Label(_("Start an MPRIS-compatible media player"));
             artist_label.halign = Gtk.Align.START;
             artist_label.ellipsize = Pango.EllipsizeMode.END;
             artist_label.add_css_class("dim-label");
@@ -116,18 +116,18 @@ namespace MprisMiniPlayer {
             content.append(controls);
 
             previous_button = new Gtk.Button.from_icon_name("media-skip-backward-symbolic");
-            previous_button.tooltip_text = "Previous";
+            previous_button.tooltip_text = _("Previous");
             previous_button.clicked.connect(() => player.previous());
             controls.append(previous_button);
 
             play_pause_button = new Gtk.Button.from_icon_name("media-playback-start-symbolic");
-            play_pause_button.tooltip_text = "Play or pause";
+            play_pause_button.tooltip_text = _("Play or pause");
             play_pause_button.clicked.connect(() => player.play_pause());
             play_pause_button.add_css_class("suggested-action");
             controls.append(play_pause_button);
 
             next_button = new Gtk.Button.from_icon_name("media-skip-forward-symbolic");
-            next_button.tooltip_text = "Next";
+            next_button.tooltip_text = _("Next");
             next_button.clicked.connect(() => player.next());
             controls.append(next_button);
 
@@ -146,7 +146,7 @@ namespace MprisMiniPlayer {
             player_button_box.append(chevron);
 
             player_button = new Gtk.MenuButton();
-            player_button.tooltip_text = "Choose player";
+            player_button.tooltip_text = _("Choose player");
             player_button.child = player_button_box;
             player_button.hexpand = true;
             player_button.halign = Gtk.Align.END;
@@ -172,7 +172,7 @@ namespace MprisMiniPlayer {
 
             if (players.length == 0) {
                 player = null;
-                show_empty_state("No player detected", "Start any MPRIS-compatible player");
+                show_empty_state(_("No player detected"), _("Start any MPRIS-compatible player"));
                 return;
             }
 
@@ -199,7 +199,7 @@ namespace MprisMiniPlayer {
                 }
             } catch (Error error) {
                 warning("Unable to select player %s: %s", bus_name, error.message);
-                show_empty_state("Player unavailable", error.message);
+                show_empty_state(_("Player unavailable"), error.message);
             }
         }
 

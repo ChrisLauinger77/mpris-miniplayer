@@ -166,13 +166,13 @@ namespace MprisMiniPlayer {
 
         private void update_metadata(Variant metadata_variant) {
             Variant metadata = unwrap_variant(metadata_variant);
-            title = get_metadata_string(metadata, "xesam:title", "Unknown track");
+            title = get_metadata_string(metadata, "xesam:title", _("Unknown track"));
             album = get_metadata_string(metadata, "xesam:album", "");
             art_url = get_metadata_string(metadata, "mpris:artUrl", "");
             duration_us = get_metadata_int64(metadata, "mpris:length", 0);
 
             Variant? artists_value = lookup_property(metadata, "xesam:artist");
-            artist = "Unknown artist";
+            artist = _("Unknown artist");
             if (artists_value != null) {
                 string artists = get_string_array_value(artists_value);
                 if (artists != "") {

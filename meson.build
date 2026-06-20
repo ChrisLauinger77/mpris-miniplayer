@@ -10,6 +10,7 @@ gnome = import('gnome')
 i18n = import('i18n')
 
 app_id = 'io.github.ChrisLauinger.MprisMiniPlayer'
+gettext_package = 'mpris-miniplayer'
 bindir = get_option('bindir')
 datadir = get_option('datadir')
 localedir = get_option('localedir')
