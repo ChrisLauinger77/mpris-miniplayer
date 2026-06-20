@@ -208,9 +208,9 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            title_label.label = player.title;
-            artist_label.label = player.artist;
-            album_label.label = player.album;
+            set_label_with_tooltip(title_label, player.title);
+            set_label_with_tooltip(artist_label, player.artist);
+            set_label_with_tooltip(album_label, player.album);
             player_label.label = player.display_name();
             player_icon.icon_name = player.icon_name();
             set_artwork(player.art_url);
@@ -226,9 +226,9 @@ namespace MprisMiniPlayer {
         }
 
         private void show_empty_state(string title, string subtitle) {
-            title_label.label = title;
-            artist_label.label = subtitle;
-            album_label.label = "";
+            set_label_with_tooltip(title_label, title);
+            set_label_with_tooltip(artist_label, subtitle);
+            set_label_with_tooltip(album_label, "");
             player_label.label = "";
             player_icon.icon_name = "multimedia-player-symbolic";
             cover_stack.visible_child_name = "empty";
@@ -249,6 +249,11 @@ namespace MprisMiniPlayer {
             var file = File.new_for_uri(art_url);
             cover.set_file(file);
             cover_stack.visible_child_name = "artwork";
+        }
+
+        private void set_label_with_tooltip(Gtk.Label label, string text) {
+            label.label = text;
+            label.tooltip_text = text == "" ? null : text;
         }
 
         private void update_controls(bool has_player) {
