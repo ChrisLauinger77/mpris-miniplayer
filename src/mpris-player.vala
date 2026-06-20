@@ -111,7 +111,7 @@ namespace MprisMiniPlayer {
         }
 
         private void update_metadata(Variant metadata_variant) {
-            Variant metadata = metadata_variant.get_variant();
+            Variant metadata = metadata_variant;
             title = get_metadata_string(metadata, "xesam:title", "Unknown track");
             album = get_metadata_string(metadata, "xesam:album", "");
             art_url = get_metadata_string(metadata, "mpris:artUrl", "");
@@ -119,9 +119,8 @@ namespace MprisMiniPlayer {
             Variant? artists_value = lookup_property(metadata, "xesam:artist");
             artist = "Unknown artist";
             if (artists_value != null) {
-                Variant artists_variant = artists_value.get_variant();
                 string[] artists;
-                artists_variant.get("^as", out artists);
+                artists_value.get("^as", out artists);
                 if (artists.length > 0) {
                     artist = string.joinv(", ", artists);
                 }
@@ -148,7 +147,7 @@ namespace MprisMiniPlayer {
                 return fallback;
             }
 
-            return value.get_variant().get_string();
+            return value.get_string();
         }
 
         private bool get_bool_property(Variant properties, string key, bool fallback) {
@@ -157,7 +156,7 @@ namespace MprisMiniPlayer {
                 return fallback;
             }
 
-            return value.get_variant().get_boolean();
+            return value.get_boolean();
         }
 
         private string get_metadata_string(Variant metadata, string key, string fallback) {
@@ -166,7 +165,7 @@ namespace MprisMiniPlayer {
                 return fallback;
             }
 
-            return value.get_variant().get_string();
+            return value.get_string();
         }
 
         private void call_player_method(string method_name) {

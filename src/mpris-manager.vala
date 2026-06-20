@@ -1,14 +1,25 @@
 namespace MprisMiniPlayer {
+    [DBus (name = "org.freedesktop.DBus")]
+    private interface FreedesktopDBus : Object {
+        public abstract string[] list_names() throws Error;
+    }
+
     public class MprisManager : Object {
         private const string MPRIS_PREFIX = "org.mpris.MediaPlayer2.";
 
         private DBusConnection bus;
+        private FreedesktopDBus dbus_proxy;
         private uint name_owner_subscription_id;
 
         public signal void players_changed();
 
         public MprisManager() throws Error {
             bus = Bus.get_sync(BusType.SESSION);
+            dbus_proxy = Bus.get_proxy_sync(
+                BusType.SESSION,
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus"
+            );
             name_owner_subscription_id = bus.signal_subscribe(
                 "org.freedesktop.DBus",
                 "org.freedesktop.DBus",
@@ -28,20 +39,7 @@ namespace MprisMiniPlayer {
 
         public string[] list_players() {
             try {
-                Variant result = bus.call_sync(
-                    "org.freedesktop.DBus",
-                    "/org/freedesktop/DBus",
-                    "org.freedesktop.DBus",
-                    "ListNames",
-                    null,
-                    new VariantType("(as)"),
-                    DBusCallFlags.NONE,
-                    -1
-                );
-
-                string[] names;
-                result.get("(^as)", out names);
-
+                string[] names = dbus_proxy.list_names();
                 string[] players = {};
                 foreach (var name in names) {
                     if (name.has_prefix(MPRIS_PREFIX)) {
