@@ -24,7 +24,7 @@ namespace MprisMiniPlayer {
                 application: app,
                 title: "MPRIS MiniPlayer",
                 default_width: 440,
-                default_height: 190
+                default_height: 170
             );
 
             build_ui();
@@ -45,22 +45,23 @@ namespace MprisMiniPlayer {
 
             var header_bar = new Adw.HeaderBar();
             header_bar.show_title = false;
+            header_bar.set_size_request(-1, 34);
             toolbar_view.add_top_bar(header_bar);
 
-            var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 16);
-            box.margin_top = 16;
-            box.margin_bottom = 16;
-            box.margin_start = 16;
-            box.margin_end = 16;
+            var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 14);
+            box.margin_top = 8;
+            box.margin_bottom = 12;
+            box.margin_start = 14;
+            box.margin_end = 14;
             toolbar_view.set_content(box);
 
             cover = new Gtk.Picture();
-            cover.set_size_request(120, 120);
+            cover.set_size_request(108, 108);
             cover.content_fit = Gtk.ContentFit.COVER;
             cover.add_css_class("card");
             box.append(cover);
 
-            var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+            var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
             content.hexpand = true;
             box.append(content);
 
@@ -83,7 +84,6 @@ namespace MprisMiniPlayer {
             content.append(album_label);
 
             var progress_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-            progress_row.margin_top = 2;
             content.append(progress_row);
 
             progress_scale = new Gtk.Scale.with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 1);
@@ -100,7 +100,7 @@ namespace MprisMiniPlayer {
             spacer.vexpand = true;
             content.append(spacer);
 
-            var controls = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+            var controls = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
             controls.valign = Gtk.Align.END;
             content.append(controls);
 
