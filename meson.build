@@ -18,3 +18,8 @@ localedir = get_option('localedir')
 subdir('src')
 subdir('data')
 subdir('po')
+
+gnome.post_install(
+  gtk_update_icon_cache: true,
+  update_desktop_database: true,
+)
