@@ -3,7 +3,10 @@ namespace MprisMiniPlayer {
         private MprisManager? manager;
         private MprisPlayer? player;
 
+        private Gtk.Stack cover_stack;
         private Gtk.Picture cover;
+        private Gtk.Image empty_icon;
+        private Gtk.Box progress_row;
         private Gtk.Label title_label;
         private Gtk.Label artist_label;
         private Gtk.Label album_label;
@@ -55,11 +58,19 @@ namespace MprisMiniPlayer {
             box.margin_end = 14;
             toolbar_view.set_content(box);
 
+            cover_stack = new Gtk.Stack();
+            cover_stack.set_size_request(108, 108);
+            cover_stack.add_css_class("card");
+            box.append(cover_stack);
+
             cover = new Gtk.Picture();
-            cover.set_size_request(108, 108);
             cover.content_fit = Gtk.ContentFit.COVER;
-            cover.add_css_class("card");
-            box.append(cover);
+            cover_stack.add_named(cover, "artwork");
+
+            empty_icon = new Gtk.Image.from_icon_name("multimedia-player-symbolic");
+            empty_icon.pixel_size = 42;
+            empty_icon.add_css_class("dim-label");
+            cover_stack.add_named(empty_icon, "empty");
 
             var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
             content.hexpand = true;
@@ -83,7 +94,7 @@ namespace MprisMiniPlayer {
             album_label.add_css_class("dim-label");
             content.append(album_label);
 
-            var progress_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
+            progress_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
             content.append(progress_row);
 
             progress_scale = new Gtk.Scale.with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 1);
@@ -161,7 +172,7 @@ namespace MprisMiniPlayer {
 
             if (players.length == 0) {
                 player = null;
-                show_empty_state("No player running", "Start an MPRIS-compatible media player");
+                show_empty_state("No player detected", "Start any MPRIS-compatible player");
                 return;
             }
 
@@ -203,6 +214,7 @@ namespace MprisMiniPlayer {
             player_label.label = player.display_name();
             player_icon.icon_name = player.icon_name();
             set_artwork(player.art_url);
+            progress_row.visible = true;
             update_progress();
             update_controls(true);
 
@@ -219,7 +231,9 @@ namespace MprisMiniPlayer {
             album_label.label = "";
             player_label.label = "";
             player_icon.icon_name = "multimedia-player-symbolic";
+            cover_stack.visible_child_name = "empty";
             cover.paintable = null;
+            progress_row.visible = false;
             progress_scale.set_value(0);
             time_label.label = "0:00 / 0:00";
             update_controls(false);
@@ -228,11 +242,13 @@ namespace MprisMiniPlayer {
         private void set_artwork(string art_url) {
             if (art_url == "") {
                 cover.paintable = null;
+                cover_stack.visible_child_name = "empty";
                 return;
             }
 
             var file = File.new_for_uri(art_url);
             cover.set_file(file);
+            cover_stack.visible_child_name = "artwork";
         }
 
         private void update_controls(bool has_player) {
