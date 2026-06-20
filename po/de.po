@@ -28,7 +28,7 @@ msgid "Christian Lauinger"
 msgstr "Christian Lauinger"
 
 msgid "No player running"
-msgstr "Kein Player läuft"
+msgstr "Kein Spieler läuft"
 
 msgid "Start an MPRIS-compatible media player"
 msgstr "Starte einen MPRIS-kompatiblen Medienplayer"
@@ -43,16 +43,16 @@ msgid "Next"
 msgstr "Weiter"
 
 msgid "Choose player"
-msgstr "Player auswählen"
+msgstr "Spieler auswählen"
 
 msgid "No player detected"
-msgstr "Kein Player erkannt"
+msgstr "Kein Spieler erkannt"
 
 msgid "Start any MPRIS-compatible player"
-msgstr "Starte einen MPRIS-kompatiblen Player"
+msgstr "Starte einen MPRIS-kompatiblen Spieler"
 
 msgid "Player unavailable"
-msgstr "Player nicht verfügbar"
+msgstr "Spieler nicht verfügbar"
 
 msgid "Unknown track"
 msgstr "Unbekannter Titel"
