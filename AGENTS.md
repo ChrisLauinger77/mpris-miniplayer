@@ -1,0 +1,231 @@
+# AGENTS.md
+
+Instructions for coding agents working on MPRIS MiniPlayer.
+
+## Project
+
+MPRIS MiniPlayer is a standalone Linux mini player for media players that expose MPRIS on the session D-Bus.
+
+- App name: `MPRIS MiniPlayer`
+- App ID: `io.github.ChrisLauinger.MprisMiniPlayer`
+- Executable: `mpris-miniplayer`
+- Desktop file: `io.github.ChrisLauinger.MprisMiniPlayer.desktop`
+- AppStream file: `io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml`
+- License: GPL-3.0-or-later
+
+This is a generic MPRIS client. Do not make it Sidra-specific, even though Sidra inspired the original idea.
+
+Target players include Sidra, VLC, mpv with an MPRIS plugin, Spotify, Strawberry, Rhythmbox, Elisa, browsers exposing media sessions, Mopidy, spotifyd, and similar clients.
+
+## Stack
+
+Use the existing stack:
+
+- Vala
+- GTK4
+- libadwaita
+- Gio / GDBus
+- Meson
+
+Do not rewrite the long-term implementation in Python. Do not use raylib or imgui.
+
+## Repository Layout
+
+```text
+mpris-miniplayer/
+├── data/
+│   ├── io.github.ChrisLauinger.MprisMiniPlayer.desktop.in
+│   ├── io.github.ChrisLauinger.MprisMiniPlayer.gresource.xml
+│   ├── io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in
+│   └── meson.build
+├── po/
+├── src/
+│   ├── main.vala
+│   ├── application.vala
+│   ├── window.vala
+│   ├── mpris-manager.vala
+│   ├── mpris-player.vala
+│   └── meson.build
+├── meson.build
+├── README.md
+├── LICENSE
+└── AGENTS.md
+```
+
+## Build And Validation
+
+Expected local development flow:
+
+```bash
+meson setup build
+meson compile -C build
+./build/src/mpris-miniplayer
+```
+
+Useful validation commands:
+
+```bash
+desktop-file-validate build/data/io.github.ChrisLauinger.MprisMiniPlayer.desktop
+appstreamcli validate --no-net build/data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
+```
+
+Install locally:
+
+```bash
+sudo meson install -C build
+```
+
+Uninstall during development if supported:
+
+```bash
+sudo ninja -C build uninstall
+```
+
+Typical Debian dependencies:
+
+```bash
+sudo apt install \
+  meson ninja-build valac \
+  libgtk-4-dev libadwaita-1-dev \
+  gettext desktop-file-utils appstream-util
+```
+
+Package names may need adjustment by distribution and version.
+
+## MPRIS Notes
+
+MPRIS players usually appear on the session bus as:
+
+```text
+org.mpris.MediaPlayer2.<player-name>
+```
+
+Important object path:
+
+```text
+/org/mpris/MediaPlayer2
+```
+
+Important interfaces:
+
+```text
+org.mpris.MediaPlayer2
+org.mpris.MediaPlayer2.Player
+org.freedesktop.DBus.Properties
+```
+
+Important player properties:
+
+```text
+Metadata
+PlaybackStatus
+Position
+CanGoNext
+CanGoPrevious
+CanPlay
+CanPause
+CanSeek
+```
+
+Important player methods:
+
+```text
+PlayPause()
+Play()
+Pause()
+Next()
+Previous()
+Seek(x offset)
+SetPosition(o track_id, x position)
+```
+
+Listen for:
+
+```text
+org.freedesktop.DBus.Properties.PropertiesChanged
+```
+
+Common metadata fields:
+
+```text
+xesam:title
+xesam:artist
+xesam:album
+mpris:artUrl
+mpris:length
+mpris:trackid
+```
+
+Metadata details:
+
+- `xesam:artist` is usually an array of strings.
+- `mpris:length` is in microseconds.
+- `Position` is also in microseconds.
+- `mpris:artUrl` may be a `file://` URI or another URI.
+- Handle missing metadata gracefully.
+
+## Implementation Guidance
+
+Keep the code small, explicit, and aligned with GNOME conventions.
+
+- `MprisManager` watches `org.freedesktop.DBus`, lists names starting with `org.mpris.MediaPlayer2.`, and emits a signal when players appear or disappear.
+- `MprisPlayer` wraps one bus name, exposes metadata and capabilities as Vala properties, calls MPRIS methods, and listens to `PropertiesChanged`.
+- `Window` binds to the active `MprisPlayer`, updates labels/buttons/artwork, and should eventually provide a player chooser.
+
+Do not crash when no player is running. Do not assume one specific media player.
+
+## UI Direction
+
+The UI should be compact, polished, and useful every day:
+
+```text
+┌──────────────────────────────────────┐
+│ [Cover]  Track Title                 │
+│          Artist                      │
+│          Album                       │
+│                                      │
+│          ───────●────────  2:15      │
+│          ⏮   ⏯   ⏭        Player ▼  │
+└──────────────────────────────────────┘
+```
+
+Use libadwaita widgets and GNOME interaction patterns.
+
+## Roadmap
+
+v0.1:
+
+- Detect active MPRIS players on the session bus
+- Select first usable player automatically
+- Display track title, artist, album, and album art when available
+- Provide previous, play/pause, and next controls
+- Update UI when metadata changes
+- Provide a small libadwaita window
+- Provide a basic Meson build and working desktop file
+
+v0.2:
+
+- Add a player chooser when multiple MPRIS players are available
+- Add a progress bar
+- Show current position and duration
+- Add seek support if the player supports `CanSeek`
+- Poll position periodically while playing
+- Disable unsupported buttons according to MPRIS capabilities
+
+v0.3:
+
+- Add compact mode
+- Remember window size and position if possible
+- Add an always-on-top option if GTK/Wayland support permits it
+- Add keyboard shortcuts
+- Improve the empty state when no player is running
+
+v1.0:
+
+- Polish AppStream metadata
+- Add icons
+- Add screenshots
+- Add translations
+- Add a Flatpak manifest
+- Add Debian packaging
+- Add CI build workflow
