@@ -33,6 +33,7 @@ When it starts without a player, it can stay hidden in the background and show t
 - Provides previous, play/pause, and next controls
 - Shows playback progress and time
 - Lets you seek when the selected player supports it
+- Lets you adjust volume when the selected player exposes MPRIS volume control
 - Lets you choose between available players
 - Updates the UI when player metadata changes
 - Can keep running in the background when no player is available
@@ -105,8 +106,8 @@ v0.2:
 
 v0.3:
 
+- Add player volume control
 - Add compact mode
-- Add keyboard shortcuts
 
 v1.0:
 

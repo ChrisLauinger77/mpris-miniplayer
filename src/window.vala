@@ -13,6 +13,8 @@ namespace MprisMiniPlayer {
         private Gtk.Label album_label;
         private Gtk.Scale progress_scale;
         private Gtk.Label time_label;
+        private Gtk.Box volume_box;
+        private Gtk.Scale volume_scale;
         private Gtk.Button previous_button;
         private Gtk.Button play_pause_button;
         private Gtk.Button next_button;
@@ -23,6 +25,7 @@ namespace MprisMiniPlayer {
         private Gtk.ListBox player_list;
         private uint position_timeout_id = 0;
         private bool updating_progress = false;
+        private bool updating_volume = false;
 
         public Window(Gtk.Application app, MprisManager? manager) {
             Object(
@@ -51,6 +54,28 @@ namespace MprisMiniPlayer {
             header_bar.show_title = false;
             header_bar.set_size_request(-1, 34);
             toolbar_view.add_top_bar(header_bar);
+
+            var player_button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+            player_icon = new Gtk.Image.from_icon_name("multimedia-player-symbolic");
+            player_icon.pixel_size = 16;
+            player_button_box.append(player_icon);
+
+            player_label = new Gtk.Label("");
+            player_label.halign = Gtk.Align.START;
+            player_label.ellipsize = Pango.EllipsizeMode.END;
+            player_label.max_width_chars = 22;
+            player_button_box.append(player_label);
+
+            var chevron = new Gtk.Image.from_icon_name("pan-down-symbolic");
+            chevron.pixel_size = 12;
+            player_button_box.append(chevron);
+
+            player_button = new Gtk.MenuButton();
+            player_button.tooltip_text = _("Choose player");
+            player_button.child = player_button_box;
+            player_button.halign = Gtk.Align.START;
+            player_button.sensitive = false;
+            header_bar.pack_start(player_button);
 
             var menu = new Menu();
             menu.append(_("Preferences"), "app.preferences");
@@ -127,6 +152,24 @@ namespace MprisMiniPlayer {
             controls.valign = Gtk.Align.END;
             content.append(controls);
 
+            volume_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 4);
+            volume_box.valign = Gtk.Align.CENTER;
+            volume_box.margin_end = 6;
+            controls.append(volume_box);
+
+            var volume_icon = new Gtk.Image.from_icon_name("audio-volume-high-symbolic");
+            volume_icon.pixel_size = 16;
+            volume_icon.tooltip_text = _("Volume");
+            volume_box.append(volume_icon);
+
+            volume_scale = new Gtk.Scale.with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.01);
+            volume_scale.draw_value = false;
+            volume_scale.sensitive = false;
+            volume_scale.tooltip_text = _("Volume");
+            volume_scale.set_size_request(90, -1);
+            volume_scale.value_changed.connect(on_volume_value_changed);
+            volume_box.append(volume_scale);
+
             previous_button = new Gtk.Button.from_icon_name("media-skip-backward-symbolic");
             previous_button.tooltip_text = _("Previous");
             previous_button.clicked.connect(() => {
@@ -154,28 +197,6 @@ namespace MprisMiniPlayer {
                 }
             });
             controls.append(next_button);
-
-            var player_button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-            player_icon = new Gtk.Image.from_icon_name("multimedia-player-symbolic");
-            player_icon.pixel_size = 16;
-            player_button_box.append(player_icon);
-
-            player_label = new Gtk.Label("");
-            player_label.halign = Gtk.Align.END;
-            player_label.ellipsize = Pango.EllipsizeMode.END;
-            player_button_box.append(player_label);
-
-            var chevron = new Gtk.Image.from_icon_name("pan-down-symbolic");
-            chevron.pixel_size = 12;
-            player_button_box.append(chevron);
-
-            player_button = new Gtk.MenuButton();
-            player_button.tooltip_text = _("Choose player");
-            player_button.child = player_button_box;
-            player_button.hexpand = true;
-            player_button.halign = Gtk.Align.END;
-            player_button.sensitive = false;
-            controls.append(player_button);
 
             player_popover = new Gtk.Popover();
             player_list = new Gtk.ListBox();
@@ -247,6 +268,7 @@ namespace MprisMiniPlayer {
             set_artwork(player.art_url);
             progress_row.visible = true;
             update_progress();
+            update_volume();
             update_controls(true);
 
             if (player.playback_status == "Playing") {
@@ -267,6 +289,7 @@ namespace MprisMiniPlayer {
             progress_row.visible = false;
             progress_scale.set_value(0);
             time_label.label = "0:00 / 0:00";
+            update_volume();
             update_controls(false);
         }
 
@@ -293,6 +316,7 @@ namespace MprisMiniPlayer {
             next_button.sensitive = has_player && player.can_go_next;
             player_button.sensitive = has_player;
             progress_scale.sensitive = has_player && player.can_seek && player.duration_us > 0;
+            volume_scale.sensitive = has_player && player.has_volume;
         }
 
         private void rebuild_player_list(string[] bus_names) {
@@ -439,6 +463,23 @@ namespace MprisMiniPlayer {
 
             int64 position_us = (int64) (progress_scale.get_value() * 1000000.0);
             player.seek_to_position(position_us);
+        }
+
+        private void update_volume() {
+            bool has_volume = player != null && player.has_volume;
+            volume_box.visible = has_volume;
+
+            updating_volume = true;
+            volume_scale.set_value(has_volume ? player.volume : 0);
+            updating_volume = false;
+        }
+
+        private void on_volume_value_changed() {
+            if (updating_volume || player == null || !player.has_volume) {
+                return;
+            }
+
+            player.set_player_volume(volume_scale.get_value());
         }
 
         private string format_time(int64 microseconds) {

@@ -19,11 +19,13 @@ namespace MprisMiniPlayer {
         public string track_id { get; private set; default = ""; }
         public int64 position_us { get; private set; default = 0; }
         public int64 duration_us { get; private set; default = 0; }
+        public double volume { get; private set; default = 1.0; }
         public bool can_go_next { get; private set; default = false; }
         public bool can_go_previous { get; private set; default = false; }
         public bool can_play { get; private set; default = false; }
         public bool can_pause { get; private set; default = false; }
         public bool can_seek { get; private set; default = false; }
+        public bool has_volume { get; private set; default = false; }
 
         public signal void changed();
 
@@ -146,6 +148,32 @@ namespace MprisMiniPlayer {
             changed();
         }
 
+        public void set_player_volume(double volume) {
+            if (!has_volume) {
+                return;
+            }
+
+            volume = clamp_volume(volume);
+
+            try {
+                bus.call_sync(
+                    bus_name,
+                    OBJECT_PATH,
+                    PROPERTIES_IFACE,
+                    "Set",
+                    new Variant("(ssv)", PLAYER_IFACE, "Volume", new Variant.double(volume)),
+                    null,
+                    DBusCallFlags.NONE,
+                    -1
+                );
+                this.volume = volume;
+                changed();
+            } catch (Error error) {
+                warning("Unable to set volume on %s: %s", bus_name, error.message);
+                refresh();
+            }
+        }
+
         public string display_name() {
             if (identity != "") {
                 return identity;
@@ -199,6 +227,12 @@ namespace MprisMiniPlayer {
             can_pause = get_bool_property(properties, "CanPause", can_pause);
             can_seek = get_bool_property(properties, "CanSeek", can_seek);
             position_us = get_int64_property(properties, "Position", position_us);
+
+            Variant? volume_value = lookup_property(properties, "Volume");
+            if (volume_value != null) {
+                has_volume = true;
+                volume = clamp_volume(unwrap_variant(volume_value).get_double());
+            }
         }
 
         private void update_metadata(Variant metadata_variant) {
@@ -266,6 +300,17 @@ namespace MprisMiniPlayer {
             }
 
             return unwrap_variant(value).get_int64();
+        }
+
+        private double clamp_volume(double volume) {
+            if (volume < 0.0) {
+                return 0.0;
+            }
+            if (volume > 1.0) {
+                return 1.0;
+            }
+
+            return volume;
         }
 
         private string get_metadata_string(Variant metadata, string key, string fallback) {
