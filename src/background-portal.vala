@@ -11,6 +11,7 @@ namespace MprisMiniPlayer {
         private bool request_in_flight = false;
         private bool request_handled = false;
         private bool request_granted = false;
+        private bool in_background = false;
 
         public BackgroundPortal() {
             try {
@@ -21,11 +22,13 @@ namespace MprisMiniPlayer {
         }
 
         public void enter_background(bool autostart) {
+            in_background = true;
             request_background(autostart);
             set_status(_("Monitoring media players"));
         }
 
         public void leave_background() {
+            in_background = false;
             set_status("");
         }
 
@@ -98,10 +101,10 @@ namespace MprisMiniPlayer {
             request_handled = true;
             request_granted = response == 0;
 
-            if (request_granted) {
-                set_status(_("Monitoring media players"));
-            } else {
+            if (!request_granted) {
                 debug("Background portal request was not granted: %u", response);
+            } else if (in_background) {
+                set_status(_("Monitoring media players"));
             }
         }
 
