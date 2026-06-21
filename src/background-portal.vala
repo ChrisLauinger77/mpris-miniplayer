@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
 
         private DBusConnection? bus;
         private uint request_subscription_id = 0;
+        private uint request_token_counter = 0;
         private bool request_in_flight = false;
         private bool request_granted = false;
 
@@ -33,21 +34,13 @@ namespace MprisMiniPlayer {
             }
 
             var options = new VariantBuilder(new VariantType("a{sv}"));
+            string handle_token = next_handle_token();
+            string request_path = build_request_path(handle_token);
             options.add("{sv}", "reason", new Variant.string(_("Keep watching for MPRIS-compatible media players")));
             options.add("{sv}", "autostart", new Variant.boolean(autostart));
+            options.add("{sv}", "handle_token", new Variant.string(handle_token));
 
             try {
-                Variant result = bus.call_sync(
-                    PORTAL_BUS_NAME,
-                    PORTAL_OBJECT_PATH,
-                    BACKGROUND_IFACE,
-                    "RequestBackground",
-                    new Variant("(sa{sv})", "", options),
-                    new VariantType("(o)"),
-                    DBusCallFlags.NONE,
-                    -1
-                );
-                string request_path = result.get_child_value(0).get_string();
                 request_subscription_id = bus.signal_subscribe(
                     PORTAL_BUS_NAME,
                     REQUEST_IFACE,
@@ -58,7 +51,24 @@ namespace MprisMiniPlayer {
                     on_request_response
                 );
                 request_in_flight = true;
+
+                Variant result = bus.call_sync(
+                    PORTAL_BUS_NAME,
+                    PORTAL_OBJECT_PATH,
+                    BACKGROUND_IFACE,
+                    "RequestBackground",
+                    new Variant("(sa{sv})", "", options),
+                    new VariantType("(o)"),
+                    DBusCallFlags.NONE,
+                    -1
+                );
+                string returned_request_path = result.get_child_value(0).get_string();
+                if (returned_request_path != request_path) {
+                    debug("Background portal returned unexpected request path %s", returned_request_path);
+                }
             } catch (Error error) {
+                clear_request_subscription();
+                request_in_flight = false;
                 debug("Unable to request background portal permission: %s", error.message);
             }
         }
@@ -75,10 +85,7 @@ namespace MprisMiniPlayer {
             Variant results;
             parameters.get("(u@a{sv})", out response, out results);
 
-            if (bus != null && request_subscription_id != 0) {
-                bus.signal_unsubscribe(request_subscription_id);
-                request_subscription_id = 0;
-            }
+            clear_request_subscription();
 
             request_in_flight = false;
             request_granted = response == 0;
@@ -87,6 +94,28 @@ namespace MprisMiniPlayer {
                 set_status(_("Monitoring media players"));
             } else {
                 debug("Background portal request was not granted: %u", response);
+            }
+        }
+
+        private string next_handle_token() {
+            request_token_counter++;
+            return "mpris_miniplayer_%u".printf(request_token_counter);
+        }
+
+        private string build_request_path(string handle_token) {
+            string sender = bus.get_unique_name();
+            if (sender.has_prefix(":")) {
+                sender = sender.substring(1);
+            }
+
+            sender = sender.replace(".", "_");
+            return "%s/request/%s/%s".printf(PORTAL_OBJECT_PATH, sender, handle_token);
+        }
+
+        private void clear_request_subscription() {
+            if (bus != null && request_subscription_id != 0) {
+                bus.signal_unsubscribe(request_subscription_id);
+                request_subscription_id = 0;
             }
         }
 
