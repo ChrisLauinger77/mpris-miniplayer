@@ -16,12 +16,14 @@ namespace MprisMiniPlayer {
         public string identity { get; private set; default = ""; }
         public string desktop_entry { get; private set; default = ""; }
         public string playback_status { get; private set; default = "Stopped"; }
+        public string track_id { get; private set; default = ""; }
         public int64 position_us { get; private set; default = 0; }
         public int64 duration_us { get; private set; default = 0; }
         public bool can_go_next { get; private set; default = false; }
         public bool can_go_previous { get; private set; default = false; }
         public bool can_play { get; private set; default = false; }
         public bool can_pause { get; private set; default = false; }
+        public bool can_seek { get; private set; default = false; }
 
         public signal void changed();
 
@@ -110,6 +112,34 @@ namespace MprisMiniPlayer {
             call_player_method("Next");
         }
 
+        public void seek_to_position(int64 position_us) {
+            if (!can_seek) {
+                return;
+            }
+
+            if (position_us < 0) {
+                position_us = 0;
+            }
+            if (duration_us > 0 && position_us > duration_us) {
+                position_us = duration_us;
+            }
+
+            if (track_id != "") {
+                call_player_method_with_parameters(
+                    "SetPosition",
+                    new Variant("(ox)", track_id, position_us)
+                );
+                this.position_us = position_us;
+                changed();
+                return;
+            }
+
+            int64 offset_us = position_us - this.position_us;
+            call_player_method_with_parameters("Seek", new Variant("(x)", offset_us));
+            this.position_us = position_us;
+            changed();
+        }
+
         public string display_name() {
             if (identity != "") {
                 return identity;
@@ -161,6 +191,7 @@ namespace MprisMiniPlayer {
             can_go_previous = get_bool_property(properties, "CanGoPrevious", can_go_previous);
             can_play = get_bool_property(properties, "CanPlay", can_play);
             can_pause = get_bool_property(properties, "CanPause", can_pause);
+            can_seek = get_bool_property(properties, "CanSeek", can_seek);
             position_us = get_int64_property(properties, "Position", position_us);
         }
 
@@ -170,6 +201,7 @@ namespace MprisMiniPlayer {
             album = get_metadata_string(metadata, "xesam:album", "");
             art_url = get_metadata_string(metadata, "mpris:artUrl", "");
             duration_us = get_metadata_int64(metadata, "mpris:length", 0);
+            track_id = get_metadata_string(metadata, "mpris:trackid", "");
 
             Variant? artists_value = lookup_property(metadata, "xesam:artist");
             artist = _("Unknown artist");
@@ -271,13 +303,17 @@ namespace MprisMiniPlayer {
         }
 
         private void call_player_method(string method_name) {
+            call_player_method_with_parameters(method_name, null);
+        }
+
+        private void call_player_method_with_parameters(string method_name, Variant? parameters) {
             try {
                 bus.call_sync(
                     bus_name,
                     OBJECT_PATH,
                     PLAYER_IFACE,
                     method_name,
-                    null,
+                    parameters,
                     null,
                     DBusCallFlags.NONE,
                     -1

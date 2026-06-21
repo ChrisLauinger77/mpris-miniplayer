@@ -22,6 +22,7 @@ namespace MprisMiniPlayer {
         private Gtk.Popover player_popover;
         private Gtk.ListBox player_list;
         private uint position_timeout_id = 0;
+        private bool updating_progress = false;
 
         public Window(Gtk.Application app, MprisManager? manager) {
             Object(
@@ -111,6 +112,7 @@ namespace MprisMiniPlayer {
             progress_scale.draw_value = false;
             progress_scale.sensitive = false;
             progress_scale.hexpand = true;
+            progress_scale.value_changed.connect(on_progress_value_changed);
             progress_row.append(progress_scale);
 
             time_label = new Gtk.Label("0:00 / 0:00");
@@ -290,6 +292,7 @@ namespace MprisMiniPlayer {
             play_pause_button.sensitive = has_player && (player.can_play || player.can_pause);
             next_button.sensitive = has_player && player.can_go_next;
             player_button.sensitive = has_player;
+            progress_scale.sensitive = has_player && player.can_seek && player.duration_us > 0;
         }
 
         private void rebuild_player_list(string[] bus_names) {
@@ -402,8 +405,10 @@ namespace MprisMiniPlayer {
 
         private void update_progress() {
             if (player == null || player.duration_us <= 0) {
+                updating_progress = true;
                 progress_scale.set_range(0, 1);
                 progress_scale.set_value(0);
+                updating_progress = false;
                 time_label.label = "0:00 / 0:00";
                 return;
             }
@@ -417,12 +422,23 @@ namespace MprisMiniPlayer {
                 position_seconds = duration_seconds;
             }
 
+            updating_progress = true;
             progress_scale.set_range(0, duration_seconds);
             progress_scale.set_value(position_seconds);
+            updating_progress = false;
             time_label.label = "%s / %s".printf(
                 format_time(player.position_us),
                 format_time(player.duration_us)
             );
+        }
+
+        private void on_progress_value_changed() {
+            if (updating_progress || player == null || !player.can_seek || player.duration_us <= 0) {
+                return;
+            }
+
+            int64 position_us = (int64) (progress_scale.get_value() * 1000000.0);
+            player.seek_to_position(position_us);
         }
 
         private string format_time(int64 microseconds) {

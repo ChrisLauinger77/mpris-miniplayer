@@ -32,6 +32,7 @@ When it starts without a player, it can stay hidden in the background and show t
 - Shows track title, artist, album, and album art
 - Provides previous, play/pause, and next controls
 - Shows playback progress and time
+- Lets you seek when the selected player supports it
 - Lets you choose between available players
 - Updates the UI when player metadata changes
 - Can keep running in the background when no player is available
@@ -100,7 +101,6 @@ v0.3:
 
 - Add compact mode
 - Add keyboard shortcuts
-- Add seek support if the player supports `CanSeek`
 
 v1.0:
 
