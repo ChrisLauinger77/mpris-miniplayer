@@ -9,6 +9,7 @@ namespace MprisMiniPlayer {
         private uint request_subscription_id = 0;
         private uint request_token_counter = 0;
         private bool request_in_flight = false;
+        private bool request_handled = false;
         private bool request_granted = false;
 
         public BackgroundPortal() {
@@ -29,7 +30,7 @@ namespace MprisMiniPlayer {
         }
 
         private void request_background(bool autostart) {
-            if (bus == null || request_in_flight || request_granted) {
+            if (bus == null || request_in_flight || request_handled) {
                 return;
             }
 
@@ -94,6 +95,7 @@ namespace MprisMiniPlayer {
             clear_request_subscription();
 
             request_in_flight = false;
+            request_handled = true;
             request_granted = response == 0;
 
             if (request_granted) {
