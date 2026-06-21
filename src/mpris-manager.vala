@@ -13,6 +13,7 @@ namespace MprisMiniPlayer {
         private uint player_properties_subscription_id;
 
         public signal void players_changed();
+        public signal void player_priority_changed();
 
         public MprisManager() throws Error {
             bus = Bus.get_sync(BusType.SESSION);
@@ -99,7 +100,7 @@ namespace MprisMiniPlayer {
             parameters.get("(s@a{sv}@as)", out changed_interface, out changed_properties, out invalidated);
 
             if (has_property(changed_properties, "PlaybackStatus")) {
-                players_changed();
+                player_priority_changed();
             }
         }
 
