@@ -2,6 +2,7 @@ namespace MprisMiniPlayer {
     public class Window : Adw.ApplicationWindow {
         private MprisManager? manager;
         private MprisPlayer? player;
+        private bool manual_selection = false;
 
         private Gtk.Stack cover_stack;
         private Gtk.Picture cover;
@@ -22,7 +23,7 @@ namespace MprisMiniPlayer {
         private Gtk.ListBox player_list;
         private uint position_timeout_id = 0;
 
-        public Window(Gtk.Application app) {
+        public Window(Gtk.Application app, MprisManager? manager) {
             Object(
                 application: app,
                 title: _("MPRIS MiniPlayer"),
@@ -30,16 +31,15 @@ namespace MprisMiniPlayer {
                 default_height: 170
             );
 
+            this.manager = manager;
+
             build_ui();
             start_position_timer();
+            refresh_players();
+        }
 
-            try {
-                manager = new MprisManager();
-                manager.players_changed.connect(select_first_player);
-                select_first_player();
-            } catch (Error error) {
-                show_empty_state("Session D-Bus unavailable", error.message);
-            }
+        public void refresh_players() {
+            select_player_for_current_state();
         }
 
         private void build_ui() {
@@ -50,6 +50,16 @@ namespace MprisMiniPlayer {
             header_bar.show_title = false;
             header_bar.set_size_request(-1, 34);
             toolbar_view.add_top_bar(header_bar);
+
+            var menu = new Menu();
+            menu.append(_("Preferences"), "app.preferences");
+            menu.append(_("Quit"), "app.quit");
+
+            var menu_button = new Gtk.MenuButton();
+            menu_button.icon_name = "open-menu-symbolic";
+            menu_button.tooltip_text = _("Main menu");
+            menu_button.menu_model = menu;
+            header_bar.pack_end(menu_button);
 
             var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 14);
             box.margin_top = 8;
@@ -117,18 +127,30 @@ namespace MprisMiniPlayer {
 
             previous_button = new Gtk.Button.from_icon_name("media-skip-backward-symbolic");
             previous_button.tooltip_text = _("Previous");
-            previous_button.clicked.connect(() => player.previous());
+            previous_button.clicked.connect(() => {
+                if (player != null) {
+                    player.previous();
+                }
+            });
             controls.append(previous_button);
 
             play_pause_button = new Gtk.Button.from_icon_name("media-playback-start-symbolic");
             play_pause_button.tooltip_text = _("Play or pause");
-            play_pause_button.clicked.connect(() => player.play_pause());
+            play_pause_button.clicked.connect(() => {
+                if (player != null) {
+                    player.play_pause();
+                }
+            });
             play_pause_button.add_css_class("suggested-action");
             controls.append(play_pause_button);
 
             next_button = new Gtk.Button.from_icon_name("media-skip-forward-symbolic");
             next_button.tooltip_text = _("Next");
-            next_button.clicked.connect(() => player.next());
+            next_button.clicked.connect(() => {
+                if (player != null) {
+                    player.next();
+                }
+            });
             controls.append(next_button);
 
             var player_button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
@@ -162,8 +184,11 @@ namespace MprisMiniPlayer {
             update_controls(false);
         }
 
-        private void select_first_player() {
+        private void select_player_for_current_state() {
             if (manager == null) {
+                player = null;
+                manual_selection = false;
+                show_empty_state(_("Session D-Bus unavailable"), _("Unable to monitor MPRIS players"));
                 return;
             }
 
@@ -172,13 +197,17 @@ namespace MprisMiniPlayer {
 
             if (players.length == 0) {
                 player = null;
+                manual_selection = false;
                 show_empty_state(_("No player detected"), _("Start any MPRIS-compatible player"));
                 return;
             }
 
-            string selected_bus_name = players[0];
-            if (player != null && has_player(players, player.bus_name)) {
+            string selected_bus_name;
+            if (manual_selection && player != null && has_player(players, player.bus_name)) {
                 selected_bus_name = player.bus_name;
+            } else {
+                manual_selection = false;
+                selected_bus_name = choose_best_player(players);
             }
 
             if (player != null && player.bus_name == selected_bus_name) {
@@ -288,6 +317,7 @@ namespace MprisMiniPlayer {
             button.clicked.connect(() => {
                 player_popover.popdown();
                 if (player == null || player.bus_name != listed_player.bus_name) {
+                    manual_selection = true;
                     select_player(listed_player.bus_name);
                 }
             });
@@ -326,6 +356,31 @@ namespace MprisMiniPlayer {
             }
 
             return false;
+        }
+
+        private string choose_best_player(string[] bus_names) {
+            string first_bus_name = bus_names[0];
+            string paused_bus_name = "";
+
+            foreach (var bus_name in bus_names) {
+                try {
+                    var candidate = new MprisPlayer(bus_name);
+                    if (candidate.playback_status == "Playing") {
+                        return bus_name;
+                    }
+                    if (paused_bus_name == "" && candidate.playback_status == "Paused") {
+                        paused_bus_name = bus_name;
+                    }
+                } catch (Error error) {
+                    warning("Unable to inspect player %s: %s", bus_name, error.message);
+                }
+            }
+
+            if (paused_bus_name != "") {
+                return paused_bus_name;
+            }
+
+            return first_bus_name;
         }
 
         private void start_position_timer() {

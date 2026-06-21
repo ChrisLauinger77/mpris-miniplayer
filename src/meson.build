@@ -13,7 +13,10 @@ executable(
   [
     config_vala,
     'main.vala',
+    'app-settings.vala',
+    'background-portal.vala',
     'application.vala',
+    'preferences-window.vala',
     'window.vala',
     'mpris-manager.vala',
     'mpris-player.vala',

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.ChrisLauinger.MprisMiniPlayer" path="/io/github/ChrisLauinger/MprisMiniPlayer/">
+    <key name="show-background-notification" type="b">
+      <default>true</default>
+      <summary>Show a background notification</summary>
+      <description>Whether to show a notification when MPRIS MiniPlayer starts hidden because no compatible media player is available.</description>
+    </key>
+    <key name="start-on-login" type="b">
+      <default>false</default>
+      <summary>Start on login</summary>
+      <description>Whether MPRIS MiniPlayer should create an XDG autostart desktop file and start automatically when the user logs in.</description>
+    </key>
+    <key name="automatic-window-visibility" type="b">
+      <default>true</default>
+      <summary>Show and hide the window automatically</summary>
+      <description>Whether MPRIS MiniPlayer should show the window when a compatible player appears and hide it when none remain.</description>
+    </key>
+  </schema>
+</schemalist>

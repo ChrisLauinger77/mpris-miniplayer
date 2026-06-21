@@ -22,6 +22,15 @@ gnome.compile_resources(
 )
 
 install_data(
+  app_id + '.gschema.xml',
+  install_dir: datadir / 'glib-2.0' / 'schemas',
+)
+
+gnome.compile_schemas(
+  depend_files: files(app_id + '.gschema.xml'),
+)
+
+install_data(
   'icons' / (app_id + '.svg'),
   install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'apps',
 )

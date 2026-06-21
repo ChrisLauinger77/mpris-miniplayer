@@ -1,9 +1,9 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: mpris-miniplayer 0.1.0\n"
+"Project-Id-Version: mpris-miniplayer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-20 00:00+0000\n"
-"PO-Revision-Date: 2026-06-20 00:00+0000\n"
+"POT-Creation-Date: 2026-06-21 09:46+0200\n"
+"PO-Revision-Date: 2026-06-21 09:39+0200\n"
 "Last-Translator: Christian Lauinger\n"
 "Language-Team: Spanish\n"
 "Language: es\n"
@@ -12,50 +12,173 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
+#: src/window.vala:29
 msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:3
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:7
 msgid "Control MPRIS-compatible media players"
 msgstr "Controlar reproductores multimedia compatibles con MPRIS"
 
-msgid "MPRIS MiniPlayer is a small GTK mini player for Linux media players that expose the MPRIS interface on the session bus."
-msgstr "MPRIS MiniPlayer es un pequeño minirreproductor GTK para reproductores multimedia de Linux que exponen la interfaz MPRIS en el bus de sesión."
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:9
+msgid ""
+"MPRIS MiniPlayer is a small GTK mini player for Linux media players that "
+"expose the MPRIS interface on the session bus."
+msgstr ""
+"MPRIS MiniPlayer es un pequeño minirreproductor GTK para reproductores "
+"multimedia de Linux que exponen la interfaz MPRIS en el bus de sesión."
 
-msgid "Initial development release."
-msgstr "Versión inicial de desarrollo."
-
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:16
 msgid "Christian Lauinger"
 msgstr "Christian Lauinger"
 
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
+msgid ""
+"Add background operation, automatic window visibility, preferences, and "
+"start-on-login support."
+msgstr ""
+"Añadir funcionamiento en segundo plano, visibilidad automática de la "
+"ventana, preferencias y compatibilidad con inicio de sesión."
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:27
+msgid "Initial development release."
+msgstr "Versión inicial de desarrollo."
+
+msgid "Monitoring media players"
+msgstr "Supervisando reproductores multimedia"
+
+#: src/background-portal.vala:33
+msgid "Keep watching for MPRIS-compatible media players"
+msgstr "Seguir buscando reproductores multimedia compatibles con MPRIS"
+
+#: src/application.vala:134
+msgid "MPRIS MiniPlayer is running in the background"
+msgstr "MPRIS MiniPlayer se está ejecutando en segundo plano"
+
+#: src/application.vala:136
+msgid ""
+"The window will appear automatically when a compatible media player becomes "
+"available."
+msgstr ""
+"La ventana aparecerá automáticamente cuando haya disponible un reproductor "
+"multimedia compatible."
+
+#: src/application.vala:138
+msgid "Open the window when you want to control a compatible media player."
+msgstr ""
+"Abre la ventana cuando quieras controlar un reproductor multimedia "
+"compatible."
+
+#: src/application.vala:140
+msgid "Open"
+msgstr "Abrir"
+
+#: src/preferences-window.vala:11 src/preferences-window.vala:24
+#: src/window.vala:55
+msgid "Preferences"
+msgstr "Preferencias"
+
+#: src/preferences-window.vala:28
+msgid "Behavior"
+msgstr "Comportamiento"
+
+#: src/preferences-window.vala:32
+msgid "Show and hide automatically"
+msgstr "Mostrar y ocultar automáticamente"
+
+#: src/preferences-window.vala:33
+msgid "Show the window when a player appears and hide it when none remain"
+msgstr ""
+"Mostrar la ventana cuando aparezca un reproductor y ocultarla cuando no "
+"quede ninguno"
+
+#: src/preferences-window.vala:41
+msgid "Background notification"
+msgstr "Notificación en segundo plano"
+
+#: src/preferences-window.vala:42
+msgid "Notify when the app starts hidden in the background"
+msgstr "Notificar cuando la aplicación se inicia oculta en segundo plano"
+
+#: src/preferences-window.vala:50
+msgid "Start on login"
+msgstr "Iniciar al iniciar sesión"
+
+#: src/preferences-window.vala:51
+msgid "Start MPRIS MiniPlayer automatically when you log in"
+msgstr "Iniciar MPRIS MiniPlayer automáticamente cuando inicies sesión"
+
+#: src/preferences-window.vala:59
+msgid "Application"
+msgstr "Aplicación"
+
+#: src/preferences-window.vala:63
+msgid "Quit MPRIS MiniPlayer"
+msgstr "Salir de MPRIS MiniPlayer"
+
+#: src/preferences-window.vala:64
+msgid "Stop running in the background"
+msgstr "Dejar de ejecutarse en segundo plano"
+
+#: src/preferences-window.vala:66 src/window.vala:56
+msgid "Quit"
+msgstr "Salir"
+
+#: src/window.vala:60
+msgid "Main menu"
+msgstr "Menú principal"
+
+#: src/window.vala:89
 msgid "No player running"
 msgstr "No hay ningún reproductor en ejecución"
 
+#: src/window.vala:95
 msgid "Start an MPRIS-compatible media player"
 msgstr "Inicia un reproductor multimedia compatible con MPRIS"
 
+#: src/window.vala:129
 msgid "Previous"
 msgstr "Anterior"
 
+#: src/window.vala:138
 msgid "Play or pause"
 msgstr "Reproducir o pausar"
 
+#: src/window.vala:148
 msgid "Next"
 msgstr "Siguiente"
 
+#: src/window.vala:171
 msgid "Choose player"
 msgstr "Elegir reproductor"
 
+#: src/window.vala:191
+msgid "Session D-Bus unavailable"
+msgstr "D-Bus de sesión no disponible"
+
+#: src/window.vala:191
+msgid "Unable to monitor MPRIS players"
+msgstr "No se pueden supervisar los reproductores MPRIS"
+
+#: src/window.vala:201
 msgid "No player detected"
 msgstr "No se detectó ningún reproductor"
 
+#: src/window.vala:201
 msgid "Start any MPRIS-compatible player"
 msgstr "Inicia cualquier reproductor compatible con MPRIS"
 
+#: src/window.vala:231
 msgid "Player unavailable"
 msgstr "Reproductor no disponible"
 
+#: src/mpris-player.vala:169
 msgid "Unknown track"
 msgstr "Pista desconocida"
 
+#: src/mpris-player.vala:175
 msgid "Unknown artist"
 msgstr "Artista desconocido"

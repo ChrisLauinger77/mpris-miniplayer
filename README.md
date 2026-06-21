@@ -23,6 +23,7 @@ flatpak run io.github.ChrisLauinger.MprisMiniPlayer
 ```
 
 MPRIS MiniPlayer needs at least one running MPRIS-compatible media player to show playback controls.
+When it starts without a player, it can stay hidden in the background and show the window automatically later.
 
 ## Features
 
@@ -33,6 +34,10 @@ MPRIS MiniPlayer needs at least one running MPRIS-compatible media player to sho
 - Shows playback progress and time
 - Lets you choose between available players
 - Updates the UI when player metadata changes
+- Can keep running in the background when no player is available
+- Can show and hide the window automatically as players appear or disappear
+- Provides preferences for background notifications, automatic visibility, and start on login
+- Hides the window on close; use Quit to stop the app
 
 ## Build from Source
 
@@ -61,8 +66,8 @@ sudo meson install -C build
 Pushing a version tag builds a Flatpak bundle and creates a GitHub release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` to the generated release.
@@ -85,18 +90,17 @@ v0.1:
 
 v0.2:
 
-- Add a player chooser when multiple MPRIS players are available
-- Add a progress bar
-- Show current position and duration
-- Add seek support if the player supports `CanSeek`
-- Poll position periodically while playing
-- Disable unsupported buttons according to MPRIS capabilities
+- Run in the background when no MPRIS player is available
+- Show and hide the window automatically when players appear or disappear
+- Show an optional background notification with an Open action
+- Add preferences for notifications, automatic visibility, and start on login
+- Hide the window on close and quit only through an explicit Quit action
 
 v0.3:
 
 - Add compact mode
 - Add keyboard shortcuts
-- Improve the empty state when no player is running
+- Add seek support if the player supports `CanSeek`
 
 v1.0:
 
