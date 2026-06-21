@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
         private MprisManager? manager;
         private Window? main_window;
         private PreferencesWindow? preferences_window;
+        private SimpleAction? compact_mode_action;
         private bool startup_activation_handled = false;
         private bool held = false;
 
@@ -24,6 +25,7 @@ namespace MprisMiniPlayer {
             held = true;
 
             app_settings = new AppSettings();
+            app_settings.changed.connect(on_app_settings_changed);
             background_portal = new BackgroundPortal();
             setup_actions();
 
@@ -54,6 +56,21 @@ namespace MprisMiniPlayer {
             var preferences_action = new SimpleAction("preferences", null);
             preferences_action.activate.connect(() => present_preferences());
             add_action(preferences_action);
+
+            compact_mode_action = new SimpleAction.stateful(
+                "compact-mode",
+                null,
+                new Variant.boolean(app_settings.compact_mode)
+            );
+            compact_mode_action.change_state.connect((value) => {
+                bool enabled = value.get_boolean();
+                app_settings.compact_mode = enabled;
+                compact_mode_action.set_state(new Variant.boolean(enabled));
+                if (main_window != null) {
+                    main_window.set_compact_mode(enabled);
+                }
+            });
+            add_action(compact_mode_action);
 
             var quit_action = new SimpleAction("quit", null);
             quit_action.activate.connect(() => quit_app());
@@ -103,7 +120,7 @@ namespace MprisMiniPlayer {
 
         private void present_window() {
             if (main_window == null) {
-                main_window = new Window(this, manager);
+                main_window = new Window(this, manager, app_settings.compact_mode);
                 main_window.close_request.connect(() => {
                     main_window.set_visible(false);
                     enter_background();
@@ -131,6 +148,16 @@ namespace MprisMiniPlayer {
             }
 
             preferences_window.present();
+        }
+
+        private void on_app_settings_changed(string key) {
+            bool compact_mode = app_settings.compact_mode;
+            if (compact_mode_action != null) {
+                compact_mode_action.set_state(new Variant.boolean(compact_mode));
+            }
+            if (main_window != null) {
+                main_window.set_compact_mode(compact_mode);
+            }
         }
 
         private void send_background_notification() {

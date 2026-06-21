@@ -3,7 +3,9 @@ namespace MprisMiniPlayer {
         private MprisManager? manager;
         private MprisPlayer? player;
         private bool manual_selection = false;
+        private bool compact_mode = false;
 
+        private Gtk.Box main_box;
         private Gtk.Stack cover_stack;
         private Gtk.Picture cover;
         private Gtk.Image empty_icon;
@@ -13,6 +15,10 @@ namespace MprisMiniPlayer {
         private Gtk.Label album_label;
         private Gtk.Scale progress_scale;
         private Gtk.Label time_label;
+        private Gtk.Box volume_box;
+        private Gtk.Button volume_button;
+        private Gtk.Image volume_icon;
+        private Gtk.Scale volume_scale;
         private Gtk.Button previous_button;
         private Gtk.Button play_pause_button;
         private Gtk.Button next_button;
@@ -23,8 +29,10 @@ namespace MprisMiniPlayer {
         private Gtk.ListBox player_list;
         private uint position_timeout_id = 0;
         private bool updating_progress = false;
+        private bool updating_volume = false;
+        private double restore_volume = 1.0;
 
-        public Window(Gtk.Application app, MprisManager? manager) {
+        public Window(Gtk.Application app, MprisManager? manager, bool compact_mode) {
             Object(
                 application: app,
                 title: _("MPRIS MiniPlayer"),
@@ -33,14 +41,33 @@ namespace MprisMiniPlayer {
             );
 
             this.manager = manager;
+            this.compact_mode = compact_mode;
 
             build_ui();
+            set_compact_mode(compact_mode);
             start_position_timer();
             refresh_players();
         }
 
         public void refresh_players() {
             select_player_for_current_state();
+        }
+
+        public void set_compact_mode(bool compact_mode) {
+            this.compact_mode = compact_mode;
+
+            if (main_box == null) {
+                return;
+            }
+
+            cover_stack.visible = !compact_mode;
+            album_label.visible = !compact_mode;
+            main_box.spacing = compact_mode ? 10 : 14;
+            main_box.margin_top = compact_mode ? 6 : 8;
+            main_box.margin_bottom = compact_mode ? 8 : 12;
+            main_box.margin_start = compact_mode ? 10 : 14;
+            main_box.margin_end = compact_mode ? 10 : 14;
+            set_default_size(compact_mode ? 380 : 440, compact_mode ? 118 : 170);
         }
 
         private void build_ui() {
@@ -52,7 +79,30 @@ namespace MprisMiniPlayer {
             header_bar.set_size_request(-1, 34);
             toolbar_view.add_top_bar(header_bar);
 
+            var player_button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+            player_icon = new Gtk.Image.from_icon_name("multimedia-player-symbolic");
+            player_icon.pixel_size = 16;
+            player_button_box.append(player_icon);
+
+            player_label = new Gtk.Label("");
+            player_label.halign = Gtk.Align.START;
+            player_label.ellipsize = Pango.EllipsizeMode.END;
+            player_label.max_width_chars = 22;
+            player_button_box.append(player_label);
+
+            var chevron = new Gtk.Image.from_icon_name("pan-down-symbolic");
+            chevron.pixel_size = 12;
+            player_button_box.append(chevron);
+
+            player_button = new Gtk.MenuButton();
+            player_button.tooltip_text = _("Choose player");
+            player_button.child = player_button_box;
+            player_button.halign = Gtk.Align.START;
+            player_button.sensitive = false;
+            header_bar.pack_start(player_button);
+
             var menu = new Menu();
+            menu.append(_("Compact Mode"), "app.compact-mode");
             menu.append(_("Preferences"), "app.preferences");
             menu.append(_("Quit"), "app.quit");
 
@@ -62,17 +112,17 @@ namespace MprisMiniPlayer {
             menu_button.menu_model = menu;
             header_bar.pack_end(menu_button);
 
-            var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 14);
-            box.margin_top = 8;
-            box.margin_bottom = 12;
-            box.margin_start = 14;
-            box.margin_end = 14;
-            toolbar_view.set_content(box);
+            main_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 14);
+            main_box.margin_top = 8;
+            main_box.margin_bottom = 12;
+            main_box.margin_start = 14;
+            main_box.margin_end = 14;
+            toolbar_view.set_content(main_box);
 
             cover_stack = new Gtk.Stack();
             cover_stack.set_size_request(108, 108);
             cover_stack.add_css_class("card");
-            box.append(cover_stack);
+            main_box.append(cover_stack);
 
             cover = new Gtk.Picture();
             cover.content_fit = Gtk.ContentFit.COVER;
@@ -85,7 +135,7 @@ namespace MprisMiniPlayer {
 
             var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
             content.hexpand = true;
-            box.append(content);
+            main_box.append(content);
 
             title_label = new Gtk.Label(_("No player running"));
             title_label.halign = Gtk.Align.START;
@@ -127,6 +177,29 @@ namespace MprisMiniPlayer {
             controls.valign = Gtk.Align.END;
             content.append(controls);
 
+            volume_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 4);
+            volume_box.valign = Gtk.Align.CENTER;
+            volume_box.margin_end = 6;
+            controls.append(volume_box);
+
+            volume_button = new Gtk.Button();
+            volume_button.has_frame = false;
+            volume_button.tooltip_text = _("Volume");
+            volume_button.clicked.connect(on_volume_button_clicked);
+            volume_box.append(volume_button);
+
+            volume_icon = new Gtk.Image.from_icon_name("audio-volume-high-symbolic");
+            volume_icon.pixel_size = 16;
+            volume_button.child = volume_icon;
+
+            volume_scale = new Gtk.Scale.with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.01);
+            volume_scale.draw_value = false;
+            volume_scale.sensitive = false;
+            volume_scale.tooltip_text = _("Volume");
+            volume_scale.set_size_request(90, -1);
+            volume_scale.value_changed.connect(on_volume_value_changed);
+            volume_box.append(volume_scale);
+
             previous_button = new Gtk.Button.from_icon_name("media-skip-backward-symbolic");
             previous_button.tooltip_text = _("Previous");
             previous_button.clicked.connect(() => {
@@ -154,28 +227,6 @@ namespace MprisMiniPlayer {
                 }
             });
             controls.append(next_button);
-
-            var player_button_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
-            player_icon = new Gtk.Image.from_icon_name("multimedia-player-symbolic");
-            player_icon.pixel_size = 16;
-            player_button_box.append(player_icon);
-
-            player_label = new Gtk.Label("");
-            player_label.halign = Gtk.Align.END;
-            player_label.ellipsize = Pango.EllipsizeMode.END;
-            player_button_box.append(player_label);
-
-            var chevron = new Gtk.Image.from_icon_name("pan-down-symbolic");
-            chevron.pixel_size = 12;
-            player_button_box.append(chevron);
-
-            player_button = new Gtk.MenuButton();
-            player_button.tooltip_text = _("Choose player");
-            player_button.child = player_button_box;
-            player_button.hexpand = true;
-            player_button.halign = Gtk.Align.END;
-            player_button.sensitive = false;
-            controls.append(player_button);
 
             player_popover = new Gtk.Popover();
             player_list = new Gtk.ListBox();
@@ -247,6 +298,7 @@ namespace MprisMiniPlayer {
             set_artwork(player.art_url);
             progress_row.visible = true;
             update_progress();
+            update_volume();
             update_controls(true);
 
             if (player.playback_status == "Playing") {
@@ -267,6 +319,7 @@ namespace MprisMiniPlayer {
             progress_row.visible = false;
             progress_scale.set_value(0);
             time_label.label = "0:00 / 0:00";
+            update_volume();
             update_controls(false);
         }
 
@@ -293,6 +346,8 @@ namespace MprisMiniPlayer {
             next_button.sensitive = has_player && player.can_go_next;
             player_button.sensitive = has_player;
             progress_scale.sensitive = has_player && player.can_seek && player.duration_us > 0;
+            volume_button.sensitive = has_player && player.has_volume && player.can_control;
+            volume_scale.sensitive = has_player && player.has_volume && player.can_control;
         }
 
         private void rebuild_player_list(string[] bus_names) {
@@ -439,6 +494,74 @@ namespace MprisMiniPlayer {
 
             int64 position_us = (int64) (progress_scale.get_value() * 1000000.0);
             player.seek_to_position(position_us);
+        }
+
+        private void update_volume() {
+            bool has_volume = player != null && player.has_volume;
+            volume_box.visible = has_volume;
+
+            updating_volume = true;
+            volume_scale.set_value(has_volume ? slider_volume(player.volume) : 0);
+            updating_volume = false;
+
+            if (has_volume && player.volume > 0.0) {
+                restore_volume = player.volume;
+            }
+            update_volume_button();
+        }
+
+        private void on_volume_value_changed() {
+            if (updating_volume || player == null || !player.has_volume || !player.can_control) {
+                return;
+            }
+
+            double volume = volume_scale.get_value();
+            if (volume > 0.0) {
+                restore_volume = volume;
+            }
+            player.set_player_volume(volume);
+        }
+
+        private void on_volume_button_clicked() {
+            if (player == null || !player.has_volume || !player.can_control) {
+                return;
+            }
+
+            if (player.volume > 0.0) {
+                restore_volume = player.volume;
+                player.set_player_volume(0.0);
+                return;
+            }
+
+            player.set_player_volume(restore_volume > 0.0 ? restore_volume : 1.0);
+        }
+
+        private double slider_volume(double volume) {
+            if (volume < 0.0) {
+                return 0.0;
+            }
+            if (volume > 1.0) {
+                return 1.0;
+            }
+
+            return volume;
+        }
+
+        private void update_volume_button() {
+            if (player == null || !player.has_volume || player.volume <= 0.0) {
+                volume_icon.icon_name = "audio-volume-muted-symbolic";
+                volume_button.tooltip_text = _("Restore volume");
+                return;
+            }
+
+            volume_button.tooltip_text = _("Mute");
+            if (player.volume < 0.35) {
+                volume_icon.icon_name = "audio-volume-low-symbolic";
+            } else if (player.volume < 0.7) {
+                volume_icon.icon_name = "audio-volume-medium-symbolic";
+            } else {
+                volume_icon.icon_name = "audio-volume-high-symbolic";
+            }
         }
 
         private string format_time(int64 microseconds) {

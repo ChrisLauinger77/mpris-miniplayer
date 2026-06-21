@@ -4,6 +4,7 @@ namespace MprisMiniPlayer {
         private Adw.SwitchRow notification_row;
         private Adw.SwitchRow autostart_row;
         private Adw.SwitchRow automatic_visibility_row;
+        private Adw.SwitchRow compact_mode_row;
 
         public PreferencesWindow(Gtk.Application app, AppSettings app_settings) {
             Object(
@@ -55,6 +56,15 @@ namespace MprisMiniPlayer {
             });
             behavior_group.add(autostart_row);
 
+            compact_mode_row = new Adw.SwitchRow();
+            compact_mode_row.title = _("Compact mode");
+            compact_mode_row.subtitle = _("Use a smaller window layout");
+            compact_mode_row.active = app_settings.compact_mode;
+            compact_mode_row.notify["active"].connect(() => {
+                app_settings.compact_mode = compact_mode_row.active;
+            });
+            behavior_group.add(compact_mode_row);
+
             var app_group = new Adw.PreferencesGroup();
             app_group.title = _("Application");
             page.add(app_group);
@@ -76,6 +86,7 @@ namespace MprisMiniPlayer {
             notification_row.active = app_settings.show_background_notification;
             autostart_row.active = app_settings.start_on_login;
             automatic_visibility_row.active = app_settings.automatic_window_visibility;
+            compact_mode_row.active = app_settings.compact_mode;
         }
     }
 }
