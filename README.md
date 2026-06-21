@@ -35,10 +35,11 @@ When it starts without a player, it can stay hidden in the background and show t
 - Lets you seek when the selected player supports it
 - Lets you adjust volume when the selected player exposes MPRIS volume control
 - Lets you choose between available players
+- Provides a compact mode for a smaller window layout
 - Updates the UI when player metadata changes
 - Can keep running in the background when no player is available
 - Can show and hide the window automatically as players appear or disappear
-- Provides preferences for background notifications, automatic visibility, and start on login
+- Provides preferences for compact mode, background notifications, automatic visibility, and start on login
 - Hides the window on close; use Quit to stop the app
 
 ## Build from Source

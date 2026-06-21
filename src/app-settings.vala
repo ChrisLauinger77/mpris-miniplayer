@@ -4,11 +4,13 @@ namespace MprisMiniPlayer {
         private const string KEY_SHOW_BACKGROUND_NOTIFICATION = "show-background-notification";
         private const string KEY_START_ON_LOGIN = "start-on-login";
         private const string KEY_AUTOMATIC_WINDOW_VISIBILITY = "automatic-window-visibility";
+        private const string KEY_COMPACT_MODE = "compact-mode";
 
         private GLib.Settings? settings;
         private bool fallback_show_background_notification = true;
         private bool fallback_start_on_login = false;
         private bool fallback_automatic_window_visibility = true;
+        private bool fallback_compact_mode = false;
         private bool syncing = false;
 
         public signal void changed(string key);
@@ -70,6 +72,24 @@ namespace MprisMiniPlayer {
                 } else if (fallback_automatic_window_visibility != value) {
                     fallback_automatic_window_visibility = value;
                     changed(KEY_AUTOMATIC_WINDOW_VISIBILITY);
+                }
+            }
+        }
+
+        public bool compact_mode {
+            get {
+                if (settings != null) {
+                    return settings.get_boolean(KEY_COMPACT_MODE);
+                }
+
+                return fallback_compact_mode;
+            }
+            set {
+                if (settings != null) {
+                    settings.set_boolean(KEY_COMPACT_MODE, value);
+                } else if (fallback_compact_mode != value) {
+                    fallback_compact_mode = value;
+                    changed(KEY_COMPACT_MODE);
                 }
             }
         }

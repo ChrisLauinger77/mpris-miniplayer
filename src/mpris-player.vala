@@ -25,6 +25,7 @@ namespace MprisMiniPlayer {
         public bool can_play { get; private set; default = false; }
         public bool can_pause { get; private set; default = false; }
         public bool can_seek { get; private set; default = false; }
+        public bool can_control { get; private set; default = false; }
         public bool has_volume { get; private set; default = false; }
 
         public signal void changed();
@@ -149,11 +150,9 @@ namespace MprisMiniPlayer {
         }
 
         public void set_player_volume(double volume) {
-            if (!has_volume) {
+            if (!has_volume || !can_control) {
                 return;
             }
-
-            volume = clamp_volume(volume);
 
             try {
                 bus.call_sync(
@@ -226,12 +225,13 @@ namespace MprisMiniPlayer {
             can_play = get_bool_property(properties, "CanPlay", can_play);
             can_pause = get_bool_property(properties, "CanPause", can_pause);
             can_seek = get_bool_property(properties, "CanSeek", can_seek);
+            can_control = get_bool_property(properties, "CanControl", can_control);
             position_us = get_int64_property(properties, "Position", position_us);
 
             Variant? volume_value = lookup_property(properties, "Volume");
             if (volume_value != null) {
                 has_volume = true;
-                volume = clamp_volume(unwrap_variant(volume_value).get_double());
+                volume = unwrap_variant(volume_value).get_double();
             }
         }
 
@@ -300,17 +300,6 @@ namespace MprisMiniPlayer {
             }
 
             return unwrap_variant(value).get_int64();
-        }
-
-        private double clamp_volume(double volume) {
-            if (volume < 0.0) {
-                return 0.0;
-            }
-            if (volume > 1.0) {
-                return 1.0;
-            }
-
-            return volume;
         }
 
         private string get_metadata_string(Variant metadata, string key, string fallback) {

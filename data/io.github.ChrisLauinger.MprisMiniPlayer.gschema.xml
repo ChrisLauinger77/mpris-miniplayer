@@ -16,5 +16,10 @@
       <summary>Show and hide the window automatically</summary>
       <description>Whether MPRIS MiniPlayer should show the window when a compatible player appears and hide it when none remain.</description>
     </key>
+    <key name="compact-mode" type="b">
+      <default>false</default>
+      <summary>Use compact mode</summary>
+      <description>Whether MPRIS MiniPlayer should use a smaller window layout.</description>
+    </key>
   </schema>
 </schemalist>
