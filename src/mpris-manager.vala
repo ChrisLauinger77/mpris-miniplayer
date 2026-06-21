@@ -99,7 +99,13 @@ namespace MprisMiniPlayer {
             Variant invalidated;
             parameters.get("(s@a{sv}@as)", out changed_interface, out changed_properties, out invalidated);
 
-            if (has_property(changed_properties, "PlaybackStatus")) {
+            if (
+                changed_interface == "org.mpris.MediaPlayer2.Player"
+                && (
+                    has_property(changed_properties, "PlaybackStatus")
+                    || has_string(invalidated, "PlaybackStatus")
+                )
+            ) {
                 player_priority_changed();
             }
         }
@@ -111,6 +117,19 @@ namespace MprisMiniPlayer {
 
             while (iter.next("{sv}", out entry_key, out entry_value)) {
                 if (entry_key == key) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool has_string(Variant array, string needle) {
+            VariantIter iter = array.iterator();
+            string value;
+
+            while (iter.next("s", out value)) {
+                if (value == needle) {
                     return true;
                 }
             }
