@@ -62,6 +62,12 @@ Install locally:
 sudo meson install -C build
 ```
 
+Uninstall the local build:
+
+```bash
+sudo ninja -C build uninstall
+```
+
 ## Maintainer Release
 
 Pushing a version tag builds a Flatpak bundle and creates a GitHub release:
