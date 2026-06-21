@@ -3,9 +3,12 @@ namespace MprisMiniPlayer {
         private const string PORTAL_BUS_NAME = "org.freedesktop.portal.Desktop";
         private const string PORTAL_OBJECT_PATH = "/org/freedesktop/portal/desktop";
         private const string BACKGROUND_IFACE = "org.freedesktop.portal.Background";
+        private const string REQUEST_IFACE = "org.freedesktop.portal.Request";
 
         private DBusConnection? bus;
-        private bool request_sent = false;
+        private uint request_subscription_id = 0;
+        private bool request_in_flight = false;
+        private bool request_granted = false;
 
         public BackgroundPortal() {
             try {
@@ -25,7 +28,7 @@ namespace MprisMiniPlayer {
         }
 
         private void request_background(bool autostart) {
-            if (bus == null || request_sent) {
+            if (bus == null || request_in_flight || request_granted) {
                 return;
             }
 
@@ -34,7 +37,7 @@ namespace MprisMiniPlayer {
             options.add("{sv}", "autostart", new Variant.boolean(autostart));
 
             try {
-                bus.call_sync(
+                Variant result = bus.call_sync(
                     PORTAL_BUS_NAME,
                     PORTAL_OBJECT_PATH,
                     BACKGROUND_IFACE,
@@ -44,9 +47,46 @@ namespace MprisMiniPlayer {
                     DBusCallFlags.NONE,
                     -1
                 );
-                request_sent = true;
+                string request_path = result.get_child_value(0).get_string();
+                request_subscription_id = bus.signal_subscribe(
+                    PORTAL_BUS_NAME,
+                    REQUEST_IFACE,
+                    "Response",
+                    request_path,
+                    null,
+                    DBusSignalFlags.NONE,
+                    on_request_response
+                );
+                request_in_flight = true;
             } catch (Error error) {
                 debug("Unable to request background portal permission: %s", error.message);
+            }
+        }
+
+        private void on_request_response(
+            DBusConnection connection,
+            string? sender_name,
+            string object_path,
+            string interface_name,
+            string signal_name,
+            Variant parameters
+        ) {
+            uint response;
+            Variant results;
+            parameters.get("(u@a{sv})", out response, out results);
+
+            if (bus != null && request_subscription_id != 0) {
+                bus.signal_unsubscribe(request_subscription_id);
+                request_subscription_id = 0;
+            }
+
+            request_in_flight = false;
+            request_granted = response == 0;
+
+            if (request_granted) {
+                set_status(_("Monitoring media players"));
+            } else {
+                debug("Background portal request was not granted: %u", response);
             }
         }
 
