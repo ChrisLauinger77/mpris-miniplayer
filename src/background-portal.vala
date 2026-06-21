@@ -41,15 +41,7 @@ namespace MprisMiniPlayer {
             options.add("{sv}", "handle_token", new Variant.string(handle_token));
 
             try {
-                request_subscription_id = bus.signal_subscribe(
-                    PORTAL_BUS_NAME,
-                    REQUEST_IFACE,
-                    "Response",
-                    request_path,
-                    null,
-                    DBusSignalFlags.NONE,
-                    on_request_response
-                );
+                subscribe_request_response(request_path);
                 request_in_flight = true;
 
                 Variant result = bus.call_sync(
@@ -64,13 +56,27 @@ namespace MprisMiniPlayer {
                 );
                 string returned_request_path = result.get_child_value(0).get_string();
                 if (returned_request_path != request_path) {
-                    debug("Background portal returned unexpected request path %s", returned_request_path);
+                    debug("Background portal returned request path %s instead of %s", returned_request_path, request_path);
+                    clear_request_subscription();
+                    subscribe_request_response(returned_request_path);
                 }
             } catch (Error error) {
                 clear_request_subscription();
                 request_in_flight = false;
                 debug("Unable to request background portal permission: %s", error.message);
             }
+        }
+
+        private void subscribe_request_response(string request_path) {
+            request_subscription_id = bus.signal_subscribe(
+                PORTAL_BUS_NAME,
+                REQUEST_IFACE,
+                "Response",
+                request_path,
+                null,
+                DBusSignalFlags.NONE,
+                on_request_response
+            );
         }
 
         private void on_request_response(
