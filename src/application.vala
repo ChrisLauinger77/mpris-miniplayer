@@ -30,6 +30,7 @@ namespace MprisMiniPlayer {
             try {
                 manager = new MprisManager();
                 manager.players_changed.connect(on_players_changed);
+                manager.player_priority_changed.connect(on_player_priority_changed);
             } catch (Error error) {
                 warning("Unable to monitor MPRIS players: %s", error.message);
             }
@@ -87,6 +88,12 @@ namespace MprisMiniPlayer {
             } else if (main_window != null) {
                 main_window.set_visible(false);
                 enter_background();
+            }
+        }
+
+        private void on_player_priority_changed() {
+            if (main_window != null) {
+                main_window.refresh_players();
             }
         }
 

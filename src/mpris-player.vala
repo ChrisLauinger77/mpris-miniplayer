@@ -125,17 +125,23 @@ namespace MprisMiniPlayer {
             }
 
             if (track_id != "") {
-                call_player_method_with_parameters(
+                if (!call_player_method_with_parameters(
                     "SetPosition",
                     new Variant("(ox)", track_id, position_us)
-                );
+                )) {
+                    refresh_position();
+                    return;
+                }
                 this.position_us = position_us;
                 changed();
                 return;
             }
 
             int64 offset_us = position_us - this.position_us;
-            call_player_method_with_parameters("Seek", new Variant("(x)", offset_us));
+            if (!call_player_method_with_parameters("Seek", new Variant("(x)", offset_us))) {
+                refresh_position();
+                return;
+            }
             this.position_us = position_us;
             changed();
         }
@@ -306,7 +312,7 @@ namespace MprisMiniPlayer {
             call_player_method_with_parameters(method_name, null);
         }
 
-        private void call_player_method_with_parameters(string method_name, Variant? parameters) {
+        private bool call_player_method_with_parameters(string method_name, Variant? parameters) {
             try {
                 bus.call_sync(
                     bus_name,
@@ -318,8 +324,10 @@ namespace MprisMiniPlayer {
                     DBusCallFlags.NONE,
                     -1
                 );
+                return true;
             } catch (Error error) {
                 warning("Unable to call %s on %s: %s", method_name, bus_name, error.message);
+                return false;
             }
         }
     }
