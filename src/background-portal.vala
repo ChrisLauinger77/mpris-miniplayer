@@ -15,6 +15,7 @@ namespace MprisMiniPlayer {
         private bool requested_autostart = false;
         private bool pending_request = false;
         private bool pending_request_autostart = false;
+        private bool pending_request_force = false;
         private bool in_background = false;
 
         public signal void autostart_changed(bool enabled);
@@ -39,19 +40,20 @@ namespace MprisMiniPlayer {
 
         public void leave_background() {
             in_background = false;
-            pending_request = false;
+            if (pending_request && !pending_request_force) {
+                pending_request = false;
+            }
+            if (!pending_request) {
+                pending_request_force = false;
+            }
             set_status("");
         }
 
         public void update_autostart(bool autostart) {
-            if (!in_background) {
-                return;
-            }
-
-            request_background(autostart);
+            request_background(autostart, true);
         }
 
-        private void request_background(bool autostart) {
+        private void request_background(bool autostart, bool force = false) {
             if (bus == null) {
                 return;
             }
@@ -59,10 +61,13 @@ namespace MprisMiniPlayer {
             if (request_in_flight) {
                 pending_request = true;
                 pending_request_autostart = autostart;
+                pending_request_force = pending_request_force || force;
                 return;
             }
 
-            if (request_handled && requested_autostart == autostart) {
+            bool request_matches_cached_autostart = request_handled && requested_autostart == autostart;
+            bool can_reuse_cached_response = request_granted || !force || !autostart;
+            if (request_matches_cached_autostart && can_reuse_cached_response) {
                 return;
             }
 
@@ -145,10 +150,10 @@ namespace MprisMiniPlayer {
 
             if (pending_request) {
                 bool autostart = pending_request_autostart;
+                bool force = pending_request_force;
                 pending_request = false;
-                if (in_background) {
-                    request_background(autostart);
-                }
+                pending_request_force = false;
+                request_background(autostart, force);
             }
         }
 
