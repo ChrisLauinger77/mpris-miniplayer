@@ -44,10 +44,6 @@ namespace MprisMiniPlayer {
         }
 
         public void update_autostart(bool autostart) {
-            if (!in_background) {
-                return;
-            }
-
             request_background(autostart);
         }
 
@@ -146,9 +142,7 @@ namespace MprisMiniPlayer {
             if (pending_request) {
                 bool autostart = pending_request_autostart;
                 pending_request = false;
-                if (in_background) {
-                    request_background(autostart);
-                }
+                request_background(autostart);
             }
         }
 
