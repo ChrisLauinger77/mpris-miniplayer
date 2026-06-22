@@ -58,7 +58,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            if (request_handled && requested_autostart == autostart) {
+            if (request_handled && request_granted && requested_autostart == autostart) {
                 return;
             }
 
