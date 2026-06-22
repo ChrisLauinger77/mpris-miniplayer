@@ -27,6 +27,7 @@ namespace MprisMiniPlayer {
             app_settings = new AppSettings();
             app_settings.changed.connect(on_app_settings_changed);
             background_portal = new BackgroundPortal();
+            background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
 
             try {
@@ -178,12 +179,22 @@ namespace MprisMiniPlayer {
         }
 
         private void on_app_settings_changed(string key) {
+            if (key == "start-on-login") {
+                background_portal.update_autostart(app_settings.start_on_login);
+            }
+
             bool compact_mode = app_settings.compact_mode;
             if (compact_mode_action != null) {
                 compact_mode_action.set_state(new Variant.boolean(compact_mode));
             }
             if (main_window != null) {
                 main_window.set_compact_mode(compact_mode);
+            }
+        }
+
+        private void on_portal_autostart_changed(bool enabled) {
+            if (app_settings.start_on_login != enabled) {
+                app_settings.start_on_login = enabled;
             }
         }
 

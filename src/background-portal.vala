@@ -11,7 +11,13 @@ namespace MprisMiniPlayer {
         private bool request_in_flight = false;
         private bool request_handled = false;
         private bool request_granted = false;
+        private bool active_request_autostart = false;
+        private bool requested_autostart = false;
+        private bool pending_request = false;
+        private bool pending_request_autostart = false;
         private bool in_background = false;
+
+        public signal void autostart_changed(bool enabled);
 
         public BackgroundPortal() {
             if (!is_flatpak()) {
@@ -33,11 +39,30 @@ namespace MprisMiniPlayer {
 
         public void leave_background() {
             in_background = false;
+            pending_request = false;
             set_status("");
         }
 
+        public void update_autostart(bool autostart) {
+            if (!in_background) {
+                return;
+            }
+
+            request_background(autostart);
+        }
+
         private void request_background(bool autostart) {
-            if (bus == null || request_in_flight || request_handled) {
+            if (bus == null) {
+                return;
+            }
+
+            if (request_in_flight) {
+                pending_request = true;
+                pending_request_autostart = autostart;
+                return;
+            }
+
+            if (request_handled && requested_autostart == autostart) {
                 return;
             }
 
@@ -51,6 +76,7 @@ namespace MprisMiniPlayer {
             try {
                 subscribe_request_response(request_path);
                 request_in_flight = true;
+                active_request_autostart = autostart;
 
                 Variant result = bus.call_sync(
                     PORTAL_BUS_NAME,
@@ -102,14 +128,37 @@ namespace MprisMiniPlayer {
             clear_request_subscription();
 
             request_in_flight = false;
-            request_handled = true;
             request_granted = response == 0;
+            requested_autostart = request_granted ? get_response_autostart(results) : false;
+            request_handled = true;
 
             if (!request_granted) {
                 debug("Background portal request was not granted: %u", response);
             } else if (in_background) {
                 set_status(_("Monitoring media players"));
             }
+
+            bool has_pending_request = pending_request;
+            if (!has_pending_request) {
+                autostart_changed(requested_autostart);
+            }
+
+            if (pending_request) {
+                bool autostart = pending_request_autostart;
+                pending_request = false;
+                if (in_background) {
+                    request_background(autostart);
+                }
+            }
+        }
+
+        private bool get_response_autostart(Variant results) {
+            Variant? autostart = results.lookup_value("autostart", VariantType.BOOLEAN);
+            if (autostart == null) {
+                return active_request_autostart;
+            }
+
+            return autostart.get_boolean();
         }
 
         private string next_handle_token() {
