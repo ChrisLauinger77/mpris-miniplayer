@@ -131,6 +131,11 @@ namespace MprisMiniPlayer {
         }
 
         private void sync_start_on_login_from_autostart() {
+            if (settings != null && settings.get_boolean(KEY_START_ON_LOGIN)) {
+                apply_start_on_login(true);
+                return;
+            }
+
             bool actual = Autostart.is_enabled();
             fallback_start_on_login = actual;
 
@@ -172,7 +177,6 @@ Exec=%s
 Icon=io.github.ChrisLauinger.MprisMiniPlayer
 Terminal=false
 Categories=AudioVideo;Audio;Player;GTK;
-X-GNOME-Autostart-enabled=true
 """.printf(get_exec_command());
 
             if (FileUtils.test(path, FileTest.EXISTS)) {

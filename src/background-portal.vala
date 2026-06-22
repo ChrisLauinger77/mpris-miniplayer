@@ -14,6 +14,10 @@ namespace MprisMiniPlayer {
         private bool in_background = false;
 
         public BackgroundPortal() {
+            if (!is_flatpak()) {
+                return;
+            }
+
             try {
                 bus = Bus.get_sync(BusType.SESSION);
             } catch (Error error) {
@@ -21,9 +25,9 @@ namespace MprisMiniPlayer {
             }
         }
 
-        public void enter_background() {
+        public void enter_background(bool autostart) {
             in_background = true;
-            request_background();
+            request_background(autostart);
             set_status(_("Monitoring media players"));
         }
 
@@ -32,7 +36,7 @@ namespace MprisMiniPlayer {
             set_status("");
         }
 
-        private void request_background() {
+        private void request_background(bool autostart) {
             if (bus == null || request_in_flight || request_handled) {
                 return;
             }
@@ -41,6 +45,7 @@ namespace MprisMiniPlayer {
             string handle_token = next_handle_token();
             string request_path = build_request_path(handle_token);
             options.add("{sv}", "reason", new Variant.string(_("Keep watching for MPRIS-compatible media players")));
+            options.add("{sv}", "autostart", new Variant.boolean(autostart));
             options.add("{sv}", "handle_token", new Variant.string(handle_token));
 
             try {
@@ -153,6 +158,10 @@ namespace MprisMiniPlayer {
             } catch (Error error) {
                 debug("Unable to update background portal status: %s", error.message);
             }
+        }
+
+        private static bool is_flatpak() {
+            return FileUtils.test("/.flatpak-info", FileTest.EXISTS);
         }
     }
 }

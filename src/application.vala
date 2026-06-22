@@ -204,7 +204,7 @@ namespace MprisMiniPlayer {
         }
 
         private void enter_background() {
-            background_portal.enter_background();
+            background_portal.enter_background(app_settings.start_on_login);
         }
 
         private void quit_app() {
