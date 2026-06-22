@@ -40,8 +40,12 @@ namespace MprisMiniPlayer {
 
         public void leave_background() {
             in_background = false;
-            pending_request = false;
-            pending_request_force = false;
+            if (pending_request && !pending_request_force) {
+                pending_request = false;
+            }
+            if (!pending_request) {
+                pending_request_force = false;
+            }
             set_status("");
         }
 
