@@ -21,9 +21,9 @@ namespace MprisMiniPlayer {
             }
         }
 
-        public void enter_background(bool autostart) {
+        public void enter_background() {
             in_background = true;
-            request_background(autostart);
+            request_background();
             set_status(_("Monitoring media players"));
         }
 
@@ -32,7 +32,7 @@ namespace MprisMiniPlayer {
             set_status("");
         }
 
-        private void request_background(bool autostart) {
+        private void request_background() {
             if (bus == null || request_in_flight || request_handled) {
                 return;
             }
@@ -41,7 +41,6 @@ namespace MprisMiniPlayer {
             string handle_token = next_handle_token();
             string request_path = build_request_path(handle_token);
             options.add("{sv}", "reason", new Variant.string(_("Keep watching for MPRIS-compatible media players")));
-            options.add("{sv}", "autostart", new Variant.boolean(autostart));
             options.add("{sv}", "handle_token", new Variant.string(handle_token));
 
             try {
