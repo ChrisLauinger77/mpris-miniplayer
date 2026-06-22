@@ -1,6 +1,8 @@
 config_data = configuration_data()
 config_data.set_quoted('GETTEXT_PACKAGE', gettext_package)
 config_data.set_quoted('LOCALEDIR', get_option('prefix') / localedir)
+config_data.set_quoted('EXEC_PATH', exec_path)
+config_data.set_quoted('VERSION', meson.project_version())
 
 config_vala = configure_file(
   input: 'config.vala.in',
@@ -23,7 +25,7 @@ executable(
   ],
   dependencies: [
     dependency('gtk4'),
-    dependency('libadwaita-1'),
+    dependency('libadwaita-1', version: '>= 1.5'),
     dependency('gio-2.0'),
   ],
   vala_args: [

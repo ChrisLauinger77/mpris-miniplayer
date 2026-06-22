@@ -163,12 +163,7 @@ namespace MprisMiniPlayer {
         }
 
         private static bool write_desktop_file() throws Error {
-            string autostart_dir = get_autostart_dir();
-            if (!FileUtils.test(autostart_dir, FileTest.IS_DIR)) {
-                File directory = File.new_for_path(autostart_dir);
-                directory.make_directory_with_parents();
-            }
-
+            string path = get_autostart_path();
             string contents = """[Desktop Entry]
 Type=Application
 Name=MPRIS MiniPlayer
@@ -180,7 +175,21 @@ Categories=AudioVideo;Audio;Player;GTK;
 X-GNOME-Autostart-enabled=true
 """.printf(get_exec_command());
 
-            FileUtils.set_contents(get_autostart_path(), contents);
+            if (FileUtils.test(path, FileTest.EXISTS)) {
+                string current_contents;
+                FileUtils.get_contents(path, out current_contents);
+                if (current_contents == contents) {
+                    return true;
+                }
+            }
+
+            string autostart_dir = get_autostart_dir();
+            if (!FileUtils.test(autostart_dir, FileTest.IS_DIR)) {
+                File directory = File.new_for_path(autostart_dir);
+                directory.make_directory_with_parents();
+            }
+
+            FileUtils.set_contents(path, contents);
             return true;
         }
 
@@ -211,7 +220,16 @@ X-GNOME-Autostart-enabled=true
                 return "flatpak run io.github.ChrisLauinger.MprisMiniPlayer";
             }
 
-            return "mpris-miniplayer";
+            return quote_desktop_exec_arg(Config.EXEC_PATH);
+        }
+
+        private static string quote_desktop_exec_arg(string arg) {
+            string escaped = arg
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("`", "\\`")
+                .replace("$", "\\$");
+            return "\"%s\"".printf(escaped);
         }
 
         private static bool is_flatpak() {

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=MPRIS MiniPlayer
 Comment=Control MPRIS-compatible media players
-Exec=mpris-miniplayer
+Exec=@EXEC_PATH@
 Icon=io.github.ChrisLauinger.MprisMiniPlayer
 Terminal=false
 Type=Application

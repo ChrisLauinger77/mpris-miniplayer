@@ -1,4 +1,6 @@
 namespace MprisMiniPlayer.Config {
     public const string GETTEXT_PACKAGE = @GETTEXT_PACKAGE@;
     public const string LOCALEDIR = @LOCALEDIR@;
+    public const string EXEC_PATH = @EXEC_PATH@;
+    public const string VERSION = @VERSION@;
 }

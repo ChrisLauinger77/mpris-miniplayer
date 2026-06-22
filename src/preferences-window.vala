@@ -69,6 +69,20 @@ namespace MprisMiniPlayer {
             app_group.title = _("Application");
             page.add(app_group);
 
+            var about_row = new Adw.ActionRow();
+            about_row.title = _("About MPRIS MiniPlayer");
+            about_row.activatable = true;
+            about_row.activated.connect(() => app.activate_action("about", null));
+
+            var about_icon = new Gtk.Image.from_icon_name("help-about-symbolic");
+            about_icon.valign = Gtk.Align.CENTER;
+            about_row.add_prefix(about_icon);
+
+            var about_arrow = new Gtk.Image.from_icon_name("go-next-symbolic");
+            about_arrow.valign = Gtk.Align.CENTER;
+            about_row.add_suffix(about_arrow);
+            app_group.add(about_row);
+
             var quit_row = new Adw.ActionRow();
             quit_row.title = _("Quit MPRIS MiniPlayer");
             quit_row.subtitle = _("Stop running in the background");

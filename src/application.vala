@@ -57,6 +57,10 @@ namespace MprisMiniPlayer {
             preferences_action.activate.connect(() => present_preferences());
             add_action(preferences_action);
 
+            var about_action = new SimpleAction("about", null);
+            about_action.activate.connect(() => present_about());
+            add_action(about_action);
+
             compact_mode_action = new SimpleAction.stateful(
                 "compact-mode",
                 null,
@@ -150,6 +154,29 @@ namespace MprisMiniPlayer {
             preferences_window.present();
         }
 
+        private void present_about() {
+            var about_dialog = new Adw.AboutDialog();
+            about_dialog.application_name = _("MPRIS MiniPlayer");
+            about_dialog.application_icon = "io.github.ChrisLauinger.MprisMiniPlayer";
+            about_dialog.developer_name = "Chris Lauinger";
+            about_dialog.version = Config.VERSION;
+            about_dialog.website = "https://github.com/ChrisLauinger77/mpris-miniplayer";
+            about_dialog.issue_url = "https://github.com/ChrisLauinger77/mpris-miniplayer/issues";
+            about_dialog.license_type = Gtk.License.GPL_3_0;
+
+            if (preferences_window != null && preferences_window.visible) {
+                about_dialog.present(preferences_window);
+                return;
+            }
+
+            if (main_window != null && main_window.visible) {
+                about_dialog.present(main_window);
+                return;
+            }
+
+            about_dialog.present(null);
+        }
+
         private void on_app_settings_changed(string key) {
             bool compact_mode = app_settings.compact_mode;
             if (compact_mode_action != null) {
@@ -177,7 +204,7 @@ namespace MprisMiniPlayer {
         }
 
         private void enter_background() {
-            background_portal.enter_background(app_settings.start_on_login);
+            background_portal.enter_background();
         }
 
         private void quit_app() {
