@@ -54,6 +54,10 @@ namespace MprisMiniPlayer {
                 return fallback_start_on_login;
             }
             set {
+                if (start_on_login == value) {
+                    return;
+                }
+
                 apply_start_on_login(value);
             }
         }
@@ -172,7 +176,6 @@ Exec=%s
 Icon=io.github.ChrisLauinger.MprisMiniPlayer
 Terminal=false
 Categories=AudioVideo;Audio;Player;GTK;
-X-GNOME-Autostart-enabled=true
 """.printf(get_exec_command());
 
             if (FileUtils.test(path, FileTest.EXISTS)) {
