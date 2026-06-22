@@ -1,5 +1,5 @@
 desktop_data = configuration_data()
-desktop_data.set('EXEC_PATH', exec_path)
+desktop_data.set('EXEC_PATH', desktop_exec_path)
 
 desktop_file = configure_file(
   input: app_id + '.desktop.in',

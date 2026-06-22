@@ -220,7 +220,16 @@ X-GNOME-Autostart-enabled=true
                 return "flatpak run io.github.ChrisLauinger.MprisMiniPlayer";
             }
 
-            return Config.EXEC_PATH;
+            return quote_desktop_exec_arg(Config.EXEC_PATH);
+        }
+
+        private static string quote_desktop_exec_arg(string arg) {
+            string escaped = arg
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("`", "\\`")
+                .replace("$", "\\$");
+            return "\"%s\"".printf(escaped);
         }
 
         private static bool is_flatpak() {
