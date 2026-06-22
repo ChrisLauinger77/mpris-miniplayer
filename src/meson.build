@@ -2,6 +2,7 @@ config_data = configuration_data()
 config_data.set_quoted('GETTEXT_PACKAGE', gettext_package)
 config_data.set_quoted('LOCALEDIR', get_option('prefix') / localedir)
 config_data.set_quoted('EXEC_PATH', exec_path)
+config_data.set_quoted('VERSION', meson.project_version())
 
 config_vala = configure_file(
   input: 'config.vala.in',
