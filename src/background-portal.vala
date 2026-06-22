@@ -65,7 +65,9 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            if (request_handled && requested_autostart == autostart && (request_granted || !force)) {
+            bool request_matches_cached_autostart = request_handled && requested_autostart == autostart;
+            bool can_reuse_cached_response = request_granted || !force || !autostart;
+            if (request_matches_cached_autostart && can_reuse_cached_response) {
                 return;
             }
 
