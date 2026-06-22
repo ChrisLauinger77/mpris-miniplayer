@@ -61,7 +61,7 @@ namespace MprisMiniPlayer {
             if (request_in_flight) {
                 pending_request = true;
                 pending_request_autostart = autostart;
-                pending_request_force = force;
+                pending_request_force = pending_request_force || force;
                 return;
             }
 
