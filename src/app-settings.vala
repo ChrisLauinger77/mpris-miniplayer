@@ -54,6 +54,10 @@ namespace MprisMiniPlayer {
                 return fallback_start_on_login;
             }
             set {
+                if (start_on_login == value) {
+                    return;
+                }
+
                 apply_start_on_login(value);
             }
         }

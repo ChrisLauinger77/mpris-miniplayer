@@ -52,7 +52,9 @@ namespace MprisMiniPlayer {
             autostart_row.subtitle = _("Start MPRIS MiniPlayer automatically when you log in");
             autostart_row.active = app_settings.start_on_login;
             autostart_row.notify["active"].connect(() => {
-                app_settings.start_on_login = autostart_row.active;
+                if (app_settings.start_on_login != autostart_row.active) {
+                    app_settings.start_on_login = autostart_row.active;
+                }
             });
             behavior_group.add(autostart_row);
 
