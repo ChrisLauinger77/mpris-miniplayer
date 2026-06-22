@@ -163,6 +163,11 @@ namespace MprisMiniPlayer {
         }
 
         private static bool write_desktop_file() throws Error {
+            string path = get_autostart_path();
+            if (FileUtils.test(path, FileTest.EXISTS)) {
+                return true;
+            }
+
             string autostart_dir = get_autostart_dir();
             if (!FileUtils.test(autostart_dir, FileTest.IS_DIR)) {
                 File directory = File.new_for_path(autostart_dir);
@@ -180,7 +185,7 @@ Categories=AudioVideo;Audio;Player;GTK;
 X-GNOME-Autostart-enabled=true
 """.printf(get_exec_command());
 
-            FileUtils.set_contents(get_autostart_path(), contents);
+            FileUtils.set_contents(path, contents);
             return true;
         }
 
@@ -211,7 +216,7 @@ X-GNOME-Autostart-enabled=true
                 return "flatpak run io.github.ChrisLauinger.MprisMiniPlayer";
             }
 
-            return "mpris-miniplayer";
+            return Config.EXEC_PATH;
         }
 
         private static bool is_flatpak() {

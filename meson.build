@@ -1,7 +1,7 @@
 project(
   'mpris-miniplayer',
   ['vala', 'c'],
-  version: '0.3.0',
+  version: '0.3.1',
   license: 'GPL-3.0-or-later',
   meson_version: '>= 0.59.0',
 )
@@ -14,6 +14,7 @@ gettext_package = 'mpris-miniplayer'
 bindir = get_option('bindir')
 datadir = get_option('datadir')
 localedir = get_option('localedir')
+exec_path = get_option('prefix') / bindir / 'mpris-miniplayer'
 
 subdir('src')
 subdir('data')
