@@ -8,6 +8,7 @@ namespace MprisMiniPlayer {
         private Window? main_window;
         private PreferencesWindow? preferences_window;
         private SimpleAction? compact_mode_action;
+        private bool suppress_next_start_on_login_portal_update = false;
         private bool startup_activation_handled = false;
         private bool held = false;
 
@@ -180,7 +181,11 @@ namespace MprisMiniPlayer {
 
         private void on_app_settings_changed(string key) {
             if (key == "start-on-login") {
-                background_portal.update_autostart(app_settings.start_on_login);
+                if (suppress_next_start_on_login_portal_update) {
+                    suppress_next_start_on_login_portal_update = false;
+                } else {
+                    background_portal.update_autostart(app_settings.start_on_login);
+                }
             }
 
             bool compact_mode = app_settings.compact_mode;
@@ -194,6 +199,7 @@ namespace MprisMiniPlayer {
 
         private void on_portal_autostart_changed(bool enabled) {
             if (app_settings.start_on_login != enabled) {
+                suppress_next_start_on_login_portal_update = true;
                 app_settings.start_on_login = enabled;
             }
         }
