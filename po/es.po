@@ -36,6 +36,12 @@ msgid "Christian Lauinger"
 msgstr "Christian Lauinger"
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
+msgid "Add release packaging, icon integration, and validator-clean AppStream metadata."
+msgstr ""
+"Añadir empaquetado de lanzamiento, integración de iconos y metadatos "
+"AppStream sin errores de validación."
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
 msgid ""
 "Add background operation, automatic window visibility, preferences, and "
 "start-on-login support."
@@ -111,23 +117,39 @@ msgstr "Iniciar al iniciar sesión"
 msgid "Start MPRIS MiniPlayer automatically when you log in"
 msgstr "Iniciar MPRIS MiniPlayer automáticamente cuando inicies sesión"
 
-#: src/preferences-window.vala:59
+#: src/preferences-window.vala:62
+msgid "Compact mode"
+msgstr "Modo compacto"
+
+#: src/preferences-window.vala:63
+msgid "Use a smaller window layout"
+msgstr "Usar una disposición de ventana más pequeña"
+
+#: src/preferences-window.vala:71
 msgid "Application"
 msgstr "Aplicación"
 
-#: src/preferences-window.vala:63
+#: src/preferences-window.vala:75
+msgid "About MPRIS MiniPlayer"
+msgstr "Acerca de MPRIS MiniPlayer"
+
+#: src/preferences-window.vala:89
 msgid "Quit MPRIS MiniPlayer"
 msgstr "Salir de MPRIS MiniPlayer"
 
-#: src/preferences-window.vala:64
+#: src/preferences-window.vala:90
 msgid "Stop running in the background"
 msgstr "Dejar de ejecutarse en segundo plano"
 
-#: src/preferences-window.vala:66 src/window.vala:56
+#: src/preferences-window.vala:92 src/window.vala:107
 msgid "Quit"
 msgstr "Salir"
 
-#: src/window.vala:60
+#: src/window.vala:105
+msgid "Compact Mode"
+msgstr "Modo compacto"
+
+#: src/window.vala:111
 msgid "Main menu"
 msgstr "Menú principal"
 
@@ -154,6 +176,10 @@ msgstr "Siguiente"
 #: src/window.vala:171
 msgid "Choose player"
 msgstr "Elegir reproductor"
+
+#: src/window.vala:187 src/window.vala:198
+msgid "Volume"
+msgstr "Volumen"
 
 #: src/window.vala:191
 msgid "Session D-Bus unavailable"
@@ -182,3 +208,11 @@ msgstr "Pista desconocida"
 #: src/mpris-player.vala:175
 msgid "Unknown artist"
 msgstr "Artista desconocido"
+
+#: src/window.vala:553
+msgid "Restore volume"
+msgstr "Restaurar volumen"
+
+#: src/window.vala:557
+msgid "Mute"
+msgstr "Silenciar"

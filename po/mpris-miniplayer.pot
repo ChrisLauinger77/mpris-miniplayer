@@ -1,0 +1,214 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the mpris-miniplayer package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: mpris-miniplayer\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-23 18:26+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
+#: src/application.vala:161 src/window.vala:38
+msgid "MPRIS MiniPlayer"
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:3
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:7
+msgid "Control MPRIS-compatible media players"
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:9
+msgid ""
+"MPRIS MiniPlayer is a small GTK mini player for Linux media players that "
+"expose the MPRIS interface on the session bus."
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:16
+msgid "Christian Lauinger"
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
+msgid ""
+"Add release packaging, icon integration, and validator-clean AppStream "
+"metadata."
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:27
+msgid ""
+"Add background operation, automatic window visibility, preferences, and "
+"start-on-login support."
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:32
+msgid "Initial development release."
+msgstr ""
+
+#: src/background-portal.vala:38 src/background-portal.vala:143
+msgid "Monitoring media players"
+msgstr ""
+
+#: src/background-portal.vala:77
+msgid "Keep watching for MPRIS-compatible media players"
+msgstr ""
+
+#: src/application.vala:212
+msgid "MPRIS MiniPlayer is running in the background"
+msgstr ""
+
+#: src/application.vala:214
+msgid ""
+"The window will appear automatically when a compatible media player becomes "
+"available."
+msgstr ""
+
+#: src/application.vala:216
+msgid "Open the window when you want to control a compatible media player."
+msgstr ""
+
+#: src/application.vala:218
+msgid "Open"
+msgstr ""
+
+#: src/preferences-window.vala:12 src/preferences-window.vala:25
+#: src/window.vala:106
+msgid "Preferences"
+msgstr ""
+
+#: src/preferences-window.vala:29
+msgid "Behavior"
+msgstr ""
+
+#: src/preferences-window.vala:33
+msgid "Show and hide automatically"
+msgstr ""
+
+#: src/preferences-window.vala:34
+msgid "Show the window when a player appears and hide it when none remain"
+msgstr ""
+
+#: src/preferences-window.vala:42
+msgid "Background notification"
+msgstr ""
+
+#: src/preferences-window.vala:43
+msgid "Notify when the app starts hidden in the background"
+msgstr ""
+
+#: src/preferences-window.vala:51
+msgid "Start on login"
+msgstr ""
+
+#: src/preferences-window.vala:52
+msgid "Start MPRIS MiniPlayer automatically when you log in"
+msgstr ""
+
+#: src/preferences-window.vala:62
+msgid "Compact mode"
+msgstr ""
+
+#: src/preferences-window.vala:63
+msgid "Use a smaller window layout"
+msgstr ""
+
+#: src/preferences-window.vala:71
+msgid "Application"
+msgstr ""
+
+#: src/preferences-window.vala:75
+msgid "About MPRIS MiniPlayer"
+msgstr ""
+
+#: src/preferences-window.vala:89
+msgid "Quit MPRIS MiniPlayer"
+msgstr ""
+
+#: src/preferences-window.vala:90
+msgid "Stop running in the background"
+msgstr ""
+
+#: src/preferences-window.vala:92 src/window.vala:107
+msgid "Quit"
+msgstr ""
+
+#: src/window.vala:98
+msgid "Choose player"
+msgstr ""
+
+#: src/window.vala:105
+msgid "Compact Mode"
+msgstr ""
+
+#: src/window.vala:111
+msgid "Main menu"
+msgstr ""
+
+#: src/window.vala:140
+msgid "No player running"
+msgstr ""
+
+#: src/window.vala:146
+msgid "Start an MPRIS-compatible media player"
+msgstr ""
+
+#: src/window.vala:187 src/window.vala:198
+msgid "Volume"
+msgstr ""
+
+#: src/window.vala:204
+msgid "Previous"
+msgstr ""
+
+#: src/window.vala:213
+msgid "Play or pause"
+msgstr ""
+
+#: src/window.vala:223
+msgid "Next"
+msgstr ""
+
+#: src/window.vala:244
+msgid "Session D-Bus unavailable"
+msgstr ""
+
+#: src/window.vala:244
+msgid "Unable to monitor MPRIS players"
+msgstr ""
+
+#: src/window.vala:254
+msgid "No player detected"
+msgstr ""
+
+#: src/window.vala:254
+msgid "Start any MPRIS-compatible player"
+msgstr ""
+
+#: src/window.vala:284
+msgid "Player unavailable"
+msgstr ""
+
+#: src/window.vala:553
+msgid "Restore volume"
+msgstr ""
+
+#: src/window.vala:557
+msgid "Mute"
+msgstr ""
+
+#: src/mpris-player.vala:240
+msgid "Unknown track"
+msgstr ""
+
+#: src/mpris-player.vala:247
+msgid "Unknown artist"
+msgstr ""

@@ -69,6 +69,18 @@ desktop-file-validate build/data/io.github.ChrisLauinger.MprisMiniPlayer.desktop
 appstreamcli validate --no-net build/data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 ```
 
+Translation maintenance:
+
+```bash
+meson compile -C build mpris-miniplayer-pot
+meson compile -C build mpris-miniplayer-update-po
+msgattrib --untranslated --no-obsolete po/*.po
+msgattrib --only-fuzzy --no-obsolete po/*.po
+msgfmt --check po/*.po
+```
+
+Keep `po/mpris-miniplayer.pot` up to date when adding, removing, or changing translatable strings. Check both untranslated and fuzzy entries before considering translation work complete.
+
 Install locally:
 
 ```bash
