@@ -16,6 +16,12 @@ Download the latest Flatpak bundle from the [GitHub releases page](https://githu
 flatpak install --user ./MPRIS-MiniPlayer-<version>-x86_64.flatpak
 ```
 
+Debian and Ubuntu users on amd64 can download the `.deb` package from the same release page, then install it with:
+
+```bash
+sudo apt install ./mpris-miniplayer_<version>_amd64.deb
+```
+
 Run it from your application launcher, or from a terminal:
 
 ```bash
@@ -47,7 +53,7 @@ When it starts without a player, it can stay hidden in the background and show t
 Install the typical development dependencies on Debian or Ubuntu:
 
 ```bash
-sudo apt install meson ninja-build valac libgtk-4-dev libadwaita-1-dev gettext desktop-file-utils appstream-util
+sudo apt install meson ninja-build valac libgtk-4-dev libadwaita-1-dev gettext desktop-file-utils appstream
 ```
 
 Build and run:
@@ -72,14 +78,14 @@ sudo ninja -C build uninstall
 
 ## Maintainer Release
 
-Pushing a version tag builds a Flatpak bundle and creates a GitHub release:
+Pushing a version tag builds a Flatpak bundle, builds an amd64 Debian package, and creates a GitHub release:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` to the generated release.
+The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` and `mpris-miniplayer_<tag>_amd64.deb` to the generated release.
 
 ## License
 
@@ -96,6 +102,7 @@ v0.1:
 - Update UI when metadata changes
 - Provide a small libadwaita window
 - Provide a basic Meson build and working desktop file
+- Add CI build workflow
 
 v0.2:
 
@@ -112,7 +119,6 @@ v0.3:
 
 v1.0:
 
-- Polish AppStream metadata
-- Add icons
-- Add Debian packaging
-- Add CI build workflow
+- Polish AppStream metadata for clean validation
+- Add icon package integration
+- Add Debian packaging and amd64 release packages

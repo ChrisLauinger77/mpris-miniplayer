@@ -1,0 +1,26 @@
+Source: mpris-miniplayer
+Section: sound
+Priority: optional
+Maintainer: Christian Lauinger <chrislauinger77@users.noreply.github.com>
+Build-Depends:
+ appstream,
+ debhelper-compat (= 13),
+ desktop-file-utils,
+ gettext,
+ libadwaita-1-dev,
+ libgtk-4-dev,
+ meson,
+ ninja-build,
+ valac
+Standards-Version: 4.7.0
+Homepage: https://github.com/ChrisLauinger77/mpris-miniplayer
+Rules-Requires-Root: no
+
+Package: mpris-miniplayer
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends}
+Description: small MPRIS media player controller
+ MPRIS MiniPlayer is a compact GTK4/libadwaita controller for Linux media
+ players that expose the MPRIS interface on the session D-Bus.
