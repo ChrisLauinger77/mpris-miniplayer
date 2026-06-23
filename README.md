@@ -1,5 +1,10 @@
 # MPRIS MiniPlayer
 
+[![Github Latest Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/latest/total)]()
+[![Version](https://img.shields.io/github/v/release/ChrisLauinger77/mpris-miniplayer)]()
+[![Github All Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/total.svg)]()
+[![license](https://img.shields.io/github/license/ChrisLauinger77/mpris-miniplayer)]()
+
 MPRIS MiniPlayer is a small GTK4/libadwaita mini player for Linux media players that expose the MPRIS interface on the session D-Bus.
 
 It is not tied to a specific player. It is intended to work with Sidra, VLC, Spotify, Strawberry, Rhythmbox, Elisa, browsers exposing media sessions, Mopidy, spotifyd, mpv with an MPRIS plugin, and similar clients.
@@ -10,22 +15,32 @@ It is not tied to a specific player. It is intended to work with Sidra, VLC, Spo
 
 ## Install
 
-Download the latest Flatpak bundle from the [GitHub releases page](https://github.com/ChrisLauinger77/mpris-miniplayer/releases/latest), then install it with:
+Download the latest release asset from the [GitHub releases page](https://github.com/ChrisLauinger77/mpris-miniplayer/releases/latest).
+
+For Flatpak, install the bundle with:
 
 ```bash
 flatpak install --user ./MPRIS-MiniPlayer-<version>-x86_64.flatpak
 ```
 
-Debian and Ubuntu users on amd64 can download the `.deb` package from the same release page, then install it with:
+For Debian or Ubuntu on amd64, install the Debian package with:
 
 ```bash
 sudo apt install ./mpris-miniplayer_<version>_amd64.deb
 ```
 
-Run it from your application launcher, or from a terminal:
+Run it from your application launcher, or from a terminal.
+
+For Flatpak:
 
 ```bash
 flatpak run io.github.ChrisLauinger.MprisMiniPlayer
+```
+
+For the Debian package:
+
+```bash
+mpris-miniplayer
 ```
 
 MPRIS MiniPlayer needs at least one running MPRIS-compatible media player to show playback controls.
