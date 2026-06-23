@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -30,7 +30,7 @@ jobs:
           verbose: true
 
       - name: Upload Flatpak bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: flatpak-bundle
           path: MPRIS-MiniPlayer-${{ github.ref_name }}-x86_64.flatpak
@@ -69,7 +69,7 @@ jobs:
           cp ../mpris-miniplayer_*_amd64.deb release-assets/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
 
       - name: Upload Debian package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: debian-package
           path: release-assets/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
@@ -84,7 +84,7 @@ jobs:
 
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
 
