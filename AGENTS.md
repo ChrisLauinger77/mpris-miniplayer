@@ -92,6 +92,24 @@ sudo apt install \
 
 Package names may need adjustment by distribution and version.
 
+## Release Version Checklist
+
+When preparing a new release, update the version in:
+
+- `meson.build`: project version.
+- `data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in`: add a new top `<release>` entry with the new version and release date.
+- `debian/changelog`: add a new Debian changelog entry, usually `<upstream-version>-1` for a new upstream release.
+- `debian/mpris-miniplayer.1`: update the manpage header version string.
+
+Then tag the release with a `v` prefix, for example:
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The release workflow uses the Git tag for the uploaded Flatpak and Debian package asset names.
+
 ## MPRIS Notes
 
 MPRIS players usually appear on the session bus as:
