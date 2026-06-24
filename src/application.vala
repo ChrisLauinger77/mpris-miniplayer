@@ -165,16 +165,8 @@ namespace MprisMiniPlayer {
             about_dialog.website = "https://github.com/ChrisLauinger77/mpris-miniplayer";
             about_dialog.issue_url = "https://github.com/ChrisLauinger77/mpris-miniplayer/issues";
             about_dialog.license_type = Gtk.License.GPL_3_0;
-
-            if (preferences_window != null && preferences_window.visible) {
-                about_dialog.present(preferences_window);
-                return;
-            }
-
-            if (main_window != null && main_window.visible) {
-                about_dialog.present(main_window);
-                return;
-            }
+            about_dialog.content_width = 420;
+            about_dialog.content_height = 560;
 
             about_dialog.present(null);
         }

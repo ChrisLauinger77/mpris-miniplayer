@@ -1,3 +1,11 @@
+mpris-miniplayer (1.1.0-1) unstable; urgency=medium
+
+  * Add a header-bar About button.
+  * Improve About dialog sizing.
+  * Document running the build-tree binary through meson devenv.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Wed, 24 Jun 2026 16:14:13 +0200
+
 mpris-miniplayer (1.0.0-1) unstable; urgency=medium
 
   * Initial Debian packaging.

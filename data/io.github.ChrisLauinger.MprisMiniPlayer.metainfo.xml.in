@@ -17,6 +17,12 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.1.0" date="2026-06-24">
+      <description>
+        <p>Add a header-bar About button and improve About dialog sizing.</p>
+        <p>Document the build-tree run command with Meson's development environment.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-06-23">
       <description>
         <p>Add release packaging, icon integration, and validator-clean AppStream metadata.</p>
