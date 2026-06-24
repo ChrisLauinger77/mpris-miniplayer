@@ -17,6 +17,11 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.1.1" date="2026-06-24">
+      <description>
+        <p>Reuse the About dialog on repeated activations without constraining it to the mini-player window.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-06-24">
       <description>
         <p>Add a header-bar About button and improve About dialog sizing.</p>

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-24 16:21+0200\n"
+"POT-Creation-Date: 2026-06-24 17:04+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/application.vala:161 src/window.vala:38
+#: src/application.vala:163 src/window.vala:38
 msgid "MPRIS MiniPlayer"
 msgstr ""
 
@@ -39,27 +39,33 @@ msgid "Christian Lauinger"
 msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
+msgid ""
+"Reuse the About dialog on repeated activations without constraining it to "
+"the mini-player window."
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:27
 msgid "Add a header-bar About button and improve About dialog sizing."
 msgstr ""
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:23
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:28
 msgid ""
 "Document the build-tree run command with Meson's development environment."
 msgstr ""
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:28
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:33
 msgid ""
 "Add release packaging, icon integration, and validator-clean AppStream "
 "metadata."
 msgstr ""
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:33
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:38
 msgid ""
 "Add background operation, automatic window visibility, preferences, and "
 "start-on-login support."
 msgstr ""
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:38
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:43
 msgid "Initial development release."
 msgstr ""
 
@@ -71,21 +77,21 @@ msgstr ""
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr ""
 
-#: src/application.vala:204
+#: src/application.vala:210
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr ""
 
-#: src/application.vala:206
+#: src/application.vala:212
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
 msgstr ""
 
-#: src/application.vala:208
+#: src/application.vala:214
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 
-#: src/application.vala:210
+#: src/application.vala:216
 msgid "Open"
 msgstr ""
 

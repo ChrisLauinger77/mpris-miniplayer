@@ -1,7 +1,7 @@
 project(
   'mpris-miniplayer',
   ['vala', 'c'],
-  version: '1.1.0',
+  version: '1.1.1',
   license: 'GPL-3.0-or-later',
   meson_version: '>= 0.59.0',
 )
