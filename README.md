@@ -60,7 +60,7 @@ When it starts without a player, it can stay hidden in the background and show t
 - Updates the UI when player metadata changes
 - Can keep running in the background when no player is available
 - Can show and hide the window automatically as players appear or disappear
-- Can show a status indicator when the desktop supports it
+- Can show a status indicator with show, hide, settings, about, and quit actions when the desktop supports it
 - Provides preferences for compact mode, background notifications, automatic visibility, status indicators, and start on login
 - Hides the window on close; use Quit to stop the app
 

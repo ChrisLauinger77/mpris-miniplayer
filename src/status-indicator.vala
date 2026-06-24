@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
     [DBus (name = "org.kde.StatusNotifierItem")]
     public class StatusNotifierItem : Object {
         private const string APP_ID = "io.github.ChrisLauinger.MprisMiniPlayer";
+        private const string MENU_OBJECT_PATH = "/StatusNotifierMenu";
 
         public signal void activated();
 
@@ -61,7 +62,7 @@ namespace MprisMiniPlayer {
         [DBus (name = "Menu")]
         public ObjectPath menu {
             owned get {
-                return new ObjectPath("/");
+                return new ObjectPath(MENU_OBJECT_PATH);
             }
         }
 
@@ -100,7 +101,6 @@ namespace MprisMiniPlayer {
 
         [DBus (name = "ContextMenu")]
         public void context_menu(int x, int y) throws DBusError, IOError {
-            activated();
         }
 
         [DBus (name = "SecondaryActivate")]
@@ -113,6 +113,203 @@ namespace MprisMiniPlayer {
         }
     }
 
+    [DBus (name = "com.canonical.dbusmenu")]
+    public class StatusNotifierMenu : Object {
+        private const int ROOT_ID = 0;
+        private const int SHOW_HIDE_ID = 1;
+        private const int PREFERENCES_ID = 2;
+        private const int ABOUT_ID = 3;
+        private const int QUIT_ID = 4;
+
+        private uint revision = 1;
+        private bool window_visible = false;
+
+        public signal void action_requested(string action);
+
+        [DBus (name = "ItemsPropertiesUpdated")]
+        public signal void items_properties_updated(Variant updated_props, Variant removed_props);
+
+        [DBus (name = "LayoutUpdated")]
+        public signal void layout_updated(uint revision, int parent);
+
+        [DBus (name = "ItemActivationRequested")]
+        public signal void item_activation_requested(int id, uint timestamp);
+
+        [DBus (name = "Version")]
+        public uint version {
+            get {
+                return 3;
+            }
+        }
+
+        [DBus (name = "TextDirection")]
+        public string text_direction {
+            owned get {
+                return "ltr";
+            }
+        }
+
+        [DBus (name = "Status")]
+        public string status {
+            owned get {
+                return "normal";
+            }
+        }
+
+        [DBus (name = "IconThemePath")]
+        public string[] icon_theme_path {
+            owned get {
+                return {};
+            }
+        }
+
+        [DBus (visible = false)]
+        public void set_window_visible(bool visible) {
+            if (window_visible == visible) {
+                return;
+            }
+
+            window_visible = visible;
+            revision++;
+            layout_updated(revision, ROOT_ID);
+        }
+
+        [DBus (name = "GetLayout")]
+        public void get_layout(
+            int parent_id,
+            int recursion_depth,
+            string[] property_names,
+            out uint revision,
+            [DBus (signature = "(ia{sv}av)")]
+            out Variant layout
+        ) throws DBusError, IOError {
+            revision = this.revision;
+            layout = build_layout();
+        }
+
+        [DBus (name = "GetGroupProperties", signature = "a(ia{sv})")]
+        public Variant get_group_properties(int[] ids, string[] property_names) throws DBusError, IOError {
+            var items = new VariantBuilder(new VariantType("a(ia{sv})"));
+            int[] requested_ids = ids.length == 0
+                ? new int[] { SHOW_HIDE_ID, PREFERENCES_ID, ABOUT_ID, QUIT_ID }
+                : ids;
+
+            foreach (int id in requested_ids) {
+                if (id == ROOT_ID || id == SHOW_HIDE_ID || id == PREFERENCES_ID || id == ABOUT_ID || id == QUIT_ID) {
+                    items.add_value(new Variant.tuple({
+                        new Variant.int32(id),
+                        build_properties(id)
+                    }));
+                }
+            }
+
+            return items.end();
+        }
+
+        [DBus (name = "GetProperty")]
+        public new Variant get_property(int id, string name) throws DBusError, IOError {
+            Variant? value = build_properties(id).lookup_value(name, null);
+            if (value != null) {
+                return value;
+            }
+
+            return new Variant.string("");
+        }
+
+        [DBus (name = "Event")]
+        public void event(int id, string event_id, Variant data, uint timestamp) throws DBusError, IOError {
+            if (event_id == "clicked") {
+                activate_item(id, timestamp);
+            }
+        }
+
+        [DBus (name = "AboutToShow")]
+        public bool about_to_show(int id) throws DBusError, IOError {
+            return false;
+        }
+
+        [DBus (name = "AboutToShowGroup")]
+        public void about_to_show_group(
+            int[] ids,
+            out int[] updates_needed,
+            out int[] id_errors
+        ) throws DBusError, IOError {
+            updates_needed = {};
+            id_errors = {};
+        }
+
+        private Variant build_layout() {
+            var children = new VariantBuilder(new VariantType("av"));
+            children.add_value(new Variant.variant(build_item(SHOW_HIDE_ID)));
+            children.add_value(new Variant.variant(build_item(PREFERENCES_ID)));
+            children.add_value(new Variant.variant(build_item(ABOUT_ID)));
+            children.add_value(new Variant.variant(build_item(QUIT_ID)));
+
+            var root_properties = new VariantBuilder(new VariantType("a{sv}"));
+            root_properties.add("{sv}", "children-display", new Variant.string("submenu"));
+
+            return new Variant.tuple({
+                new Variant.int32(ROOT_ID),
+                root_properties.end(),
+                children.end()
+            });
+        }
+
+        private Variant build_item(int id) {
+            var children = new VariantBuilder(new VariantType("av"));
+            return new Variant.tuple({
+                new Variant.int32(id),
+                build_properties(id),
+                children.end()
+            });
+        }
+
+        private Variant build_properties(int id) {
+            var properties = new VariantBuilder(new VariantType("a{sv}"));
+            properties.add("{sv}", "enabled", new Variant.boolean(true));
+            properties.add("{sv}", "visible", new Variant.boolean(true));
+            properties.add("{sv}", "type", new Variant.string("standard"));
+            properties.add("{sv}", "label", new Variant.string(get_label(id)));
+            return properties.end();
+        }
+
+        private string get_label(int id) {
+            switch (id) {
+                case SHOW_HIDE_ID:
+                    return window_visible ? _("Hide") : _("Show");
+                case PREFERENCES_ID:
+                    return _("Preferences");
+                case ABOUT_ID:
+                    return _("About");
+                case QUIT_ID:
+                    return _("Quit");
+                default:
+                    return "";
+            }
+        }
+
+        private void activate_item(int id, uint timestamp) {
+            switch (id) {
+                case SHOW_HIDE_ID:
+                    action_requested(window_visible ? "hide" : "show");
+                    break;
+                case PREFERENCES_ID:
+                    action_requested("preferences");
+                    break;
+                case ABOUT_ID:
+                    action_requested("about");
+                    break;
+                case QUIT_ID:
+                    action_requested("quit");
+                    break;
+                default:
+                    return;
+            }
+
+            item_activation_requested(id, timestamp);
+        }
+    }
+
     public class StatusIndicator : Object {
         private const string WATCHER_BUS_NAME = "org.kde.StatusNotifierWatcher";
         private const string WATCHER_OBJECT_PATH = "/StatusNotifierWatcher";
@@ -121,17 +318,22 @@ namespace MprisMiniPlayer {
         private const string DBUS_OBJECT_PATH = "/org/freedesktop/DBus";
         private const string DBUS_IFACE = "org.freedesktop.DBus";
         private const string ITEM_OBJECT_PATH = "/StatusNotifierItem";
+        private const string MENU_OBJECT_PATH = "/StatusNotifierMenu";
 
         private DBusConnection? bus;
         private StatusNotifierItem? item;
+        private StatusNotifierMenu? menu;
         private uint item_registration_id = 0;
+        private uint menu_registration_id = 0;
         private uint name_owner_subscription_id = 0;
         private bool enabled = false;
+        private bool window_visible = false;
 
         public bool supported { get; private set; default = false; }
 
         public signal void support_changed();
         public signal void activated();
+        public signal void action_requested(string action);
 
         public StatusIndicator() {
             if (is_flatpak()) {
@@ -152,6 +354,14 @@ namespace MprisMiniPlayer {
         public void set_enabled(bool enabled) {
             this.enabled = enabled;
             update_registration();
+        }
+
+        public void set_window_visible(bool visible) {
+            window_visible = visible;
+
+            if (menu != null) {
+                menu.set_window_visible(visible);
+            }
         }
 
         public void shutdown() {
@@ -237,13 +447,16 @@ namespace MprisMiniPlayer {
 
             item = new StatusNotifierItem();
             item.activated.connect(() => activated());
+            menu = new StatusNotifierMenu();
+            menu.set_window_visible(window_visible);
+            menu.action_requested.connect((action) => action_requested(action));
 
             try {
+                menu_registration_id = bus.register_object(MENU_OBJECT_PATH, menu);
                 item_registration_id = bus.register_object(ITEM_OBJECT_PATH, item);
             } catch (IOError error) {
                 warning("Unable to export status indicator: %s", error.message);
-                item = null;
-                item_registration_id = 0;
+                unregister_item();
                 return;
             }
 
@@ -272,8 +485,13 @@ namespace MprisMiniPlayer {
                 bus.unregister_object(item_registration_id);
                 item_registration_id = 0;
             }
+            if (bus != null && menu_registration_id != 0) {
+                bus.unregister_object(menu_registration_id);
+                menu_registration_id = 0;
+            }
 
             item = null;
+            menu = null;
         }
 
         private static bool is_flatpak() {
