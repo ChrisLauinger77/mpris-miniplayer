@@ -5,8 +5,10 @@ namespace MprisMiniPlayer {
         private Adw.SwitchRow autostart_row;
         private Adw.SwitchRow automatic_visibility_row;
         private Adw.SwitchRow compact_mode_row;
+        private Adw.SwitchRow status_indicator_row;
+        private StatusIndicator? status_indicator;
 
-        public PreferencesWindow(Gtk.Application app, AppSettings app_settings) {
+        public PreferencesWindow(Gtk.Application app, AppSettings app_settings, StatusIndicator? status_indicator) {
             Object(
                 application: app,
                 title: _("Preferences"),
@@ -15,9 +17,13 @@ namespace MprisMiniPlayer {
             );
 
             this.app_settings = app_settings;
+            this.status_indicator = status_indicator;
 
             build_ui(app);
             app_settings.changed.connect(sync_rows);
+            if (status_indicator != null) {
+                status_indicator.support_changed.connect(() => sync_rows("show-status-indicator"));
+            }
         }
 
         private void build_ui(Gtk.Application app) {
@@ -67,6 +73,17 @@ namespace MprisMiniPlayer {
             });
             behavior_group.add(compact_mode_row);
 
+            status_indicator_row = new Adw.SwitchRow();
+            status_indicator_row.title = _("Status indicator");
+            status_indicator_row.active = app_settings.show_status_indicator;
+            status_indicator_row.notify["active"].connect(() => {
+                if (status_indicator_is_supported()) {
+                    app_settings.show_status_indicator = status_indicator_row.active;
+                }
+            });
+            behavior_group.add(status_indicator_row);
+            sync_status_indicator_row();
+
             var app_group = new Adw.PreferencesGroup();
             app_group.title = _("Application");
             page.add(app_group);
@@ -103,6 +120,20 @@ namespace MprisMiniPlayer {
             autostart_row.active = app_settings.start_on_login;
             automatic_visibility_row.active = app_settings.automatic_window_visibility;
             compact_mode_row.active = app_settings.compact_mode;
+            sync_status_indicator_row();
+        }
+
+        private void sync_status_indicator_row() {
+            bool supported = status_indicator_is_supported();
+            status_indicator_row.sensitive = supported;
+            status_indicator_row.active = supported && app_settings.show_status_indicator;
+            status_indicator_row.subtitle = supported
+                ? _("Show an indicator when the app is running")
+                : _("Not supported by this desktop");
+        }
+
+        private bool status_indicator_is_supported() {
+            return status_indicator != null && status_indicator.supported;
         }
     }
 }

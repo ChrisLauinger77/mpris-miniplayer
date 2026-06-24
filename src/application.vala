@@ -4,6 +4,7 @@ namespace MprisMiniPlayer {
 
         private AppSettings app_settings;
         private BackgroundPortal background_portal;
+        private StatusIndicator status_indicator;
         private MprisManager? manager;
         private Window? main_window;
         private PreferencesWindow? preferences_window;
@@ -31,6 +32,9 @@ namespace MprisMiniPlayer {
             background_portal = new BackgroundPortal();
             background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
+            status_indicator = new StatusIndicator();
+            status_indicator.activated.connect(() => present_window());
+            status_indicator.set_enabled(app_settings.show_status_indicator);
 
             try {
                 manager = new MprisManager();
@@ -143,7 +147,7 @@ namespace MprisMiniPlayer {
 
         private void present_preferences() {
             if (preferences_window == null) {
-                preferences_window = new PreferencesWindow(this, app_settings);
+                preferences_window = new PreferencesWindow(this, app_settings, status_indicator);
                 preferences_window.close_request.connect(() => {
                     preferences_window = null;
                     return false;
@@ -186,6 +190,10 @@ namespace MprisMiniPlayer {
                 }
             }
 
+            if (key == "show-status-indicator") {
+                status_indicator.set_enabled(app_settings.show_status_indicator);
+            }
+
             bool compact_mode = app_settings.compact_mode;
             if (compact_mode_action != null) {
                 compact_mode_action.set_state(new Variant.boolean(compact_mode));
@@ -225,6 +233,7 @@ namespace MprisMiniPlayer {
         private void quit_app() {
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
             background_portal.leave_background();
+            status_indicator.shutdown();
 
             if (held) {
                 release();

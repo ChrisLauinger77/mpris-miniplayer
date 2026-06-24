@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-24 17:04+0200\n"
+"POT-Creation-Date: 2026-06-24 18:26+0200\n"
 "PO-Revision-Date: 2026-06-21 09:39+0200\n"
 "Last-Translator: Christian Lauinger\n"
 "Language-Team: Spanish\n"
@@ -14,7 +14,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/application.vala:163 src/window.vala:38
+#: src/application.vala:167 src/window.vala:38
 msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
@@ -84,11 +84,11 @@ msgstr "Supervisando reproductores multimedia"
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr "Seguir buscando reproductores multimedia compatibles con MPRIS"
 
-#: src/application.vala:210
+#: src/application.vala:218
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr "MPRIS MiniPlayer se está ejecutando en segundo plano"
 
-#: src/application.vala:212
+#: src/application.vala:220
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
@@ -96,78 +96,90 @@ msgstr ""
 "La ventana aparecerá automáticamente cuando haya disponible un reproductor "
 "multimedia compatible."
 
-#: src/application.vala:214
+#: src/application.vala:222
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 "Abre la ventana cuando quieras controlar un reproductor multimedia "
 "compatible."
 
-#: src/application.vala:216
+#: src/application.vala:224
 msgid "Open"
 msgstr "Abrir"
 
-#: src/preferences-window.vala:12 src/preferences-window.vala:25
+#: src/preferences-window.vala:14 src/preferences-window.vala:31
 #: src/window.vala:106
 msgid "Preferences"
 msgstr "Preferencias"
 
-#: src/preferences-window.vala:29
+#: src/preferences-window.vala:35
 msgid "Behavior"
 msgstr "Comportamiento"
 
-#: src/preferences-window.vala:33
+#: src/preferences-window.vala:39
 msgid "Show and hide automatically"
 msgstr "Mostrar y ocultar automáticamente"
 
-#: src/preferences-window.vala:34
+#: src/preferences-window.vala:40
 msgid "Show the window when a player appears and hide it when none remain"
 msgstr ""
 "Mostrar la ventana cuando aparezca un reproductor y ocultarla cuando no "
 "quede ninguno"
 
-#: src/preferences-window.vala:42
+#: src/preferences-window.vala:48
 msgid "Background notification"
 msgstr "Notificación en segundo plano"
 
-#: src/preferences-window.vala:43
+#: src/preferences-window.vala:49
 msgid "Notify when the app starts hidden in the background"
 msgstr "Notificar cuando la aplicación se inicia oculta en segundo plano"
 
-#: src/preferences-window.vala:51
+#: src/preferences-window.vala:57
 msgid "Start on login"
 msgstr "Iniciar al iniciar sesión"
 
-#: src/preferences-window.vala:52
+#: src/preferences-window.vala:58
 msgid "Start MPRIS MiniPlayer automatically when you log in"
 msgstr "Iniciar MPRIS MiniPlayer automáticamente cuando inicies sesión"
 
-#: src/preferences-window.vala:62
+#: src/preferences-window.vala:68
 msgid "Compact mode"
 msgstr "Modo compacto"
 
-#: src/preferences-window.vala:63
+#: src/preferences-window.vala:69
 msgid "Use a smaller window layout"
 msgstr "Usar una disposición de ventana más pequeña"
 
-#: src/preferences-window.vala:71
+#: src/preferences-window.vala:77
+msgid "Status indicator"
+msgstr "Indicador de estado"
+
+#: src/preferences-window.vala:88
 msgid "Application"
 msgstr "Aplicación"
 
-#: src/preferences-window.vala:75 src/window.vala:116
+#: src/preferences-window.vala:92 src/window.vala:116
 msgid "About MPRIS MiniPlayer"
 msgstr "Acerca de MPRIS MiniPlayer"
 
-#: src/preferences-window.vala:89
+#: src/preferences-window.vala:106
 msgid "Quit MPRIS MiniPlayer"
 msgstr "Salir de MPRIS MiniPlayer"
 
-#: src/preferences-window.vala:90
+#: src/preferences-window.vala:107
 msgid "Stop running in the background"
 msgstr "Dejar de ejecutarse en segundo plano"
 
-#: src/preferences-window.vala:92 src/window.vala:107
+#: src/preferences-window.vala:109 src/window.vala:107
 msgid "Quit"
 msgstr "Salir"
+
+#: src/preferences-window.vala:131
+msgid "Show an indicator when the app is running"
+msgstr "Mostrar un indicador cuando la aplicación esté en ejecución"
+
+#: src/preferences-window.vala:132
+msgid "Not supported by this desktop"
+msgstr "No compatible con este escritorio"
 
 #: src/window.vala:98
 msgid "Choose player"
