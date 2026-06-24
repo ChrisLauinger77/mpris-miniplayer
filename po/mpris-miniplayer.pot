@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-23 18:26+0200\n"
+"POT-Creation-Date: 2026-06-24 16:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -39,18 +39,27 @@ msgid "Christian Lauinger"
 msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
+msgid "Add a header-bar About button and improve About dialog sizing."
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:23
+msgid ""
+"Document the build-tree run command with Meson's development environment."
+msgstr ""
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:28
 msgid ""
 "Add release packaging, icon integration, and validator-clean AppStream "
 "metadata."
 msgstr ""
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:27
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:33
 msgid ""
 "Add background operation, automatic window visibility, preferences, and "
 "start-on-login support."
 msgstr ""
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:32
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:38
 msgid "Initial development release."
 msgstr ""
 
@@ -62,21 +71,21 @@ msgstr ""
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr ""
 
-#: src/application.vala:212
+#: src/application.vala:204
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr ""
 
-#: src/application.vala:214
+#: src/application.vala:206
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
 msgstr ""
 
-#: src/application.vala:216
+#: src/application.vala:208
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 
-#: src/application.vala:218
+#: src/application.vala:210
 msgid "Open"
 msgstr ""
 
@@ -125,7 +134,7 @@ msgstr ""
 msgid "Application"
 msgstr ""
 
-#: src/preferences-window.vala:75
+#: src/preferences-window.vala:75 src/window.vala:116
 msgid "About MPRIS MiniPlayer"
 msgstr ""
 
@@ -153,55 +162,55 @@ msgstr ""
 msgid "Main menu"
 msgstr ""
 
-#: src/window.vala:140
+#: src/window.vala:145
 msgid "No player running"
 msgstr ""
 
-#: src/window.vala:146
+#: src/window.vala:151
 msgid "Start an MPRIS-compatible media player"
 msgstr ""
 
-#: src/window.vala:187 src/window.vala:198
+#: src/window.vala:192 src/window.vala:203
 msgid "Volume"
 msgstr ""
 
-#: src/window.vala:204
+#: src/window.vala:209
 msgid "Previous"
 msgstr ""
 
-#: src/window.vala:213
+#: src/window.vala:218
 msgid "Play or pause"
 msgstr ""
 
-#: src/window.vala:223
+#: src/window.vala:228
 msgid "Next"
 msgstr ""
 
-#: src/window.vala:244
+#: src/window.vala:249
 msgid "Session D-Bus unavailable"
 msgstr ""
 
-#: src/window.vala:244
+#: src/window.vala:249
 msgid "Unable to monitor MPRIS players"
 msgstr ""
 
-#: src/window.vala:254
+#: src/window.vala:259
 msgid "No player detected"
 msgstr ""
 
-#: src/window.vala:254
+#: src/window.vala:259
 msgid "Start any MPRIS-compatible player"
 msgstr ""
 
-#: src/window.vala:284
+#: src/window.vala:289
 msgid "Player unavailable"
 msgstr ""
 
-#: src/window.vala:553
+#: src/window.vala:558
 msgid "Restore volume"
 msgstr ""
 
-#: src/window.vala:557
+#: src/window.vala:562
 msgid "Mute"
 msgstr ""
 

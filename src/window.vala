@@ -112,6 +112,11 @@ namespace MprisMiniPlayer {
             menu_button.menu_model = menu;
             header_bar.pack_end(menu_button);
 
+            var about_button = new Gtk.Button.from_icon_name("help-about-symbolic");
+            about_button.tooltip_text = _("About MPRIS MiniPlayer");
+            about_button.action_name = "app.about";
+            header_bar.pack_end(about_button);
+
             main_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 14);
             main_box.margin_top = 8;
             main_box.margin_bottom = 12;

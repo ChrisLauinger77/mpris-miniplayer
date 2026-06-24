@@ -7,7 +7,7 @@
 
 MPRIS MiniPlayer is a small GTK4/libadwaita mini player for Linux media players that expose the MPRIS interface on the session D-Bus.
 
-It is not tied to a specific player. It is intended to work with Sidra, VLC, Spotify, Strawberry, Rhythmbox, Elisa, browsers exposing media sessions, Mopidy, spotifyd, mpv with an MPRIS plugin, and similar clients.
+It is not tied to a specific player. It is intended to work with Sidra, Cider, VLC, Spotify, Strawberry, Rhythmbox, Elisa, browsers exposing media sessions, Mopidy, spotifyd, mpv with an MPRIS plugin, and similar clients.
 
 ## Screenshot
 
@@ -76,8 +76,11 @@ Build and run:
 ```bash
 meson setup build
 meson compile -C build
-./build/src/mpris-miniplayer
+meson devenv -C build ./src/mpris-miniplayer
 ```
+
+`meson devenv` runs the build-tree binary with the generated GSettings
+schemas available, so preferences work before installing the app.
 
 Install locally:
 
@@ -96,8 +99,8 @@ sudo ninja -C build uninstall
 Pushing a version tag builds a Flatpak bundle, builds an amd64 Debian package, and creates a GitHub release:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` and `mpris-miniplayer_<tag>_amd64.deb` to the generated release.
