@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
         private MprisManager? manager;
         private Window? main_window;
         private PreferencesWindow? preferences_window;
+        private Adw.AboutDialog? about_dialog;
         private SimpleAction? compact_mode_action;
         private bool suppress_next_start_on_login_portal_update = false;
         private bool startup_activation_handled = false;
@@ -157,16 +158,21 @@ namespace MprisMiniPlayer {
         }
 
         private void present_about() {
-            var about_dialog = new Adw.AboutDialog();
-            about_dialog.application_name = _("MPRIS MiniPlayer");
-            about_dialog.application_icon = "io.github.ChrisLauinger.MprisMiniPlayer";
-            about_dialog.developer_name = "Chris Lauinger";
-            about_dialog.version = Config.VERSION;
-            about_dialog.website = "https://github.com/ChrisLauinger77/mpris-miniplayer";
-            about_dialog.issue_url = "https://github.com/ChrisLauinger77/mpris-miniplayer/issues";
-            about_dialog.license_type = Gtk.License.GPL_3_0;
-            about_dialog.content_width = 420;
-            about_dialog.content_height = 560;
+            if (about_dialog == null) {
+                about_dialog = new Adw.AboutDialog();
+                about_dialog.application_name = _("MPRIS MiniPlayer");
+                about_dialog.application_icon = "io.github.ChrisLauinger.MprisMiniPlayer";
+                about_dialog.developer_name = "Chris Lauinger";
+                about_dialog.version = Config.VERSION;
+                about_dialog.website = "https://github.com/ChrisLauinger77/mpris-miniplayer";
+                about_dialog.issue_url = "https://github.com/ChrisLauinger77/mpris-miniplayer/issues";
+                about_dialog.license_type = Gtk.License.GPL_3_0;
+                about_dialog.content_width = 420;
+                about_dialog.content_height = 560;
+                about_dialog.closed.connect(() => {
+                    about_dialog = null;
+                });
+            }
 
             about_dialog.present(null);
         }
