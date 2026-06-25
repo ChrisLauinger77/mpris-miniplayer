@@ -17,6 +17,13 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.2.0" date="2026-06-24">
+      <description>
+        <p>Add an optional native status indicator when the desktop supports StatusNotifierItem.</p>
+        <p>Add a status indicator menu with show, hide, settings, about, and quit actions.</p>
+        <p>Add a preference to disable the status indicator and show when the desktop does not support it.</p>
+      </description>
+    </release>
     <release version="1.1.1" date="2026-06-24">
       <description>
         <p>Reuse the About dialog on repeated activations without constraining it to the mini-player window.</p>

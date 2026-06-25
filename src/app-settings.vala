@@ -5,19 +5,24 @@ namespace MprisMiniPlayer {
         private const string KEY_START_ON_LOGIN = "start-on-login";
         private const string KEY_AUTOMATIC_WINDOW_VISIBILITY = "automatic-window-visibility";
         private const string KEY_COMPACT_MODE = "compact-mode";
+        private const string KEY_SHOW_STATUS_INDICATOR = "show-status-indicator";
 
         private GLib.Settings? settings;
         private bool fallback_show_background_notification = true;
         private bool fallback_start_on_login = false;
         private bool fallback_automatic_window_visibility = true;
         private bool fallback_compact_mode = false;
+        private bool fallback_show_status_indicator = true;
+        private bool has_show_status_indicator_key = false;
         private bool syncing = false;
 
         public signal void changed(string key);
 
         public AppSettings() {
             SettingsSchemaSource? source = SettingsSchemaSource.get_default();
-            if (source != null && source.lookup(SCHEMA_ID, true) != null) {
+            SettingsSchema? schema = source != null ? source.lookup(SCHEMA_ID, true) : null;
+            if (schema != null) {
+                has_show_status_indicator_key = schema.has_key(KEY_SHOW_STATUS_INDICATOR);
                 settings = new GLib.Settings(SCHEMA_ID);
                 settings.changed.connect(on_settings_changed);
             } else {
@@ -94,6 +99,24 @@ namespace MprisMiniPlayer {
                 } else if (fallback_compact_mode != value) {
                     fallback_compact_mode = value;
                     changed(KEY_COMPACT_MODE);
+                }
+            }
+        }
+
+        public bool show_status_indicator {
+            get {
+                if (settings != null && has_show_status_indicator_key) {
+                    return settings.get_boolean(KEY_SHOW_STATUS_INDICATOR);
+                }
+
+                return fallback_show_status_indicator;
+            }
+            set {
+                if (settings != null && has_show_status_indicator_key) {
+                    settings.set_boolean(KEY_SHOW_STATUS_INDICATOR, value);
+                } else if (fallback_show_status_indicator != value) {
+                    fallback_show_status_indicator = value;
+                    changed(KEY_SHOW_STATUS_INDICATOR);
                 }
             }
         }

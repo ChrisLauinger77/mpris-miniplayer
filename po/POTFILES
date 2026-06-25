@@ -2,6 +2,7 @@ data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in
 data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in
 src/app-settings.vala
 src/background-portal.vala
+src/status-indicator.vala
 src/main.vala
 src/application.vala
 src/preferences-window.vala

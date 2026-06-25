@@ -4,6 +4,7 @@ namespace MprisMiniPlayer {
 
         private AppSettings app_settings;
         private BackgroundPortal background_portal;
+        private StatusIndicator status_indicator;
         private MprisManager? manager;
         private Window? main_window;
         private PreferencesWindow? preferences_window;
@@ -31,6 +32,10 @@ namespace MprisMiniPlayer {
             background_portal = new BackgroundPortal();
             background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
+            status_indicator = new StatusIndicator();
+            status_indicator.activated.connect(() => present_window());
+            status_indicator.action_requested.connect(on_status_indicator_action_requested);
+            status_indicator.set_enabled(app_settings.show_status_indicator);
 
             try {
                 manager = new MprisManager();
@@ -55,6 +60,10 @@ namespace MprisMiniPlayer {
             var open_action = new SimpleAction("open", null);
             open_action.activate.connect(() => present_window());
             add_action(open_action);
+
+            var hide_action = new SimpleAction("hide", null);
+            hide_action.activate.connect(() => hide_window());
+            add_action(hide_action);
 
             var preferences_action = new SimpleAction("preferences", null);
             preferences_action.activate.connect(() => present_preferences());
@@ -110,8 +119,7 @@ namespace MprisMiniPlayer {
             if (players_available) {
                 present_window();
             } else if (main_window != null) {
-                main_window.set_visible(false);
-                enter_background();
+                hide_window();
             }
         }
 
@@ -129,21 +137,30 @@ namespace MprisMiniPlayer {
             if (main_window == null) {
                 main_window = new Window(this, manager, app_settings.compact_mode);
                 main_window.close_request.connect(() => {
-                    main_window.set_visible(false);
-                    enter_background();
+                    hide_window();
                     return true;
                 });
             }
 
             main_window.refresh_players();
             main_window.present();
+            status_indicator.set_window_visible(true);
             background_portal.leave_background();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
         }
 
+        private void hide_window() {
+            if (main_window != null) {
+                main_window.set_visible(false);
+            }
+
+            status_indicator.set_window_visible(false);
+            enter_background();
+        }
+
         private void present_preferences() {
             if (preferences_window == null) {
-                preferences_window = new PreferencesWindow(this, app_settings);
+                preferences_window = new PreferencesWindow(this, app_settings, status_indicator);
                 preferences_window.close_request.connect(() => {
                     preferences_window = null;
                     return false;
@@ -186,6 +203,10 @@ namespace MprisMiniPlayer {
                 }
             }
 
+            if (key == "show-status-indicator") {
+                status_indicator.set_enabled(app_settings.show_status_indicator);
+            }
+
             bool compact_mode = app_settings.compact_mode;
             if (compact_mode_action != null) {
                 compact_mode_action.set_state(new Variant.boolean(compact_mode));
@@ -199,6 +220,26 @@ namespace MprisMiniPlayer {
             if (app_settings.start_on_login != enabled) {
                 suppress_next_start_on_login_portal_update = true;
                 app_settings.start_on_login = enabled;
+            }
+        }
+
+        private void on_status_indicator_action_requested(string action) {
+            switch (action) {
+                case "show":
+                    present_window();
+                    break;
+                case "hide":
+                    hide_window();
+                    break;
+                case "preferences":
+                    present_preferences();
+                    break;
+                case "about":
+                    present_about();
+                    break;
+                case "quit":
+                    quit_app();
+                    break;
             }
         }
 
@@ -225,6 +266,7 @@ namespace MprisMiniPlayer {
         private void quit_app() {
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
             background_portal.leave_background();
+            status_indicator.shutdown();
 
             if (held) {
                 release();

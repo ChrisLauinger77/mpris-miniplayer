@@ -5,8 +5,10 @@ namespace MprisMiniPlayer {
         private Adw.SwitchRow autostart_row;
         private Adw.SwitchRow automatic_visibility_row;
         private Adw.SwitchRow compact_mode_row;
+        private Adw.SwitchRow status_indicator_row;
+        private StatusIndicator? status_indicator;
 
-        public PreferencesWindow(Gtk.Application app, AppSettings app_settings) {
+        public PreferencesWindow(Gtk.Application app, AppSettings app_settings, StatusIndicator? status_indicator) {
             Object(
                 application: app,
                 title: _("Preferences"),
@@ -15,12 +17,16 @@ namespace MprisMiniPlayer {
             );
 
             this.app_settings = app_settings;
+            this.status_indicator = status_indicator;
 
-            build_ui(app);
+            build_ui();
             app_settings.changed.connect(sync_rows);
+            if (status_indicator != null) {
+                status_indicator.support_changed.connect(() => sync_rows("show-status-indicator"));
+            }
         }
 
-        private void build_ui(Gtk.Application app) {
+        private void build_ui() {
             var page = new Adw.PreferencesPage();
             page.title = _("Preferences");
             add(page);
@@ -67,35 +73,16 @@ namespace MprisMiniPlayer {
             });
             behavior_group.add(compact_mode_row);
 
-            var app_group = new Adw.PreferencesGroup();
-            app_group.title = _("Application");
-            page.add(app_group);
-
-            var about_row = new Adw.ActionRow();
-            about_row.title = _("About MPRIS MiniPlayer");
-            about_row.activatable = true;
-            about_row.activated.connect(() => app.activate_action("about", null));
-
-            var about_icon = new Gtk.Image.from_icon_name("help-about-symbolic");
-            about_icon.valign = Gtk.Align.CENTER;
-            about_row.add_prefix(about_icon);
-
-            var about_arrow = new Gtk.Image.from_icon_name("go-next-symbolic");
-            about_arrow.valign = Gtk.Align.CENTER;
-            about_row.add_suffix(about_arrow);
-            app_group.add(about_row);
-
-            var quit_row = new Adw.ActionRow();
-            quit_row.title = _("Quit MPRIS MiniPlayer");
-            quit_row.subtitle = _("Stop running in the background");
-
-            var quit_button = new Gtk.Button.with_label(_("Quit"));
-            quit_button.valign = Gtk.Align.CENTER;
-            quit_button.add_css_class("destructive-action");
-            quit_button.clicked.connect(() => app.activate_action("quit", null));
-            quit_row.add_suffix(quit_button);
-            quit_row.activatable_widget = quit_button;
-            app_group.add(quit_row);
+            status_indicator_row = new Adw.SwitchRow();
+            status_indicator_row.title = _("Status indicator");
+            status_indicator_row.active = app_settings.show_status_indicator;
+            status_indicator_row.notify["active"].connect(() => {
+                if (status_indicator_is_supported()) {
+                    app_settings.show_status_indicator = status_indicator_row.active;
+                }
+            });
+            behavior_group.add(status_indicator_row);
+            sync_status_indicator_row();
         }
 
         private void sync_rows(string key) {
@@ -103,6 +90,20 @@ namespace MprisMiniPlayer {
             autostart_row.active = app_settings.start_on_login;
             automatic_visibility_row.active = app_settings.automatic_window_visibility;
             compact_mode_row.active = app_settings.compact_mode;
+            sync_status_indicator_row();
+        }
+
+        private void sync_status_indicator_row() {
+            bool supported = status_indicator_is_supported();
+            status_indicator_row.sensitive = supported;
+            status_indicator_row.active = supported && app_settings.show_status_indicator;
+            status_indicator_row.subtitle = supported
+                ? _("Show an indicator when the app is running")
+                : _("Not supported by this desktop");
+        }
+
+        private bool status_indicator_is_supported() {
+            return status_indicator != null && status_indicator.supported;
         }
     }
 }

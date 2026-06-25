@@ -21,5 +21,10 @@
       <summary>Use compact mode</summary>
       <description>Whether MPRIS MiniPlayer should use a smaller window layout.</description>
     </key>
+    <key name="show-status-indicator" type="b">
+      <default>true</default>
+      <summary>Show a status indicator</summary>
+      <description>Whether MPRIS MiniPlayer should show a status indicator when the desktop supports StatusNotifierItem indicators.</description>
+    </key>
   </schema>
 </schemalist>

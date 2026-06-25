@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-24 17:04+0200\n"
+"POT-Creation-Date: 2026-06-24 18:58+0200\n"
 "PO-Revision-Date: 2026-06-21 09:39+0200\n"
 "Last-Translator: Christian Lauinger\n"
 "Language-Team: German\n"
@@ -14,7 +14,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/application.vala:163 src/window.vala:38
+#: src/status-indicator.vala:37 src/application.vala:180 src/window.vala:38
 msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
@@ -37,26 +37,50 @@ msgstr "Christian Lauinger"
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:22
 msgid ""
+"Add an optional native status indicator when the desktop supports "
+"StatusNotifierItem."
+msgstr ""
+"Eine optionale native Statusanzeige hinzufügen, wenn der Desktop "
+"StatusNotifierItem unterstützt."
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:23
+msgid ""
+"Add a status indicator menu with show, hide, settings, about, and quit "
+"actions."
+msgstr ""
+"Ein Menü für die Statusanzeige mit Aktionen zum Anzeigen, Ausblenden, für "
+"Einstellungen, Info und Beenden hinzufügen."
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:24
+msgid ""
+"Add a preference to disable the status indicator and show when the desktop "
+"does not support it."
+msgstr ""
+"Eine Einstellung zum Deaktivieren der Statusanzeige hinzufügen und anzeigen, "
+"wenn der Desktop sie nicht unterstützt."
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:29
+msgid ""
 "Reuse the About dialog on repeated activations without constraining it to "
 "the mini-player window."
 msgstr ""
 "Den Info-Dialog bei wiederholter Aktivierung wiederverwenden, ohne ihn auf "
 "das Mini-Player-Fenster zu beschränken."
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:27
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:34
 msgid "Add a header-bar About button and improve About dialog sizing."
 msgstr ""
 "Eine Info-Schaltfläche in der Kopfleiste hinzufügen und die Größe des Info-"
 "Dialogs verbessern."
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:28
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:35
 msgid ""
 "Document the build-tree run command with Meson's development environment."
 msgstr ""
 "Den Befehl zum Ausführen aus dem Build-Verzeichnis mit Mesons "
 "Entwicklungsumgebung dokumentieren."
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:33
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:40
 msgid ""
 "Add release packaging, icon integration, and validator-clean AppStream "
 "metadata."
@@ -64,7 +88,7 @@ msgstr ""
 "Release-Paketierung, Icon-Integration und AppStream-Metadaten ohne "
 "Validierungsfehler hinzufügen."
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:38
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:45
 msgid ""
 "Add background operation, automatic window visibility, preferences, and "
 "start-on-login support."
@@ -72,7 +96,7 @@ msgstr ""
 "Hintergrundbetrieb, automatische Fenstersichtbarkeit, Einstellungen und "
 "Unterstützung für den Start bei der Anmeldung hinzufügen."
 
-#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:43
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:50
 msgid "Initial development release."
 msgstr "Erste Entwicklungsversion."
 
@@ -84,11 +108,32 @@ msgstr "Medienspieler überwachen"
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr "Weiter nach MPRIS-kompatiblen Medienspielern suchen"
 
-#: src/application.vala:210
+#: src/status-indicator.vala:248
+msgid "Hide"
+msgstr "Ausblenden"
+
+#: src/status-indicator.vala:248
+msgid "Show"
+msgstr "Anzeigen"
+
+#: src/status-indicator.vala:250 src/preferences-window.vala:14
+#: src/preferences-window.vala:31 src/window.vala:106
+msgid "Preferences"
+msgstr "Einstellungen"
+
+#: src/status-indicator.vala:252
+msgid "About"
+msgstr "Info"
+
+#: src/status-indicator.vala:254 src/window.vala:107
+msgid "Quit"
+msgstr "Beenden"
+
+#: src/application.vala:251
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr "MPRIS MiniPlayer läuft im Hintergrund"
 
-#: src/application.vala:212
+#: src/application.vala:253
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
@@ -96,77 +141,64 @@ msgstr ""
 "Das Fenster erscheint automatisch, sobald ein kompatibler Medienspieler "
 "verfügbar ist."
 
-#: src/application.vala:214
+#: src/application.vala:255
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 "Öffne das Fenster, wenn du einen kompatiblen Medienspieler steuern möchtest."
 
-#: src/application.vala:216
+#: src/application.vala:257
 msgid "Open"
 msgstr "Öffnen"
 
-#: src/preferences-window.vala:12 src/preferences-window.vala:25
-#: src/window.vala:106
-msgid "Preferences"
-msgstr "Einstellungen"
-
-#: src/preferences-window.vala:29
+#: src/preferences-window.vala:35
 msgid "Behavior"
 msgstr "Verhalten"
 
-#: src/preferences-window.vala:33
+#: src/preferences-window.vala:39
 msgid "Show and hide automatically"
 msgstr "Automatisch anzeigen und ausblenden"
 
-#: src/preferences-window.vala:34
+#: src/preferences-window.vala:40
 msgid "Show the window when a player appears and hide it when none remain"
 msgstr ""
 "Das Fenster anzeigen, wenn ein Medienspieler erscheint, und ausblenden, wenn "
 "keiner mehr verfügbar ist"
 
-#: src/preferences-window.vala:42
+#: src/preferences-window.vala:48
 msgid "Background notification"
 msgstr "Hintergrundbenachrichtigung"
 
-#: src/preferences-window.vala:43
+#: src/preferences-window.vala:49
 msgid "Notify when the app starts hidden in the background"
 msgstr "Benachrichtigen, wenn die App versteckt im Hintergrund startet"
 
-#: src/preferences-window.vala:51
+#: src/preferences-window.vala:57
 msgid "Start on login"
 msgstr "Bei Anmeldung starten"
 
-#: src/preferences-window.vala:52
+#: src/preferences-window.vala:58
 msgid "Start MPRIS MiniPlayer automatically when you log in"
 msgstr "MPRIS MiniPlayer automatisch starten, wenn du dich anmeldest"
 
-#: src/preferences-window.vala:62
+#: src/preferences-window.vala:68
 msgid "Compact mode"
 msgstr "Kompakter Modus"
 
-#: src/preferences-window.vala:63
+#: src/preferences-window.vala:69
 msgid "Use a smaller window layout"
 msgstr "Ein kleineres Fensterlayout verwenden"
 
-#: src/preferences-window.vala:71
-msgid "Application"
-msgstr "Anwendung"
+#: src/preferences-window.vala:77
+msgid "Status indicator"
+msgstr "Statusanzeige"
 
-#: src/preferences-window.vala:75 src/window.vala:116
-msgid "About MPRIS MiniPlayer"
-msgstr "Info zu MPRIS MiniPlayer"
+#: src/preferences-window.vala:101
+msgid "Show an indicator when the app is running"
+msgstr "Eine Anzeige zeigen, wenn die Anwendung läuft"
 
-#: src/preferences-window.vala:89
-msgid "Quit MPRIS MiniPlayer"
-msgstr "MPRIS MiniPlayer beenden"
-
-#: src/preferences-window.vala:90
-msgid "Stop running in the background"
-msgstr "Nicht weiter im Hintergrund laufen"
-
-#: src/preferences-window.vala:92 src/window.vala:107
-msgid "Quit"
-msgstr "Beenden"
+#: src/preferences-window.vala:102
+msgid "Not supported by this desktop"
+msgstr "Von diesem Desktop nicht unterstützt"
 
 #: src/window.vala:98
 msgid "Choose player"
@@ -179,6 +211,10 @@ msgstr "Kompakter Modus"
 #: src/window.vala:111
 msgid "Main menu"
 msgstr "Hauptmenü"
+
+#: src/window.vala:116
+msgid "About MPRIS MiniPlayer"
+msgstr "Info zu MPRIS MiniPlayer"
 
 #: src/window.vala:145
 msgid "No player running"
@@ -239,3 +275,12 @@ msgstr "Unbekannter Titel"
 #: src/mpris-player.vala:247
 msgid "Unknown artist"
 msgstr "Unbekannter Künstler"
+
+#~ msgid "Application"
+#~ msgstr "Anwendung"
+
+#~ msgid "Quit MPRIS MiniPlayer"
+#~ msgstr "MPRIS MiniPlayer beenden"
+
+#~ msgid "Stop running in the background"
+#~ msgstr "Nicht weiter im Hintergrund laufen"

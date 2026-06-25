@@ -17,6 +17,7 @@ executable(
     'main.vala',
     'app-settings.vala',
     'background-portal.vala',
+    'status-indicator.vala',
     'application.vala',
     'preferences-window.vala',
     'window.vala',

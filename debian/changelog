@@ -1,3 +1,14 @@
+mpris-miniplayer (1.2.0-1) unstable; urgency=medium
+
+  * Add an optional native status indicator for desktops with
+    StatusNotifierItem support.
+  * Add a status indicator menu with show, hide, settings, about, and quit
+    actions.
+  * Add a preference to disable the status indicator when available.
+  * Keep the status indicator disabled when unsupported or running as Flatpak.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Wed, 24 Jun 2026 18:43:10 +0200
+
 mpris-miniplayer (1.1.1-1) unstable; urgency=medium
 
   * Reuse the About dialog on repeated activations without constraining it to

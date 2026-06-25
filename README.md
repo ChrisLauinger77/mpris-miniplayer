@@ -60,7 +60,8 @@ When it starts without a player, it can stay hidden in the background and show t
 - Updates the UI when player metadata changes
 - Can keep running in the background when no player is available
 - Can show and hide the window automatically as players appear or disappear
-- Provides preferences for compact mode, background notifications, automatic visibility, and start on login
+- Can show a status indicator with show, hide, settings, about, and quit actions when the desktop supports it
+- Provides preferences for compact mode, background notifications, automatic visibility, status indicators, and start on login
 - Hides the window on close; use Quit to stop the app
 
 ## Build from Source
@@ -99,8 +100,8 @@ sudo ninja -C build uninstall
 Pushing a version tag builds a Flatpak bundle, builds an amd64 Debian package, and creates a GitHub release:
 
 ```bash
-git tag v1.1.1
-git push origin v1.1.1
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` and `mpris-miniplayer_<tag>_amd64.deb` to the generated release.
@@ -127,7 +128,7 @@ v0.2:
 - Run in the background when no MPRIS player is available
 - Show and hide the window automatically when players appear or disappear
 - Show an optional background notification with an Open action
-- Add preferences for notifications, automatic visibility, and start on login
+- Add preferences for notifications, automatic visibility, status indicators, and start on login
 - Hide the window on close and quit only through an explicit Quit action
 
 v0.3:
