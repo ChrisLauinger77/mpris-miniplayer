@@ -35,6 +35,7 @@ namespace MprisMiniPlayer {
             status_indicator = new StatusIndicator();
             status_indicator.activated.connect(() => present_window());
             status_indicator.action_requested.connect(on_status_indicator_action_requested);
+            status_indicator.set_compact_mode(app_settings.compact_mode);
             status_indicator.set_enabled(app_settings.show_status_indicator);
 
             try {
@@ -214,6 +215,7 @@ namespace MprisMiniPlayer {
             if (main_window != null) {
                 main_window.set_compact_mode(compact_mode);
             }
+            status_indicator.set_compact_mode(compact_mode);
         }
 
         private void on_portal_autostart_changed(bool enabled) {
@@ -236,6 +238,9 @@ namespace MprisMiniPlayer {
                     break;
                 case "about":
                     present_about();
+                    break;
+                case "compact-mode":
+                    app_settings.compact_mode = !app_settings.compact_mode;
                     break;
                 case "quit":
                     quit_app();
