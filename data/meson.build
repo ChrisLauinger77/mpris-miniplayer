@@ -1,3 +1,5 @@
+fs = import('fs')
+
 desktop_data = configuration_data()
 desktop_data.set('EXEC_PATH', desktop_exec_path)
 
@@ -17,7 +19,13 @@ i18n.merge_file(
 )
 
 i18n.merge_file(
-  input: app_id + '.metainfo.xml.in',
+  input: configure_file(
+    input: app_id + '.metainfo.xml.in',
+    output: app_id + '.metainfo.xml.in',
+    configuration: {
+      'RELEASES': fs.read(app_id + '.releases.xml'),
+    },
+  ),
   output: app_id + '.metainfo.xml',
   po_dir: '../po',
   install: true,
