@@ -1,0 +1,40 @@
+  <releases>
+    <release version="1.2.1" date="2026-06-26">
+      <description>
+        <p>Add compact mode to the status indicator menu.</p>
+      </description>
+    </release>
+    <release version="1.2.0" date="2026-06-24">
+      <description>
+        <p>Add an optional native status indicator when the desktop supports StatusNotifierItem.</p>
+        <p>Add a status indicator menu with show, hide, settings, about, and quit actions.</p>
+        <p>Add a preference to disable the status indicator and show when the desktop does not support it.</p>
+      </description>
+    </release>
+    <release version="1.1.1" date="2026-06-24">
+      <description>
+        <p>Reuse the About dialog on repeated activations without constraining it to the mini-player window.</p>
+      </description>
+    </release>
+    <release version="1.1.0" date="2026-06-24">
+      <description>
+        <p>Add a header-bar About button and improve About dialog sizing.</p>
+        <p>Document the build-tree run command with Meson's development environment.</p>
+      </description>
+    </release>
+    <release version="1.0.0" date="2026-06-23">
+      <description>
+        <p>Add release packaging, icon integration, and validator-clean AppStream metadata.</p>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-06-21">
+      <description>
+        <p>Add background operation, automatic window visibility, preferences, and start-on-login support.</p>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-06-20">
+      <description>
+        <p>Initial development release.</p>
+      </description>
+    </release>
+  </releases>

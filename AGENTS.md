@@ -37,6 +37,7 @@ mpris-miniplayer/
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.desktop.in
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.gresource.xml
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in
+│   ├── io.github.ChrisLauinger.MprisMiniPlayer.releases.xml
 │   └── meson.build
 ├── po/
 ├── src/
@@ -109,9 +110,11 @@ Package names may need adjustment by distribution and version.
 When preparing a new release, update the version in:
 
 - `meson.build`: project version.
-- `data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in`: add a new top `<release>` entry with the new version and release date.
+- `data/io.github.ChrisLauinger.MprisMiniPlayer.releases.xml`: add a new top `<release>` entry with the new version and release date.
 - `debian/changelog`: add a new Debian changelog entry, usually `<upstream-version>-1` for a new upstream release.
 - `debian/mpris-miniplayer.1`: update the manpage header version string.
+
+Do not translate AppStream release notes. Keep release entries in `data/io.github.ChrisLauinger.MprisMiniPlayer.releases.xml`, which is intentionally not listed in `po/POTFILES`; release-note strings should never be added to `po/mpris-miniplayer.pot` or `po/*.po`.
 
 Then tag the release with a `v` prefix, for example:
 
