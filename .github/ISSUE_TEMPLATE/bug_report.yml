@@ -1,0 +1,87 @@
+name: Bug report
+description: Report something that is not working as expected
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve MPRIS MiniPlayer. Please include enough detail to reproduce the problem.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for this problem.
+          required: true
+        - label: I confirmed that the media player exposes MPRIS controls.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected to happen instead.
+      placeholder: MPRIS MiniPlayer did... I expected it to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start ...
+        2. Open ...
+        3. Click ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: MPRIS MiniPlayer version
+      description: Find this in the About window or provide the Git commit if built from source.
+      placeholder: 1.2.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Flatpak release bundle
+        - Debian package
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: system
+    attributes:
+      label: Linux distribution and desktop environment
+      placeholder: Debian 13, GNOME 48
+    validations:
+      required: true
+
+  - type: input
+    id: player
+    attributes:
+      label: Media player
+      description: Include the player name and version, plus any MPRIS plugin in use.
+      placeholder: VLC 3.0.21
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and additional context
+      description: Paste relevant terminal output or logs, and add screenshots if useful. Remove private information first.
+      render: shell
+
