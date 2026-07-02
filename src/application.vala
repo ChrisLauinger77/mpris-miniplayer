@@ -145,7 +145,6 @@ namespace MprisMiniPlayer {
 
             main_window.refresh_players();
             main_window.present();
-            status_indicator.set_window_visible(true);
             background_portal.leave_background();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
         }
@@ -155,7 +154,6 @@ namespace MprisMiniPlayer {
                 main_window.set_visible(false);
             }
 
-            status_indicator.set_window_visible(false);
             enter_background();
         }
 

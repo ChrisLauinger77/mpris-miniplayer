@@ -1,4 +1,10 @@
   <releases>
+    <release version="1.2.2" date="2026-07-02">
+      <description>
+        <p>Make the status indicator show and hide actions reliable across Wayland and X11.</p>
+        <p>Prevent status indicator menu actions from being activated twice.</p>
+      </description>
+    </release>
     <release version="1.2.1" date="2026-06-26">
       <description>
         <p>Add compact mode to the status indicator menu.</p>
