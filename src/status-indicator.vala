@@ -116,14 +116,14 @@ namespace MprisMiniPlayer {
     [DBus (name = "com.canonical.dbusmenu")]
     public class StatusNotifierMenu : Object {
         private const int ROOT_ID = 0;
-        private const int SHOW_HIDE_ID = 1;
-        private const int COMPACT_MODE_ID = 2;
-        private const int PREFERENCES_ID = 3;
-        private const int ABOUT_ID = 4;
-        private const int QUIT_ID = 5;
+        private const int SHOW_ID = 1;
+        private const int HIDE_ID = 2;
+        private const int COMPACT_MODE_ID = 3;
+        private const int PREFERENCES_ID = 4;
+        private const int ABOUT_ID = 5;
+        private const int QUIT_ID = 6;
 
         private uint revision = 1;
-        private bool window_visible = false;
         private bool compact_mode = false;
 
         public signal void action_requested(string action);
@@ -166,17 +166,6 @@ namespace MprisMiniPlayer {
         }
 
         [DBus (visible = false)]
-        public void set_window_visible(bool visible) {
-            if (window_visible == visible) {
-                return;
-            }
-
-            window_visible = visible;
-            revision++;
-            layout_updated(revision, ROOT_ID);
-        }
-
-        [DBus (visible = false)]
         public void set_compact_mode(bool enabled) {
             if (compact_mode == enabled) {
                 return;
@@ -204,11 +193,11 @@ namespace MprisMiniPlayer {
         public Variant get_group_properties(int[] ids, string[] property_names) throws DBusError, IOError {
             var items = new VariantBuilder(new VariantType("a(ia{sv})"));
             int[] requested_ids = ids.length == 0
-                ? new int[] { SHOW_HIDE_ID, COMPACT_MODE_ID, PREFERENCES_ID, ABOUT_ID, QUIT_ID }
+                ? new int[] { SHOW_ID, HIDE_ID, COMPACT_MODE_ID, PREFERENCES_ID, ABOUT_ID, QUIT_ID }
                 : ids;
 
             foreach (int id in requested_ids) {
-                if (id == ROOT_ID || id == SHOW_HIDE_ID || id == COMPACT_MODE_ID || id == PREFERENCES_ID || id == ABOUT_ID || id == QUIT_ID) {
+                if (id == ROOT_ID || id == SHOW_ID || id == HIDE_ID || id == COMPACT_MODE_ID || id == PREFERENCES_ID || id == ABOUT_ID || id == QUIT_ID) {
                     items.add_value(new Variant.tuple({
                         new Variant.int32(id),
                         build_properties(id)
@@ -232,7 +221,7 @@ namespace MprisMiniPlayer {
         [DBus (name = "Event")]
         public void event(int id, string event_id, Variant data, uint timestamp) throws DBusError, IOError {
             if (event_id == "clicked") {
-                activate_item(id, timestamp);
+                activate_item(id);
             }
         }
 
@@ -253,7 +242,8 @@ namespace MprisMiniPlayer {
 
         private Variant build_layout() {
             var children = new VariantBuilder(new VariantType("av"));
-            children.add_value(new Variant.variant(build_item(SHOW_HIDE_ID)));
+            children.add_value(new Variant.variant(build_item(SHOW_ID)));
+            children.add_value(new Variant.variant(build_item(HIDE_ID)));
             children.add_value(new Variant.variant(build_item(COMPACT_MODE_ID)));
             children.add_value(new Variant.variant(build_item(PREFERENCES_ID)));
             children.add_value(new Variant.variant(build_item(ABOUT_ID)));
@@ -293,8 +283,10 @@ namespace MprisMiniPlayer {
 
         private string get_label(int id) {
             switch (id) {
-                case SHOW_HIDE_ID:
-                    return window_visible ? _("Hide") : _("Show");
+                case SHOW_ID:
+                    return _("Show");
+                case HIDE_ID:
+                    return _("Hide");
                 case COMPACT_MODE_ID:
                     return _("Compact Mode");
                 case PREFERENCES_ID:
@@ -308,10 +300,13 @@ namespace MprisMiniPlayer {
             }
         }
 
-        private void activate_item(int id, uint timestamp) {
+        private void activate_item(int id) {
             switch (id) {
-                case SHOW_HIDE_ID:
-                    action_requested(window_visible ? "hide" : "show");
+                case SHOW_ID:
+                    action_requested("show");
+                    break;
+                case HIDE_ID:
+                    action_requested("hide");
                     break;
                 case COMPACT_MODE_ID:
                     action_requested("compact-mode");
@@ -328,8 +323,6 @@ namespace MprisMiniPlayer {
                 default:
                     return;
             }
-
-            item_activation_requested(id, timestamp);
         }
     }
 
@@ -350,7 +343,6 @@ namespace MprisMiniPlayer {
         private uint menu_registration_id = 0;
         private uint name_owner_subscription_id = 0;
         private bool enabled = false;
-        private bool window_visible = false;
         private bool compact_mode = false;
 
         public bool supported { get; private set; default = false; }
@@ -378,14 +370,6 @@ namespace MprisMiniPlayer {
         public void set_enabled(bool enabled) {
             this.enabled = enabled;
             update_registration();
-        }
-
-        public void set_window_visible(bool visible) {
-            window_visible = visible;
-
-            if (menu != null) {
-                menu.set_window_visible(visible);
-            }
         }
 
         public void set_compact_mode(bool enabled) {
@@ -480,7 +464,6 @@ namespace MprisMiniPlayer {
             item = new StatusNotifierItem();
             item.activated.connect(() => activated());
             menu = new StatusNotifierMenu();
-            menu.set_window_visible(window_visible);
             menu.set_compact_mode(compact_mode);
             menu.action_requested.connect((action) => action_requested(action));
 

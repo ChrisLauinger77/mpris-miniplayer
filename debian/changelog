@@ -1,3 +1,11 @@
+mpris-miniplayer (1.2.2-1) unstable; urgency=medium
+
+  * Provide separate show and hide status indicator actions for reliable
+    behavior across Wayland and X11.
+  * Prevent status indicator menu actions from being activated twice.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Thu, 02 Jul 2026 17:00:52 +0200
+
 mpris-miniplayer (1.2.1-1) unstable; urgency=medium
 
   * Add compact mode to the status indicator menu.
