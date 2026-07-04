@@ -136,7 +136,12 @@ namespace MprisMiniPlayer {
 
         private void present_window() {
             if (main_window == null) {
-                main_window = new Window(this, manager, app_settings.compact_mode);
+                main_window = new Window(
+                    this,
+                    manager,
+                    app_settings.compact_mode,
+                    app_settings.tint_with_album_color
+                );
                 main_window.close_request.connect(() => {
                     hide_window();
                     return true;
@@ -212,6 +217,7 @@ namespace MprisMiniPlayer {
             }
             if (main_window != null) {
                 main_window.set_compact_mode(compact_mode);
+                main_window.set_album_tint_enabled(app_settings.tint_with_album_color);
             }
             status_indicator.set_compact_mode(compact_mode);
         }

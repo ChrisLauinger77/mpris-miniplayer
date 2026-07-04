@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-26 14:44+0200\n"
+"POT-Creation-Date: 2026-07-04 10:21+0200\n"
 "PO-Revision-Date: 2026-06-21 09:39+0200\n"
 "Last-Translator: Christian Lauinger\n"
 "Language-Team: Spanish\n"
@@ -14,7 +14,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/status-indicator.vala:37 src/application.vala:181 src/window.vala:38
+#: src/status-indicator.vala:37 src/application.vala:184 src/window.vala:47
 msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
@@ -43,36 +43,36 @@ msgstr "Supervisando reproductores multimedia"
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr "Seguir buscando reproductores multimedia compatibles con MPRIS"
 
-#: src/status-indicator.vala:297
-msgid "Hide"
-msgstr "Ocultar"
-
-#: src/status-indicator.vala:297
+#: src/status-indicator.vala:287
 msgid "Show"
 msgstr "Mostrar"
 
-#: src/status-indicator.vala:299 src/window.vala:105
+#: src/status-indicator.vala:289
+msgid "Hide"
+msgstr "Ocultar"
+
+#: src/status-indicator.vala:291 src/window.vala:131
 msgid "Compact Mode"
 msgstr "Modo compacto"
 
-#: src/status-indicator.vala:301 src/preferences-window.vala:14
-#: src/preferences-window.vala:31 src/window.vala:106
+#: src/status-indicator.vala:293 src/preferences-window.vala:15
+#: src/preferences-window.vala:32 src/window.vala:132
 msgid "Preferences"
 msgstr "Preferencias"
 
-#: src/status-indicator.vala:303
+#: src/status-indicator.vala:295
 msgid "About"
 msgstr "Acerca de"
 
-#: src/status-indicator.vala:305 src/window.vala:107
+#: src/status-indicator.vala:297 src/window.vala:133
 msgid "Quit"
 msgstr "Salir"
 
-#: src/application.vala:256
+#: src/application.vala:260
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr "MPRIS MiniPlayer se está ejecutando en segundo plano"
 
-#: src/application.vala:258
+#: src/application.vala:262
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
@@ -80,127 +80,135 @@ msgstr ""
 "La ventana aparecerá automáticamente cuando haya disponible un reproductor "
 "multimedia compatible."
 
-#: src/application.vala:260
+#: src/application.vala:264
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 "Abre la ventana cuando quieras controlar un reproductor multimedia "
 "compatible."
 
-#: src/application.vala:262
+#: src/application.vala:266
 msgid "Open"
 msgstr "Abrir"
 
-#: src/preferences-window.vala:35
+#: src/preferences-window.vala:36
 msgid "Behavior"
 msgstr "Comportamiento"
 
-#: src/preferences-window.vala:39
+#: src/preferences-window.vala:40
 msgid "Show and hide automatically"
 msgstr "Mostrar y ocultar automáticamente"
 
-#: src/preferences-window.vala:40
+#: src/preferences-window.vala:41
 msgid "Show the window when a player appears and hide it when none remain"
 msgstr ""
 "Mostrar la ventana cuando aparezca un reproductor y ocultarla cuando no "
 "quede ninguno"
 
-#: src/preferences-window.vala:48
+#: src/preferences-window.vala:49
 msgid "Background notification"
 msgstr "Notificación en segundo plano"
 
-#: src/preferences-window.vala:49
+#: src/preferences-window.vala:50
 msgid "Notify when the app starts hidden in the background"
 msgstr "Notificar cuando la aplicación se inicia oculta en segundo plano"
 
-#: src/preferences-window.vala:57
+#: src/preferences-window.vala:58
 msgid "Start on login"
 msgstr "Iniciar al iniciar sesión"
 
-#: src/preferences-window.vala:58
+#: src/preferences-window.vala:59
 msgid "Start MPRIS MiniPlayer automatically when you log in"
 msgstr "Iniciar MPRIS MiniPlayer automáticamente cuando inicies sesión"
 
-#: src/preferences-window.vala:68
+#: src/preferences-window.vala:69
 msgid "Compact mode"
 msgstr "Modo compacto"
 
-#: src/preferences-window.vala:69
+#: src/preferences-window.vala:70
 msgid "Use a smaller window layout"
 msgstr "Usar una disposición de ventana más pequeña"
 
-#: src/preferences-window.vala:77
+#: src/preferences-window.vala:78
+msgid "Tint with album color"
+msgstr "Teñir con el color del álbum"
+
+#: src/preferences-window.vala:79
+msgid "Use a color from the current album cover"
+msgstr "Usar un color de la portada del álbum actual"
+
+#: src/preferences-window.vala:87
 msgid "Status indicator"
 msgstr "Indicador de estado"
 
-#: src/preferences-window.vala:101
+#: src/preferences-window.vala:112
 msgid "Show an indicator when the app is running"
 msgstr "Mostrar un indicador cuando la aplicación esté en ejecución"
 
-#: src/preferences-window.vala:102
+#: src/preferences-window.vala:113
 msgid "Not supported by this desktop"
 msgstr "No compatible con este escritorio"
 
-#: src/window.vala:98
+#: src/window.vala:124
 msgid "Choose player"
 msgstr "Elegir reproductor"
 
-#: src/window.vala:111
+#: src/window.vala:137
 msgid "Main menu"
 msgstr "Menú principal"
 
-#: src/window.vala:116
+#: src/window.vala:142
 msgid "About MPRIS MiniPlayer"
 msgstr "Acerca de MPRIS MiniPlayer"
 
-#: src/window.vala:145
+#: src/window.vala:171
 msgid "No player running"
 msgstr "No hay ningún reproductor en ejecución"
 
-#: src/window.vala:151
+#: src/window.vala:177
 msgid "Start an MPRIS-compatible media player"
 msgstr "Inicia un reproductor multimedia compatible con MPRIS"
 
-#: src/window.vala:192 src/window.vala:203
+#: src/window.vala:218 src/window.vala:229
 msgid "Volume"
 msgstr "Volumen"
 
-#: src/window.vala:209
+#: src/window.vala:235
 msgid "Previous"
 msgstr "Anterior"
 
-#: src/window.vala:218
+#: src/window.vala:244
 msgid "Play or pause"
 msgstr "Reproducir o pausar"
 
-#: src/window.vala:228
+#: src/window.vala:254
 msgid "Next"
 msgstr "Siguiente"
 
-#: src/window.vala:249
+#: src/window.vala:275
 msgid "Session D-Bus unavailable"
 msgstr "D-Bus de sesión no disponible"
 
-#: src/window.vala:249
+#: src/window.vala:275
 msgid "Unable to monitor MPRIS players"
 msgstr "No se pueden supervisar los reproductores MPRIS"
 
-#: src/window.vala:259
+#: src/window.vala:285
 msgid "No player detected"
 msgstr "No se detectó ningún reproductor"
 
-#: src/window.vala:259
+#: src/window.vala:285
 msgid "Start any MPRIS-compatible player"
 msgstr "Inicia cualquier reproductor compatible con MPRIS"
 
-#: src/window.vala:289
+#: src/window.vala:315
 msgid "Player unavailable"
 msgstr "Reproductor no disponible"
 
-#: src/window.vala:558
+#: src/window.vala:667
 msgid "Restore volume"
 msgstr "Restaurar volumen"
 
-#: src/window.vala:562
+#: src/window.vala:671
 msgid "Mute"
 msgstr "Silenciar"
 

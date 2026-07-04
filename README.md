@@ -100,8 +100,8 @@ sudo ninja -C build uninstall
 Pushing a version tag builds a Flatpak bundle, builds an amd64 Debian package, and creates a GitHub release:
 
 ```bash
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` and `mpris-miniplayer_<tag>_amd64.deb` to the generated release.

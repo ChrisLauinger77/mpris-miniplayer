@@ -28,6 +28,7 @@ executable(
     dependency('gtk4'),
     dependency('libadwaita-1', version: '>= 1.5'),
     dependency('gio-2.0'),
+    dependency('gdk-pixbuf-2.0'),
   ],
   vala_args: [
     '--target-glib=2.66',
