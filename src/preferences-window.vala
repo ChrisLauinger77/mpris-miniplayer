@@ -5,6 +5,7 @@ namespace MprisMiniPlayer {
         private Adw.SwitchRow autostart_row;
         private Adw.SwitchRow automatic_visibility_row;
         private Adw.SwitchRow compact_mode_row;
+        private Adw.SwitchRow album_tint_row;
         private Adw.SwitchRow status_indicator_row;
         private StatusIndicator? status_indicator;
 
@@ -73,6 +74,15 @@ namespace MprisMiniPlayer {
             });
             behavior_group.add(compact_mode_row);
 
+            album_tint_row = new Adw.SwitchRow();
+            album_tint_row.title = _("Tint with album color");
+            album_tint_row.subtitle = _("Use a color from the current album cover");
+            album_tint_row.active = app_settings.tint_with_album_color;
+            album_tint_row.notify["active"].connect(() => {
+                app_settings.tint_with_album_color = album_tint_row.active;
+            });
+            behavior_group.add(album_tint_row);
+
             status_indicator_row = new Adw.SwitchRow();
             status_indicator_row.title = _("Status indicator");
             status_indicator_row.active = app_settings.show_status_indicator;
@@ -90,6 +100,7 @@ namespace MprisMiniPlayer {
             autostart_row.active = app_settings.start_on_login;
             automatic_visibility_row.active = app_settings.automatic_window_visibility;
             compact_mode_row.active = app_settings.compact_mode;
+            album_tint_row.active = app_settings.tint_with_album_color;
             sync_status_indicator_row();
         }
 

@@ -21,6 +21,11 @@
       <summary>Use compact mode</summary>
       <description>Whether MPRIS MiniPlayer should use a smaller window layout.</description>
     </key>
+    <key name="tint-with-album-color" type="b">
+      <default>false</default>
+      <summary>Tint the player with the album color</summary>
+      <description>Whether MPRIS MiniPlayer should tint its window using a color extracted from the current album artwork.</description>
+    </key>
     <key name="show-status-indicator" type="b">
       <default>true</default>
       <summary>Show a status indicator</summary>

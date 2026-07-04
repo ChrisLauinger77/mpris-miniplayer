@@ -4,6 +4,10 @@ namespace MprisMiniPlayer {
         private MprisPlayer? player;
         private bool manual_selection = false;
         private bool compact_mode = false;
+        private bool album_tint_enabled = false;
+        private string current_art_url = "";
+        private uint artwork_request_id = 0;
+        private Gtk.CssProvider tint_provider;
 
         private Gtk.Box main_box;
         private Gtk.Stack cover_stack;
@@ -32,7 +36,12 @@ namespace MprisMiniPlayer {
         private bool updating_volume = false;
         private double restore_volume = 1.0;
 
-        public Window(Gtk.Application app, MprisManager? manager, bool compact_mode) {
+        public Window(
+            Gtk.Application app,
+            MprisManager? manager,
+            bool compact_mode,
+            bool album_tint_enabled
+        ) {
             Object(
                 application: app,
                 title: _("MPRIS MiniPlayer"),
@@ -42,11 +51,28 @@ namespace MprisMiniPlayer {
 
             this.manager = manager;
             this.compact_mode = compact_mode;
+            this.album_tint_enabled = album_tint_enabled;
+
+            tint_provider = new Gtk.CssProvider();
+            Gtk.StyleContext.add_provider_for_display(
+                get_display(),
+                tint_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            );
 
             build_ui();
             set_compact_mode(compact_mode);
             start_position_timer();
             refresh_players();
+        }
+
+        public void set_album_tint_enabled(bool enabled) {
+            album_tint_enabled = enabled;
+            if (!enabled) {
+                clear_album_tint();
+            } else if (current_art_url != "") {
+                load_album_color.begin(current_art_url, artwork_request_id);
+            }
         }
 
         public void refresh_players() {
@@ -321,6 +347,9 @@ namespace MprisMiniPlayer {
             player_icon.icon_name = "multimedia-player-symbolic";
             cover_stack.visible_child_name = "empty";
             cover.paintable = null;
+            current_art_url = "";
+            artwork_request_id++;
+            clear_album_tint();
             progress_row.visible = false;
             progress_scale.set_value(0);
             time_label.label = "0:00 / 0:00";
@@ -329,15 +358,103 @@ namespace MprisMiniPlayer {
         }
 
         private void set_artwork(string art_url) {
+            if (current_art_url == art_url) {
+                return;
+            }
+
+            current_art_url = art_url;
+            uint request_id = ++artwork_request_id;
             if (art_url == "") {
                 cover.paintable = null;
                 cover_stack.visible_child_name = "empty";
+                clear_album_tint();
                 return;
             }
 
             var file = File.new_for_uri(art_url);
             cover.set_file(file);
             cover_stack.visible_child_name = "artwork";
+            if (album_tint_enabled) {
+                load_album_color.begin(art_url, request_id);
+            }
+        }
+
+        private async void load_album_color(string art_url, uint request_id) {
+            try {
+                var file = File.new_for_uri(art_url);
+                var stream = yield file.read_async();
+                var pixbuf = yield new Gdk.Pixbuf.from_stream_at_scale_async(
+                    stream,
+                    32,
+                    32,
+                    true
+                );
+                yield stream.close_async();
+
+                if (!album_tint_enabled || request_id != artwork_request_id) {
+                    return;
+                }
+
+                apply_album_tint(pixbuf);
+            } catch (Error error) {
+                if (request_id == artwork_request_id) {
+                    clear_album_tint();
+                }
+            }
+        }
+
+        private void apply_album_tint(Gdk.Pixbuf pixbuf) {
+            int width = pixbuf.get_width();
+            int height = pixbuf.get_height();
+            int stride = pixbuf.get_rowstride();
+            int channels = pixbuf.get_n_channels();
+            unowned uint8[] pixels = pixbuf.get_pixels();
+
+            double red = 0;
+            double green = 0;
+            double blue = 0;
+            double weight_sum = 0;
+
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int offset = y * stride + x * channels;
+                    double r = pixels[offset] / 255.0;
+                    double g = pixels[offset + 1] / 255.0;
+                    double b = pixels[offset + 2] / 255.0;
+                    double alpha = channels == 4 ? pixels[offset + 3] / 255.0 : 1.0;
+                    double maximum = double.max(r, double.max(g, b));
+                    double minimum = double.min(r, double.min(g, b));
+                    double saturation = maximum > 0 ? (maximum - minimum) / maximum : 0;
+                    double weight = (0.2 + saturation) * alpha;
+                    red += r * weight;
+                    green += g * weight;
+                    blue += b * weight;
+                    weight_sum += weight;
+                }
+            }
+
+            if (weight_sum == 0) {
+                clear_album_tint();
+                return;
+            }
+
+            int r8 = (int) (red / weight_sum * 255 + 0.5);
+            int g8 = (int) (green / weight_sum * 255 + 0.5);
+            int b8 = (int) (blue / weight_sum * 255 + 0.5);
+            tint_provider.load_from_string(
+                (
+                    ".album-tint { background-color: alpha(rgb(%d, %d, %d), 0.22); } " +
+                    ".album-tint headerbar { background-color: alpha(rgb(%d, %d, %d), 0.16); }"
+                ).printf(
+                    r8, g8, b8, r8, g8, b8
+                )
+            );
+            add_css_class("album-tint");
+        }
+
+        private void clear_album_tint() {
+            remove_css_class("album-tint");
+            tint_provider.load_from_string("");
         }
 
         private void set_label_with_tooltip(Gtk.Label label, string text) {

@@ -5,6 +5,7 @@ namespace MprisMiniPlayer {
         private const string KEY_START_ON_LOGIN = "start-on-login";
         private const string KEY_AUTOMATIC_WINDOW_VISIBILITY = "automatic-window-visibility";
         private const string KEY_COMPACT_MODE = "compact-mode";
+        private const string KEY_TINT_WITH_ALBUM_COLOR = "tint-with-album-color";
         private const string KEY_SHOW_STATUS_INDICATOR = "show-status-indicator";
 
         private GLib.Settings? settings;
@@ -12,7 +13,9 @@ namespace MprisMiniPlayer {
         private bool fallback_start_on_login = false;
         private bool fallback_automatic_window_visibility = true;
         private bool fallback_compact_mode = false;
+        private bool fallback_tint_with_album_color = false;
         private bool fallback_show_status_indicator = true;
+        private bool has_tint_with_album_color_key = false;
         private bool has_show_status_indicator_key = false;
         private bool syncing = false;
 
@@ -22,6 +25,7 @@ namespace MprisMiniPlayer {
             SettingsSchemaSource? source = SettingsSchemaSource.get_default();
             SettingsSchema? schema = source != null ? source.lookup(SCHEMA_ID, true) : null;
             if (schema != null) {
+                has_tint_with_album_color_key = schema.has_key(KEY_TINT_WITH_ALBUM_COLOR);
                 has_show_status_indicator_key = schema.has_key(KEY_SHOW_STATUS_INDICATOR);
                 settings = new GLib.Settings(SCHEMA_ID);
                 settings.changed.connect(on_settings_changed);
@@ -99,6 +103,24 @@ namespace MprisMiniPlayer {
                 } else if (fallback_compact_mode != value) {
                     fallback_compact_mode = value;
                     changed(KEY_COMPACT_MODE);
+                }
+            }
+        }
+
+        public bool tint_with_album_color {
+            get {
+                if (settings != null && has_tint_with_album_color_key) {
+                    return settings.get_boolean(KEY_TINT_WITH_ALBUM_COLOR);
+                }
+
+                return fallback_tint_with_album_color;
+            }
+            set {
+                if (settings != null && has_tint_with_album_color_key) {
+                    settings.set_boolean(KEY_TINT_WITH_ALBUM_COLOR, value);
+                } else if (fallback_tint_with_album_color != value) {
+                    fallback_tint_with_album_color = value;
+                    changed(KEY_TINT_WITH_ALBUM_COLOR);
                 }
             }
         }
