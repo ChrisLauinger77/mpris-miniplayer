@@ -89,7 +89,7 @@ jobs:
           path: release-assets
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.1
         with:
           files: |
             release-assets/flatpak-bundle/MPRIS-MiniPlayer-${{ github.ref_name }}-x86_64.flatpak
