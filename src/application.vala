@@ -118,7 +118,7 @@ namespace MprisMiniPlayer {
             }
 
             if (players_available) {
-                present_window();
+                show_window_automatically();
             } else if (main_window != null) {
                 hide_window();
             }
@@ -135,6 +135,14 @@ namespace MprisMiniPlayer {
         }
 
         private void present_window() {
+            show_window(true);
+        }
+
+        private void show_window_automatically() {
+            show_window(false);
+        }
+
+        private void show_window(bool request_activation) {
             if (main_window == null) {
                 main_window = new Window(
                     this,
@@ -149,7 +157,14 @@ namespace MprisMiniPlayer {
             }
 
             main_window.refresh_players();
-            main_window.present();
+            if (request_activation) {
+                main_window.present();
+            } else {
+                // A player can appear without user interaction. Requesting focus in
+                // that case is rejected by Wayland compositors and may produce an
+                // "app is ready" notification instead of showing the window.
+                main_window.set_visible(true);
+            }
             background_portal.leave_background();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
         }
