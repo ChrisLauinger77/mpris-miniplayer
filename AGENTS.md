@@ -112,7 +112,7 @@ Typical Fedora dependencies for building the application and RPM package:
 ```bash
 sudo dnf install \
   desktop-file-utils gcc gettext git \
-  gtk4-devel libadwaita-devel meson meson-rpm-macros \
+  gtk4-devel libadwaita-devel meson \
   rpm-build vala
 ```
 

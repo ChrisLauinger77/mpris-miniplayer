@@ -98,7 +98,6 @@ jobs:
             gtk4-devel \
             libadwaita-devel \
             meson \
-            meson-rpm-macros \
             rpm-build \
             vala
 
