@@ -1,10 +1,6 @@
 name: Release
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/release.yml"
-      - "rpm/**"
   push:
     tags:
       - "v*"
@@ -15,7 +11,6 @@ permissions:
 jobs:
   flatpak:
     name: Build Flatpak
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
@@ -43,7 +38,6 @@ jobs:
 
   debian:
     name: Build Debian package
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -107,14 +101,7 @@ jobs:
       - name: Build x86_64 RPM package
         shell: bash
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            asset_name="mpris-miniplayer-${GITHUB_REF_NAME}.x86_64.rpm"
-          else
-            version="$(rpmspec -q --queryformat '%{version}' rpm/mpris-miniplayer.spec)"
-            asset_name="mpris-miniplayer-${version}-test.x86_64.rpm"
-          fi
-          echo "RPM_ASSET_NAME=${asset_name}" >> "$GITHUB_ENV"
+          version="${GITHUB_REF_NAME#v}"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           mkdir -p "$HOME/rpmbuild/SOURCES"
           git archive \
@@ -127,18 +114,17 @@ jobs:
             rpm/mpris-miniplayer.spec
           mkdir -p release-assets
           cp "$HOME"/rpmbuild/RPMS/x86_64/mpris-miniplayer-"${version}"-*.x86_64.rpm \
-            "release-assets/${asset_name}"
+            "release-assets/mpris-miniplayer-${GITHUB_REF_NAME}.x86_64.rpm"
 
       - name: Upload RPM package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: rpm-package
-          path: release-assets/${{ env.RPM_ASSET_NAME }}
+          path: release-assets/mpris-miniplayer-${{ github.ref_name }}.x86_64.rpm
           if-no-files-found: error
 
   release:
     name: Create GitHub release
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs:
       - flatpak
