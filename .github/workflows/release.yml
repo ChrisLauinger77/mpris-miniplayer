@@ -115,6 +115,7 @@ jobs:
             asset_name="mpris-miniplayer-${version}-test.x86_64.rpm"
           fi
           echo "RPM_ASSET_NAME=${asset_name}" >> "$GITHUB_ENV"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           mkdir -p "$HOME/rpmbuild/SOURCES"
           git archive \
             --format=tar.gz \
