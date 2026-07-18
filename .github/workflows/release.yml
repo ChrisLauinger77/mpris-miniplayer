@@ -126,7 +126,7 @@ jobs:
             --define "pkg_version ${version}" \
             rpm/mpris-miniplayer.spec
           mkdir -p release-assets
-          cp "$HOME"/rpmbuild/RPMS/x86_64/mpris-miniplayer-*.x86_64.rpm \
+          cp "$HOME"/rpmbuild/RPMS/x86_64/mpris-miniplayer-"${version}"-*.x86_64.rpm \
             "release-assets/${asset_name}"
 
       - name: Upload RPM package
