@@ -29,6 +29,12 @@ For Debian or Ubuntu on amd64, install the Debian package with:
 sudo apt install ./mpris-miniplayer_<version>_amd64.deb
 ```
 
+For Fedora on x86_64, install the RPM package with:
+
+```bash
+sudo dnf install ./mpris-miniplayer-<version>.x86_64.rpm
+```
+
 Run it from your application launcher, or from a terminal.
 
 For Flatpak:
@@ -97,14 +103,14 @@ sudo ninja -C build uninstall
 
 ## Maintainer Release
 
-Pushing a version tag builds a Flatpak bundle, builds an amd64 Debian package, and creates a GitHub release:
+Pushing a version tag builds a Flatpak bundle, an amd64 Debian package, an x86_64 RPM package, and creates a GitHub release:
 
 ```bash
-git tag v1.3.2
-git push origin v1.3.2
+git tag v1.3.3
+git push origin v1.3.3
 ```
 
-The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak` and `mpris-miniplayer_<tag>_amd64.deb` to the generated release.
+The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`, `mpris-miniplayer_<tag>_amd64.deb`, and `mpris-miniplayer-<tag>.x86_64.rpm` to the generated release.
 
 ## License
 

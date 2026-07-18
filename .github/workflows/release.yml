@@ -75,12 +75,61 @@ jobs:
           path: release-assets/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
           if-no-files-found: error
 
+  rpm:
+    name: Build RPM package
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            desktop-file-utils \
+            gcc \
+            gettext \
+            git \
+            gtk4-devel \
+            libadwaita-devel \
+            meson \
+            meson-rpm-macros \
+            rpm-build \
+            vala
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Build x86_64 RPM package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p "$HOME/rpmbuild/SOURCES"
+          git archive \
+            --format=tar.gz \
+            --prefix="mpris-miniplayer-${version}/" \
+            --output="$HOME/rpmbuild/SOURCES/mpris-miniplayer-${version}.tar.gz" \
+            HEAD
+          rpmbuild -bb \
+            --define "pkg_version ${version}" \
+            rpm/mpris-miniplayer.spec
+          mkdir -p release-assets
+          cp "$HOME"/rpmbuild/RPMS/x86_64/mpris-miniplayer-*.x86_64.rpm \
+            "release-assets/mpris-miniplayer-${GITHUB_REF_NAME}.x86_64.rpm"
+
+      - name: Upload RPM package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: rpm-package
+          path: release-assets/mpris-miniplayer-${{ github.ref_name }}.x86_64.rpm
+          if-no-files-found: error
+
   release:
     name: Create GitHub release
     runs-on: ubuntu-latest
     needs:
       - flatpak
       - debian
+      - rpm
 
     steps:
       - name: Download release artifacts
@@ -94,5 +143,6 @@ jobs:
           files: |
             release-assets/flatpak-bundle/MPRIS-MiniPlayer-${{ github.ref_name }}-x86_64.flatpak
             release-assets/debian-package/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
+            release-assets/rpm-package/mpris-miniplayer-${{ github.ref_name }}.x86_64.rpm
           generate_release_notes: true
           fail_on_unmatched_files: true
