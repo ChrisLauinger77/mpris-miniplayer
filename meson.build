@@ -34,6 +34,20 @@ update_checker_test = executable(
 
 test('update checker version comparison', update_checker_test)
 
+status_menu_test = executable(
+  'status-menu-test',
+  [
+    'src/status-indicator.vala',
+    'src/mpris-player.vala',
+    'tests/status-menu-test.vala',
+  ],
+  dependencies: dependency('gio-2.0'),
+  vala_args: ['--target-glib=2.66'],
+  c_args: ['-DGETTEXT_PACKAGE="@0@"'.format(gettext_package)],
+)
+
+test('status menu window actions', status_menu_test)
+
 gnome.post_install(
   glib_compile_schemas: true,
   gtk_update_icon_cache: true,

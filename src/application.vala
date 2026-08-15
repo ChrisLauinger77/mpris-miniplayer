@@ -8,6 +8,8 @@ namespace MprisMiniPlayer {
         private UpdateChecker? update_checker;
         private MprisManager? manager;
         private Window? main_window;
+        private Gdk.Toplevel? main_toplevel;
+        private ulong main_toplevel_state_handler_id = 0;
         private PreferencesWindow? preferences_window;
         private Adw.AboutDialog? about_dialog;
         private SimpleAction? compact_mode_action;
@@ -36,7 +38,7 @@ namespace MprisMiniPlayer {
             background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
             status_indicator = new StatusIndicator();
-            status_indicator.activated.connect(() => present_window());
+            status_indicator.activated.connect(() => show_window_from_indicator());
             status_indicator.action_requested.connect(on_status_indicator_action_requested);
             status_indicator.support_changed.connect(maybe_start_update_check);
             status_indicator.set_compact_mode(app_settings.compact_mode);
@@ -156,7 +158,14 @@ namespace MprisMiniPlayer {
             show_window(false);
         }
 
-        private void show_window(bool request_activation) {
+        private void show_window_from_indicator() {
+            show_window(false, true);
+        }
+
+        private void show_window(
+            bool request_activation,
+            bool restore_minimized = false
+        ) {
             if (main_window == null) {
                 main_window = new Window(
                     this,
@@ -168,19 +177,82 @@ namespace MprisMiniPlayer {
                     hide_window();
                     return true;
                 });
+                main_window.notify["visible"].connect(sync_status_indicator_window_state);
+                main_window.map.connect(sync_status_indicator_window_state);
+                main_window.unmap.connect(sync_status_indicator_window_state);
+                ((Gtk.Widget) main_window).realize.connect(track_main_toplevel);
+                ((Gtk.Widget) main_window).unrealize.connect(clear_main_toplevel);
             }
 
             main_window.refresh_players();
+            bool restore_suspended_window = restore_minimized
+                && main_window.visible
+                && is_main_window_suspended();
             if (request_activation) {
                 main_window.present();
+            } else if (restore_suspended_window) {
+                // Wayland does not provide an activation token through the
+                // StatusNotifier D-Bus API. Remapping restores a compositor-
+                // minimized surface without producing an activation notification.
+                main_window.set_visible(false);
+                main_window.set_visible(true);
             } else {
                 // A player can appear without user interaction. Requesting focus in
                 // that case is rejected by Wayland compositors and may produce an
                 // "app is ready" notification instead of showing the window.
                 main_window.set_visible(true);
+                if (restore_minimized) {
+                    main_window.unminimize();
+                }
             }
             background_portal.leave_background();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
+        }
+
+        private void track_main_toplevel() {
+            clear_main_toplevel();
+            if (main_window == null) {
+                return;
+            }
+
+            main_toplevel = main_window.get_surface() as Gdk.Toplevel;
+            if (main_toplevel != null) {
+                main_toplevel_state_handler_id =
+                    main_toplevel.notify["state"].connect(
+                        sync_status_indicator_window_state
+                    );
+            }
+            sync_status_indicator_window_state();
+        }
+
+        private void clear_main_toplevel() {
+            if (main_toplevel != null && main_toplevel_state_handler_id != 0) {
+                SignalHandler.disconnect(main_toplevel, main_toplevel_state_handler_id);
+            }
+            main_toplevel_state_handler_id = 0;
+            main_toplevel = null;
+            sync_status_indicator_window_state();
+        }
+
+        private void sync_status_indicator_window_state() {
+            bool window_shown = main_window != null
+                && main_window.visible
+                && main_window.get_mapped();
+            if (window_shown && is_main_window_suspended()) {
+                window_shown = false;
+            }
+
+            status_indicator.set_window_shown(window_shown);
+        }
+
+        private bool is_main_window_suspended() {
+            return main_toplevel != null
+                && (
+                    main_toplevel.get_state() & (
+                        Gdk.ToplevelState.MINIMIZED
+                        | Gdk.ToplevelState.SUSPENDED
+                    )
+                ) != 0;
         }
 
         private void hide_window() {
@@ -262,7 +334,7 @@ namespace MprisMiniPlayer {
         private void on_status_indicator_action_requested(string action) {
             switch (action) {
                 case "show":
-                    present_window();
+                    show_window_from_indicator();
                     break;
                 case "hide":
                     hide_window();
