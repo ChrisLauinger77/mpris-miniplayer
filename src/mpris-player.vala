@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
 
         private DBusConnection bus;
         private uint properties_subscription_id;
+        private double restore_volume = 1.0;
 
         public string bus_name { get; construct; }
         public string title { get; private set; default = "Unknown track"; }
@@ -166,11 +167,35 @@ namespace MprisMiniPlayer {
                     -1
                 );
                 this.volume = volume;
+                if (volume > 0.0) {
+                    restore_volume = volume;
+                }
                 changed();
             } catch (Error error) {
                 warning("Unable to set volume on %s: %s", bus_name, error.message);
                 refresh();
             }
+        }
+
+        public void toggle_mute() {
+            if (!has_volume || !can_control) {
+                return;
+            }
+
+            if (volume > 0.0) {
+                restore_volume = volume;
+                set_player_volume(0.0);
+            } else {
+                set_player_volume(restore_volume > 0.0 ? restore_volume : 1.0);
+            }
+        }
+
+        public void adjust_volume(double delta) {
+            if (!has_volume || !can_control) {
+                return;
+            }
+
+            set_player_volume(double.max(0.0, volume + delta));
         }
 
         public string display_name() {
@@ -232,6 +257,9 @@ namespace MprisMiniPlayer {
             if (volume_value != null) {
                 has_volume = true;
                 volume = unwrap_variant(volume_value).get_double();
+                if (volume > 0.0) {
+                    restore_volume = volume;
+                }
             }
         }
 

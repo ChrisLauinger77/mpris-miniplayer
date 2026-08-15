@@ -42,6 +42,8 @@ namespace MprisMiniPlayer {
                 manager = new MprisManager();
                 manager.players_changed.connect(on_players_changed);
                 manager.player_priority_changed.connect(on_player_priority_changed);
+                manager.active_player_changed.connect(on_active_player_changed);
+                status_indicator.set_player(manager.active_player);
             } catch (Error error) {
                 warning("Unable to monitor MPRIS players: %s", error.message);
             }
@@ -125,6 +127,13 @@ namespace MprisMiniPlayer {
         }
 
         private void on_player_priority_changed() {
+            if (main_window != null) {
+                main_window.refresh_players();
+            }
+        }
+
+        private void on_active_player_changed() {
+            status_indicator.set_player(manager != null ? manager.active_player : null);
             if (main_window != null) {
                 main_window.refresh_players();
             }
@@ -252,6 +261,44 @@ namespace MprisMiniPlayer {
                 case "hide":
                     hide_window();
                     break;
+                case "previous":
+                    if (manager != null && manager.active_player != null) {
+                        manager.active_player.previous();
+                    }
+                    break;
+                case "play-pause":
+                    if (manager != null && manager.active_player != null) {
+                        manager.active_player.play_pause();
+                    }
+                    break;
+                case "next":
+                    if (manager != null && manager.active_player != null) {
+                        manager.active_player.next();
+                    }
+                    break;
+                case "mute":
+                    if (manager != null && manager.active_player != null) {
+                        manager.active_player.toggle_mute();
+                    }
+                    break;
+                case "volume-25":
+                    set_active_player_volume(0.25);
+                    break;
+                case "volume-50":
+                    set_active_player_volume(0.50);
+                    break;
+                case "volume-75":
+                    set_active_player_volume(0.75);
+                    break;
+                case "volume-100":
+                    set_active_player_volume(1.0);
+                    break;
+                case "volume-up":
+                    adjust_active_player_volume(0.05);
+                    break;
+                case "volume-down":
+                    adjust_active_player_volume(-0.05);
+                    break;
                 case "preferences":
                     present_preferences();
                     break;
@@ -264,6 +311,18 @@ namespace MprisMiniPlayer {
                 case "quit":
                     quit_app();
                     break;
+            }
+        }
+
+        private void set_active_player_volume(double volume) {
+            if (manager != null && manager.active_player != null) {
+                manager.active_player.set_player_volume(volume);
+            }
+        }
+
+        private void adjust_active_player_volume(double delta) {
+            if (manager != null && manager.active_player != null) {
+                manager.active_player.adjust_volume(delta);
             }
         }
 

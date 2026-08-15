@@ -8,8 +8,10 @@ namespace MprisMiniPlayer {
     public class StatusNotifierItem : Object {
         private const string APP_ID = "io.github.ChrisLauinger.MprisMiniPlayer";
         private const string MENU_OBJECT_PATH = "/StatusNotifierMenu";
+        private string displayed_icon_name = APP_ID;
 
         public signal void activated();
+        public signal void scroll_requested(int delta, string orientation);
 
         [DBus (name = "NewIcon")]
         public signal void new_icon();
@@ -48,7 +50,7 @@ namespace MprisMiniPlayer {
         [DBus (name = "IconName")]
         public string icon_name {
             owned get {
-                return APP_ID;
+                return displayed_icon_name;
             }
         }
 
@@ -110,6 +112,31 @@ namespace MprisMiniPlayer {
 
         [DBus (name = "Scroll")]
         public void scroll(int delta, string orientation) throws DBusError, IOError {
+            scroll_requested(delta, orientation);
+        }
+
+        [DBus (visible = false)]
+        public void show_volume_icon(double volume) {
+            if (volume <= 0.0) {
+                displayed_icon_name = "audio-volume-muted-symbolic";
+            } else if (volume < 0.35) {
+                displayed_icon_name = "audio-volume-low-symbolic";
+            } else if (volume < 0.70) {
+                displayed_icon_name = "audio-volume-medium-symbolic";
+            } else {
+                displayed_icon_name = "audio-volume-high-symbolic";
+            }
+            new_icon();
+        }
+
+        [DBus (visible = false)]
+        public void restore_app_icon() {
+            if (displayed_icon_name == APP_ID) {
+                return;
+            }
+
+            displayed_icon_name = APP_ID;
+            new_icon();
         }
     }
 
@@ -122,9 +149,28 @@ namespace MprisMiniPlayer {
         private const int PREFERENCES_ID = 4;
         private const int ABOUT_ID = 5;
         private const int QUIT_ID = 6;
+        private const int MEDIA_SEPARATOR_ID = 7;
+        private const int SETTINGS_SEPARATOR_ID = 8;
+        private const int TITLE_ID = 10;
+        private const int ARTIST_ID = 11;
+        private const int ALBUM_ID = 12;
+        private const int NO_PLAYER_ID = 13;
+        private const int CONTROLS_SEPARATOR_ID = 14;
+        private const int PREVIOUS_ID = 20;
+        private const int PLAY_PAUSE_ID = 21;
+        private const int NEXT_ID = 22;
+        private const int VOLUME_ID = 30;
+        private const int MUTE_ID = 31;
+        private const int VOLUME_25_ID = 32;
+        private const int VOLUME_50_ID = 33;
+        private const int VOLUME_75_ID = 34;
+        private const int VOLUME_100_ID = 35;
 
         private uint revision = 1;
         private bool compact_mode = false;
+        private MprisPlayer? player;
+        private ulong player_changed_handler_id = 0;
+        private string player_state_signature = "none";
 
         public signal void action_requested(string action);
 
@@ -172,8 +218,26 @@ namespace MprisMiniPlayer {
             }
 
             compact_mode = enabled;
-            revision++;
-            layout_updated(revision, ROOT_ID);
+            notify_layout_changed();
+        }
+
+        [DBus (visible = false)]
+        public void set_player(MprisPlayer? selected_player) {
+            if (player == selected_player) {
+                return;
+            }
+
+            if (player != null && player_changed_handler_id != 0) {
+                SignalHandler.disconnect(player, player_changed_handler_id);
+                player_changed_handler_id = 0;
+            }
+
+            player = selected_player;
+            if (player != null) {
+                player_changed_handler_id = player.changed.connect(on_player_changed);
+            }
+            player_state_signature = build_player_state_signature();
+            notify_layout_changed();
         }
 
         [DBus (name = "GetLayout")]
@@ -186,18 +250,22 @@ namespace MprisMiniPlayer {
             out Variant layout
         ) throws DBusError, IOError {
             revision = this.revision;
-            layout = build_layout();
+            if (parent_id == VOLUME_ID) {
+                layout = build_volume_item(recursion_depth);
+            } else if (parent_id == ROOT_ID) {
+                layout = build_layout(recursion_depth);
+            } else {
+                layout = build_item(parent_id);
+            }
         }
 
         [DBus (name = "GetGroupProperties", signature = "a(ia{sv})")]
         public Variant get_group_properties(int[] ids, string[] property_names) throws DBusError, IOError {
             var items = new VariantBuilder(new VariantType("a(ia{sv})"));
-            int[] requested_ids = ids.length == 0
-                ? new int[] { SHOW_ID, HIDE_ID, COMPACT_MODE_ID, PREFERENCES_ID, ABOUT_ID, QUIT_ID }
-                : ids;
+            int[] requested_ids = ids.length == 0 ? all_ids() : ids;
 
             foreach (int id in requested_ids) {
-                if (id == ROOT_ID || id == SHOW_ID || id == HIDE_ID || id == COMPACT_MODE_ID || id == PREFERENCES_ID || id == ABOUT_ID || id == QUIT_ID) {
+                if (is_known_id(id)) {
                     items.add_value(new Variant.tuple({
                         new Variant.int32(id),
                         build_properties(id)
@@ -220,7 +288,7 @@ namespace MprisMiniPlayer {
 
         [DBus (name = "Event")]
         public void event(int id, string event_id, Variant data, uint timestamp) throws DBusError, IOError {
-            if (event_id == "clicked") {
+            if (event_id == "clicked" && is_enabled(id)) {
                 activate_item(id);
             }
         }
@@ -240,14 +308,36 @@ namespace MprisMiniPlayer {
             id_errors = {};
         }
 
-        private Variant build_layout() {
+        private Variant build_layout(int recursion_depth = -1) {
             var children = new VariantBuilder(new VariantType("av"));
-            children.add_value(new Variant.variant(build_item(SHOW_ID)));
-            children.add_value(new Variant.variant(build_item(HIDE_ID)));
-            children.add_value(new Variant.variant(build_item(COMPACT_MODE_ID)));
-            children.add_value(new Variant.variant(build_item(PREFERENCES_ID)));
-            children.add_value(new Variant.variant(build_item(ABOUT_ID)));
-            children.add_value(new Variant.variant(build_item(QUIT_ID)));
+            if (recursion_depth != 0) {
+                children.add_value(new Variant.variant(build_item(SHOW_ID)));
+                children.add_value(new Variant.variant(build_item(HIDE_ID)));
+                children.add_value(new Variant.variant(build_item(MEDIA_SEPARATOR_ID)));
+
+                if (player == null) {
+                    children.add_value(new Variant.variant(build_item(NO_PLAYER_ID)));
+                } else {
+                    children.add_value(new Variant.variant(build_item(TITLE_ID)));
+                    children.add_value(new Variant.variant(build_item(ARTIST_ID)));
+                    if (player.album != "") {
+                        children.add_value(new Variant.variant(build_item(ALBUM_ID)));
+                    }
+                    children.add_value(new Variant.variant(build_item(CONTROLS_SEPARATOR_ID)));
+                    children.add_value(new Variant.variant(build_item(PREVIOUS_ID)));
+                    children.add_value(new Variant.variant(build_item(PLAY_PAUSE_ID)));
+                    children.add_value(new Variant.variant(build_item(NEXT_ID)));
+                    if (player.has_volume) {
+                        children.add_value(new Variant.variant(build_volume_item(recursion_depth - 1)));
+                    }
+                }
+
+                children.add_value(new Variant.variant(build_item(SETTINGS_SEPARATOR_ID)));
+                children.add_value(new Variant.variant(build_item(COMPACT_MODE_ID)));
+                children.add_value(new Variant.variant(build_item(PREFERENCES_ID)));
+                children.add_value(new Variant.variant(build_item(ABOUT_ID)));
+                children.add_value(new Variant.variant(build_item(QUIT_ID)));
+            }
 
             var root_properties = new VariantBuilder(new VariantType("a{sv}"));
             root_properties.add("{sv}", "children-display", new Variant.string("submenu"));
@@ -268,15 +358,53 @@ namespace MprisMiniPlayer {
             });
         }
 
+        private Variant build_volume_item(int recursion_depth = -1) {
+            var children = new VariantBuilder(new VariantType("av"));
+            if (recursion_depth != 0) {
+                children.add_value(new Variant.variant(build_item(MUTE_ID)));
+                children.add_value(new Variant.variant(build_item(VOLUME_25_ID)));
+                children.add_value(new Variant.variant(build_item(VOLUME_50_ID)));
+                children.add_value(new Variant.variant(build_item(VOLUME_75_ID)));
+                children.add_value(new Variant.variant(build_item(VOLUME_100_ID)));
+            }
+
+            return new Variant.tuple({
+                new Variant.int32(VOLUME_ID),
+                build_properties(VOLUME_ID),
+                children.end()
+            });
+        }
+
         private Variant build_properties(int id) {
             var properties = new VariantBuilder(new VariantType("a{sv}"));
-            properties.add("{sv}", "enabled", new Variant.boolean(true));
+            if (is_separator(id)) {
+                properties.add("{sv}", "type", new Variant.string("separator"));
+                properties.add("{sv}", "visible", new Variant.boolean(true));
+                return properties.end();
+            }
+
+            properties.add("{sv}", "enabled", new Variant.boolean(is_enabled(id)));
             properties.add("{sv}", "visible", new Variant.boolean(true));
             properties.add("{sv}", "type", new Variant.string("standard"));
             properties.add("{sv}", "label", new Variant.string(get_label(id)));
+            string icon_name = get_icon_name(id);
+            if (icon_name != "") {
+                properties.add("{sv}", "icon-name", new Variant.string(icon_name));
+            }
             if (id == COMPACT_MODE_ID) {
                 properties.add("{sv}", "toggle-type", new Variant.string("checkmark"));
                 properties.add("{sv}", "toggle-state", new Variant.int32(compact_mode ? 1 : 0));
+            }
+            if (is_volume_preset(id)) {
+                properties.add("{sv}", "toggle-type", new Variant.string("radio"));
+                properties.add(
+                    "{sv}",
+                    "toggle-state",
+                    new Variant.int32(volume_matches_preset(id) ? 1 : 0)
+                );
+            }
+            if (id == VOLUME_ID) {
+                properties.add("{sv}", "children-display", new Variant.string("submenu"));
             }
             return properties.end();
         }
@@ -287,6 +415,36 @@ namespace MprisMiniPlayer {
                     return _("Show");
                 case HIDE_ID:
                     return _("Hide");
+                case TITLE_ID:
+                    return truncate_label(player != null ? player.title : "", 30);
+                case ARTIST_ID:
+                    return truncate_label(player != null ? player.artist : "", 30);
+                case ALBUM_ID:
+                    return escape_label(player != null ? player.album : "");
+                case NO_PLAYER_ID:
+                    return _("No player detected");
+                case PREVIOUS_ID:
+                    return _("Previous");
+                case PLAY_PAUSE_ID:
+                    return player != null && player.playback_status == "Playing"
+                        ? _("Pause")
+                        : _("Play");
+                case NEXT_ID:
+                    return _("Next");
+                case VOLUME_ID:
+                    return _("Volume: %d%%").printf(current_volume_percent());
+                case MUTE_ID:
+                    return player != null && player.volume > 0.0
+                        ? _("Mute")
+                        : _("Restore volume");
+                case VOLUME_25_ID:
+                    return "25%";
+                case VOLUME_50_ID:
+                    return "50%";
+                case VOLUME_75_ID:
+                    return "75%";
+                case VOLUME_100_ID:
+                    return "100%";
                 case COMPACT_MODE_ID:
                     return _("Compact Mode");
                 case PREFERENCES_ID:
@@ -308,6 +466,30 @@ namespace MprisMiniPlayer {
                 case HIDE_ID:
                     action_requested("hide");
                     break;
+                case PREVIOUS_ID:
+                    action_requested("previous");
+                    break;
+                case PLAY_PAUSE_ID:
+                    action_requested("play-pause");
+                    break;
+                case NEXT_ID:
+                    action_requested("next");
+                    break;
+                case MUTE_ID:
+                    action_requested("mute");
+                    break;
+                case VOLUME_25_ID:
+                    action_requested("volume-25");
+                    break;
+                case VOLUME_50_ID:
+                    action_requested("volume-50");
+                    break;
+                case VOLUME_75_ID:
+                    action_requested("volume-75");
+                    break;
+                case VOLUME_100_ID:
+                    action_requested("volume-100");
+                    break;
                 case COMPACT_MODE_ID:
                     action_requested("compact-mode");
                     break;
@@ -323,6 +505,164 @@ namespace MprisMiniPlayer {
                 default:
                     return;
             }
+        }
+
+        private void notify_layout_changed() {
+            revision++;
+            layout_updated(revision, ROOT_ID);
+        }
+
+        private void on_player_changed() {
+            string new_signature = build_player_state_signature();
+            if (new_signature == player_state_signature) {
+                return;
+            }
+
+            player_state_signature = new_signature;
+            notify_layout_changed();
+        }
+
+        private string build_player_state_signature() {
+            if (player == null) {
+                return "none";
+            }
+
+            return "%s\x1f%s\x1f%s\x1f%s\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d".printf(
+                player.title,
+                player.artist,
+                player.album,
+                player.playback_status,
+                player.can_go_previous ? 1 : 0,
+                player.can_go_next ? 1 : 0,
+                player.can_play ? 1 : 0,
+                player.can_pause ? 1 : 0,
+                player.can_control ? 1 : 0,
+                player.has_volume ? 1 : 0,
+                current_volume_percent()
+            );
+        }
+
+        private int[] all_ids() {
+            return {
+                ROOT_ID,
+                SHOW_ID,
+                HIDE_ID,
+                COMPACT_MODE_ID,
+                PREFERENCES_ID,
+                ABOUT_ID,
+                QUIT_ID,
+                MEDIA_SEPARATOR_ID,
+                SETTINGS_SEPARATOR_ID,
+                TITLE_ID,
+                ARTIST_ID,
+                ALBUM_ID,
+                NO_PLAYER_ID,
+                CONTROLS_SEPARATOR_ID,
+                PREVIOUS_ID,
+                PLAY_PAUSE_ID,
+                NEXT_ID,
+                VOLUME_ID,
+                MUTE_ID,
+                VOLUME_25_ID,
+                VOLUME_50_ID,
+                VOLUME_75_ID,
+                VOLUME_100_ID
+            };
+        }
+
+        private bool is_known_id(int id) {
+            foreach (int known_id in all_ids()) {
+                if (id == known_id) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private bool is_separator(int id) {
+            return id == MEDIA_SEPARATOR_ID
+                || id == SETTINGS_SEPARATOR_ID
+                || id == CONTROLS_SEPARATOR_ID;
+        }
+
+        private bool is_enabled(int id) {
+            if (
+                id == TITLE_ID
+                || id == ARTIST_ID
+                || id == ALBUM_ID
+                || id == NO_PLAYER_ID
+            ) {
+                return false;
+            }
+            if (id == PREVIOUS_ID) {
+                return player != null && player.can_go_previous;
+            }
+            if (id == PLAY_PAUSE_ID) {
+                return player != null
+                    && (
+                        player.playback_status == "Playing"
+                            ? player.can_pause
+                            : player.can_play
+                    );
+            }
+            if (id == NEXT_ID) {
+                return player != null && player.can_go_next;
+            }
+            if (id == VOLUME_ID || id == MUTE_ID || is_volume_preset(id)) {
+                return player != null && player.has_volume && player.can_control;
+            }
+            return true;
+        }
+
+        private string get_icon_name(int id) {
+            switch (id) {
+                case PREVIOUS_ID:
+                    return "media-skip-backward-symbolic";
+                case PLAY_PAUSE_ID:
+                    return player != null && player.playback_status == "Playing"
+                        ? "media-playback-pause-symbolic"
+                        : "media-playback-start-symbolic";
+                case NEXT_ID:
+                    return "media-skip-forward-symbolic";
+                case VOLUME_ID:
+                    return current_volume_percent() == 0
+                        ? "audio-volume-muted-symbolic"
+                        : "audio-volume-high-symbolic";
+                case MUTE_ID:
+                    return "audio-volume-muted-symbolic";
+                default:
+                    return "";
+            }
+        }
+
+        private bool is_volume_preset(int id) {
+            return id >= VOLUME_25_ID && id <= VOLUME_100_ID;
+        }
+
+        private bool volume_matches_preset(int id) {
+            if (player == null) {
+                return false;
+            }
+
+            int preset = (id - VOLUME_25_ID + 1) * 25;
+            return current_volume_percent() == preset;
+        }
+
+        private int current_volume_percent() {
+            return player == null ? 0 : (int) (player.volume * 100.0 + 0.5);
+        }
+
+        private string escape_label(string label) {
+            return label.replace("_", "__");
+        }
+
+        private string truncate_label(string label, int max_chars) {
+            if (label.char_count() <= max_chars) {
+                return escape_label(label);
+            }
+
+            int end = label.index_of_nth_char(max_chars - 1);
+            return escape_label(label.substring(0, end)) + "…";
         }
     }
 
@@ -342,8 +682,10 @@ namespace MprisMiniPlayer {
         private uint item_registration_id = 0;
         private uint menu_registration_id = 0;
         private uint name_owner_subscription_id = 0;
+        private uint volume_icon_timeout_id = 0;
         private bool enabled = false;
         private bool compact_mode = false;
+        private MprisPlayer? player;
 
         public bool supported { get; private set; default = false; }
 
@@ -380,7 +722,16 @@ namespace MprisMiniPlayer {
             }
         }
 
+        public void set_player(MprisPlayer? selected_player) {
+            player = selected_player;
+
+            if (menu != null) {
+                menu.set_player(selected_player);
+            }
+        }
+
         public void shutdown() {
+            clear_volume_icon_timeout();
             if (bus != null && name_owner_subscription_id != 0) {
                 bus.signal_unsubscribe(name_owner_subscription_id);
                 name_owner_subscription_id = 0;
@@ -463,8 +814,23 @@ namespace MprisMiniPlayer {
 
             item = new StatusNotifierItem();
             item.activated.connect(() => activated());
+            item.scroll_requested.connect((delta, orientation) => {
+                if (
+                    orientation != "vertical"
+                    || delta == 0
+                    || player == null
+                    || !player.has_volume
+                    || !player.can_control
+                ) {
+                    return;
+                }
+
+                action_requested(delta > 0 ? "volume-up" : "volume-down");
+                show_volume_icon_feedback();
+            });
             menu = new StatusNotifierMenu();
             menu.set_compact_mode(compact_mode);
+            menu.set_player(player);
             menu.action_requested.connect((action) => action_requested(action));
 
             try {
@@ -497,6 +863,7 @@ namespace MprisMiniPlayer {
         }
 
         private void unregister_item() {
+            clear_volume_icon_timeout();
             if (bus != null && item_registration_id != 0) {
                 bus.unregister_object(item_registration_id);
                 item_registration_id = 0;
@@ -508,6 +875,31 @@ namespace MprisMiniPlayer {
 
             item = null;
             menu = null;
+        }
+
+        private void show_volume_icon_feedback() {
+            if (item == null || player == null) {
+                return;
+            }
+
+            item.show_volume_icon(player.volume);
+            clear_volume_icon_timeout();
+            volume_icon_timeout_id = Timeout.add(1500, () => {
+                volume_icon_timeout_id = 0;
+                if (item != null) {
+                    item.restore_app_icon();
+                }
+                return Source.REMOVE;
+            });
+        }
+
+        private void clear_volume_icon_timeout() {
+            if (volume_icon_timeout_id == 0) {
+                return;
+            }
+
+            Source.remove(volume_icon_timeout_id);
+            volume_icon_timeout_id = 0;
         }
 
         private static bool is_flatpak() {
