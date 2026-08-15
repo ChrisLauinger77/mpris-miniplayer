@@ -169,6 +169,7 @@ namespace MprisMiniPlayer {
 
         private uint revision = 1;
         private bool compact_mode = false;
+        private bool window_visible = false;
         private MprisPlayer? player;
         private ulong player_changed_handler_id = 0;
         private string player_state_signature = "none";
@@ -220,6 +221,16 @@ namespace MprisMiniPlayer {
             }
 
             compact_mode = enabled;
+            notify_layout_changed();
+        }
+
+        [DBus (visible = false)]
+        public void set_window_visible(bool visible) {
+            if (window_visible == visible) {
+                return;
+            }
+
+            window_visible = visible;
             notify_layout_changed();
         }
 
@@ -323,8 +334,9 @@ namespace MprisMiniPlayer {
         private Variant build_layout(int recursion_depth = -1) {
             var children = new VariantBuilder(new VariantType("av"));
             if (recursion_depth != 0) {
-                children.add_value(new Variant.variant(build_item(SHOW_ID)));
-                children.add_value(new Variant.variant(build_item(HIDE_ID)));
+                children.add_value(new Variant.variant(
+                    build_item(window_visible ? HIDE_ID : SHOW_ID)
+                ));
                 children.add_value(new Variant.variant(build_item(MEDIA_SEPARATOR_ID)));
 
                 if (player == null) {
@@ -402,7 +414,7 @@ namespace MprisMiniPlayer {
             properties.add(
                 "{sv}",
                 "visible",
-                new Variant.boolean(id != UPDATE_ID || update_version != "")
+                new Variant.boolean(is_visible(id))
             );
             properties.add("{sv}", "type", new Variant.string("standard"));
             properties.add("{sv}", "label", new Variant.string(get_label(id)));
@@ -611,6 +623,12 @@ namespace MprisMiniPlayer {
         }
 
         private bool is_enabled(int id) {
+            if (id == SHOW_ID) {
+                return !window_visible;
+            }
+            if (id == HIDE_ID) {
+                return window_visible;
+            }
             if (
                 id == TITLE_ID
                 || id == ARTIST_ID
@@ -637,6 +655,16 @@ namespace MprisMiniPlayer {
                 return player != null && player.has_volume && player.can_control;
             }
             return true;
+        }
+
+        private bool is_visible(int id) {
+            if (id == SHOW_ID) {
+                return !window_visible;
+            }
+            if (id == HIDE_ID) {
+                return window_visible;
+            }
+            return id != UPDATE_ID || update_version != "";
         }
 
         private string get_icon_name(int id) {
@@ -712,6 +740,7 @@ namespace MprisMiniPlayer {
         private uint volume_icon_timeout_id = 0;
         private bool enabled = false;
         private bool compact_mode = false;
+        private bool window_visible = false;
         private MprisPlayer? player;
         private string update_version = "";
 
@@ -747,6 +776,14 @@ namespace MprisMiniPlayer {
 
             if (menu != null) {
                 menu.set_compact_mode(enabled);
+            }
+        }
+
+        public void set_window_visible(bool visible) {
+            window_visible = visible;
+
+            if (menu != null) {
+                menu.set_window_visible(visible);
             }
         }
 
@@ -866,6 +903,7 @@ namespace MprisMiniPlayer {
             });
             menu = new StatusNotifierMenu();
             menu.set_compact_mode(compact_mode);
+            menu.set_window_visible(window_visible);
             menu.set_player(player);
             menu.set_update_available(update_version);
             menu.action_requested.connect((action) => action_requested(action));

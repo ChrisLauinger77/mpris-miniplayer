@@ -36,7 +36,7 @@ namespace MprisMiniPlayer {
             background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
             status_indicator = new StatusIndicator();
-            status_indicator.activated.connect(() => present_window());
+            status_indicator.activated.connect(() => show_window_from_indicator());
             status_indicator.action_requested.connect(on_status_indicator_action_requested);
             status_indicator.support_changed.connect(maybe_start_update_check);
             status_indicator.set_compact_mode(app_settings.compact_mode);
@@ -156,6 +156,10 @@ namespace MprisMiniPlayer {
             show_window(false);
         }
 
+        private void show_window_from_indicator() {
+            show_window(false);
+        }
+
         private void show_window(bool request_activation) {
             if (main_window == null) {
                 main_window = new Window(
@@ -167,6 +171,11 @@ namespace MprisMiniPlayer {
                 main_window.close_request.connect(() => {
                     hide_window();
                     return true;
+                });
+                main_window.notify["visible"].connect(() => {
+                    status_indicator.set_window_visible(
+                        main_window != null && main_window.visible
+                    );
                 });
             }
 
@@ -262,7 +271,7 @@ namespace MprisMiniPlayer {
         private void on_status_indicator_action_requested(string action) {
             switch (action) {
                 case "show":
-                    present_window();
+                    show_window_from_indicator();
                     break;
                 case "hide":
                     hide_window();
