@@ -195,7 +195,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            set_player_volume(double.max(0.0, double.min(1.0, volume + delta)));
+            set_player_volume(double.max(0.0, volume + delta));
         }
 
         public string display_name() {
