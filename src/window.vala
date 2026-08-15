@@ -164,8 +164,8 @@ namespace MprisMiniPlayer {
             cover.content_fit = Gtk.ContentFit.COVER;
             cover_stack.add_named(cover, "artwork");
 
-            empty_icon = new Gtk.Image.from_icon_name("multimedia-player-symbolic");
-            empty_icon.pixel_size = 42;
+            empty_icon = new Gtk.Image.from_icon_name("audio-x-generic-symbolic");
+            empty_icon.pixel_size = 96;
             empty_icon.add_css_class("dim-label");
             cover_stack.add_named(empty_icon, "empty");
 
@@ -361,6 +361,11 @@ namespace MprisMiniPlayer {
 
         private void set_artwork(string art_url) {
             if (current_art_url == art_url) {
+                if (art_url == "") {
+                    cover.paintable = null;
+                    cover_stack.visible_child_name = "empty";
+                    clear_album_tint();
+                }
                 return;
             }
 
