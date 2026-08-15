@@ -51,9 +51,9 @@ private void test_hidden_layout() {
     assert_false(get_boolean_property(menu, HIDE_ID, "enabled"));
 }
 
-private void test_visible_layout() {
+private void test_shown_layout() {
     var menu = new MprisMiniPlayer.StatusNotifierMenu();
-    menu.set_window_visible(true);
+    menu.set_window_shown(true);
 
     uint revision;
     Variant layout = get_root_layout(menu, out revision);
@@ -66,25 +66,25 @@ private void test_visible_layout() {
     assert_true(get_boolean_property(menu, HIDE_ID, "enabled"));
 }
 
-private void test_visibility_revision() {
+private void test_shown_state_revision() {
     var menu = new MprisMiniPlayer.StatusNotifierMenu();
     uint initial_revision;
     get_root_layout(menu, out initial_revision);
 
-    menu.set_window_visible(true);
-    uint visible_revision;
-    get_root_layout(menu, out visible_revision);
-    assert_true(visible_revision > initial_revision);
+    menu.set_window_shown(true);
+    uint shown_revision;
+    get_root_layout(menu, out shown_revision);
+    assert_true(shown_revision > initial_revision);
 
-    menu.set_window_visible(true);
+    menu.set_window_shown(true);
     uint unchanged_revision;
     get_root_layout(menu, out unchanged_revision);
-    assert_true(unchanged_revision == visible_revision);
+    assert_true(unchanged_revision == shown_revision);
 
-    menu.set_window_visible(false);
+    menu.set_window_shown(false);
     uint hidden_revision;
     get_root_layout(menu, out hidden_revision);
-    assert_true(hidden_revision > visible_revision);
+    assert_true(hidden_revision > shown_revision);
 }
 
 private void test_only_current_action_activates() {
@@ -99,7 +99,7 @@ private void test_only_current_action_activates() {
         assert_cmpstr(action, CompareOperator.EQ, "show");
 
         action = "";
-        menu.set_window_visible(true);
+        menu.set_window_shown(true);
         menu.event(SHOW_ID, "clicked", new Variant.string(""), 0);
         assert_cmpstr(action, CompareOperator.EQ, "");
         menu.event(HIDE_ID, "clicked", new Variant.string(""), 0);
@@ -112,8 +112,8 @@ private void test_only_current_action_activates() {
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
-    Test.add_func("/status-menu/visible-layout", test_visible_layout);
-    Test.add_func("/status-menu/visibility-revision", test_visibility_revision);
+    Test.add_func("/status-menu/shown-layout", test_shown_layout);
+    Test.add_func("/status-menu/shown-state-revision", test_shown_state_revision);
     Test.add_func("/status-menu/current-action", test_only_current_action_activates);
     return Test.run();
 }
