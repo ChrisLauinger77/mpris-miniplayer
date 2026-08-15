@@ -2,7 +2,7 @@ namespace MprisMiniPlayer {
     public class Window : Adw.ApplicationWindow {
         private MprisManager? manager;
         private MprisPlayer? player;
-        private bool manual_selection = false;
+        private ulong player_changed_handler_id = 0;
         private bool compact_mode = false;
         private bool album_tint_enabled = false;
         private string current_art_url = "";
@@ -34,7 +34,6 @@ namespace MprisMiniPlayer {
         private uint position_timeout_id = 0;
         private bool updating_progress = false;
         private bool updating_volume = false;
-        private double restore_volume = 1.0;
 
         public Window(
             Gtk.Application app,
@@ -61,6 +60,9 @@ namespace MprisMiniPlayer {
             );
 
             build_ui();
+            if (manager != null) {
+                manager.active_player_changed.connect(sync_active_player);
+            }
             set_compact_mode(compact_mode);
             start_position_timer();
             refresh_players();
@@ -76,7 +78,10 @@ namespace MprisMiniPlayer {
         }
 
         public void refresh_players() {
-            select_player_for_current_state();
+            if (manager != null) {
+                manager.refresh_active_player();
+            }
+            sync_active_player();
         }
 
         public void set_compact_mode(bool compact_mode) {
@@ -268,10 +273,9 @@ namespace MprisMiniPlayer {
             update_controls(false);
         }
 
-        private void select_player_for_current_state() {
+        private void sync_active_player() {
             if (manager == null) {
-                player = null;
-                manual_selection = false;
+                set_player(null);
                 show_empty_state(_("Session D-Bus unavailable"), _("Unable to monitor MPRIS players"));
                 return;
             }
@@ -280,39 +284,37 @@ namespace MprisMiniPlayer {
             rebuild_player_list(players);
 
             if (players.length == 0) {
-                player = null;
-                manual_selection = false;
+                set_player(null);
                 show_empty_state(_("No player detected"), _("Start any MPRIS-compatible player"));
                 return;
             }
 
-            string selected_bus_name;
-            if (manual_selection && player != null && has_player(players, player.bus_name)) {
-                selected_bus_name = player.bus_name;
-            } else {
-                manual_selection = false;
-                selected_bus_name = choose_best_player(players);
-            }
-
-            if (player != null && player.bus_name == selected_bus_name) {
-                player.refresh();
+            if (manager.active_player == null) {
+                set_player(null);
+                show_empty_state(_("Player unavailable"), _("Unable to monitor MPRIS players"));
                 return;
             }
 
-            select_player(selected_bus_name);
+            set_player(manager.active_player);
         }
 
-        private void select_player(string bus_name) {
-            try {
-                player = new MprisPlayer(bus_name);
-                player.changed.connect(update_player_state);
-                update_player_state();
-                if (manager != null) {
-                    rebuild_player_list(manager.list_players());
+        private void set_player(MprisPlayer? selected_player) {
+            if (player == selected_player) {
+                if (player != null) {
+                    update_player_state();
                 }
-            } catch (Error error) {
-                warning("Unable to select player %s: %s", bus_name, error.message);
-                show_empty_state(_("Player unavailable"), error.message);
+                return;
+            }
+
+            if (player != null && player_changed_handler_id != 0) {
+                SignalHandler.disconnect(player, player_changed_handler_id);
+                player_changed_handler_id = 0;
+            }
+
+            player = selected_player;
+            if (player != null) {
+                player_changed_handler_id = player.changed.connect(update_player_state);
+                update_player_state();
             }
         }
 
@@ -496,9 +498,11 @@ namespace MprisMiniPlayer {
             button.hexpand = true;
             button.clicked.connect(() => {
                 player_popover.popdown();
-                if (player == null || player.bus_name != listed_player.bus_name) {
-                    manual_selection = true;
-                    select_player(listed_player.bus_name);
+                if (
+                    manager != null
+                    && (player == null || player.bus_name != listed_player.bus_name)
+                ) {
+                    manager.select_player(listed_player.bus_name);
                 }
             });
 
@@ -526,41 +530,6 @@ namespace MprisMiniPlayer {
             }
 
             return button;
-        }
-
-        private bool has_player(string[] bus_names, string bus_name) {
-            foreach (var candidate in bus_names) {
-                if (candidate == bus_name) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private string choose_best_player(string[] bus_names) {
-            string first_bus_name = bus_names[0];
-            string paused_bus_name = "";
-
-            foreach (var bus_name in bus_names) {
-                try {
-                    var candidate = new MprisPlayer(bus_name);
-                    if (candidate.playback_status == "Playing") {
-                        return bus_name;
-                    }
-                    if (paused_bus_name == "" && candidate.playback_status == "Paused") {
-                        paused_bus_name = bus_name;
-                    }
-                } catch (Error error) {
-                    warning("Unable to inspect player %s: %s", bus_name, error.message);
-                }
-            }
-
-            if (paused_bus_name != "") {
-                return paused_bus_name;
-            }
-
-            return first_bus_name;
         }
 
         private void start_position_timer() {
@@ -626,9 +595,6 @@ namespace MprisMiniPlayer {
             volume_scale.set_value(has_volume ? slider_volume(player.volume) : 0);
             updating_volume = false;
 
-            if (has_volume && player.volume > 0.0) {
-                restore_volume = player.volume;
-            }
             update_volume_button();
         }
 
@@ -638,9 +604,6 @@ namespace MprisMiniPlayer {
             }
 
             double volume = volume_scale.get_value();
-            if (volume > 0.0) {
-                restore_volume = volume;
-            }
             player.set_player_volume(volume);
         }
 
@@ -649,13 +612,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            if (player.volume > 0.0) {
-                restore_volume = player.volume;
-                player.set_player_volume(0.0);
-                return;
-            }
-
-            player.set_player_volume(restore_volume > 0.0 ? restore_volume : 1.0);
+            player.toggle_mute();
         }
 
         private double slider_volume(double volume) {

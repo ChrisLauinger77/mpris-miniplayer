@@ -11,9 +11,13 @@ namespace MprisMiniPlayer {
         private FreedesktopDBus dbus_proxy;
         private uint name_owner_subscription_id;
         private uint player_properties_subscription_id;
+        private bool manual_selection = false;
+
+        public MprisPlayer? active_player { get; private set; default = null; }
 
         public signal void players_changed();
         public signal void player_priority_changed();
+        public signal void active_player_changed();
 
         public MprisManager() throws Error {
             bus = Bus.get_sync(BusType.SESSION);
@@ -40,6 +44,7 @@ namespace MprisMiniPlayer {
                 DBusSignalFlags.NONE,
                 on_player_properties_changed
             );
+            refresh_active_player();
         }
 
         ~MprisManager() {
@@ -68,6 +73,36 @@ namespace MprisMiniPlayer {
             }
         }
 
+        public void select_player(string bus_name) {
+            string[] players = list_players();
+            if (!has_player(players, bus_name)) {
+                return;
+            }
+
+            manual_selection = true;
+            switch_active_player(bus_name);
+        }
+
+        public void refresh_active_player() {
+            string[] players = list_players();
+            if (players.length == 0) {
+                manual_selection = false;
+                clear_active_player();
+                return;
+            }
+
+            if (
+                manual_selection
+                && active_player != null
+                && has_player(players, active_player.bus_name)
+            ) {
+                return;
+            }
+
+            manual_selection = false;
+            switch_active_player(choose_best_player(players));
+        }
+
         private void on_name_owner_changed(
             DBusConnection connection,
             string? sender_name,
@@ -82,6 +117,7 @@ namespace MprisMiniPlayer {
             parameters.get("(sss)", out name, out old_owner, out new_owner);
 
             if (name.has_prefix(MPRIS_PREFIX)) {
+                refresh_active_player();
                 players_changed();
             }
         }
@@ -106,8 +142,65 @@ namespace MprisMiniPlayer {
                     || has_string(invalidated, "PlaybackStatus")
                 )
             ) {
+                if (!manual_selection) {
+                    refresh_active_player();
+                }
                 player_priority_changed();
             }
+        }
+
+        private void switch_active_player(string bus_name) {
+            if (active_player != null && active_player.bus_name == bus_name) {
+                return;
+            }
+
+            try {
+                active_player = new MprisPlayer(bus_name);
+                active_player_changed();
+            } catch (Error error) {
+                warning("Unable to select player %s: %s", bus_name, error.message);
+                clear_active_player();
+            }
+        }
+
+        private void clear_active_player() {
+            if (active_player == null) {
+                return;
+            }
+
+            active_player = null;
+            active_player_changed();
+        }
+
+        private string choose_best_player(string[] bus_names) {
+            string first_bus_name = bus_names[0];
+            string paused_bus_name = "";
+
+            foreach (var bus_name in bus_names) {
+                try {
+                    var candidate = new MprisPlayer(bus_name);
+                    if (candidate.playback_status == "Playing") {
+                        return bus_name;
+                    }
+                    if (paused_bus_name == "" && candidate.playback_status == "Paused") {
+                        paused_bus_name = bus_name;
+                    }
+                } catch (Error error) {
+                    warning("Unable to inspect player %s: %s", bus_name, error.message);
+                }
+            }
+
+            return paused_bus_name != "" ? paused_bus_name : first_bus_name;
+        }
+
+        private bool has_player(string[] bus_names, string bus_name) {
+            foreach (var candidate in bus_names) {
+                if (candidate == bus_name) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool has_property(Variant dictionary, string key) {
