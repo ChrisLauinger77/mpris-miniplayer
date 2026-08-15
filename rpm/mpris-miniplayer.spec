@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 1.4.0}
+%{!?pkg_version:%global pkg_version 1.4.1}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -47,6 +47,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Sat Aug 15 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.4.1-1
+- Correct status indicator mouse-wheel direction and cap upward adjustment
+- Preserve amplified volume while lowering it incrementally
+- Show a status indicator link when a newer stable release is available
+
 * Sat Aug 15 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.4.0-1
 - Add track information and media controls to the status indicator
 - Add mouse-wheel volume adjustment with temporary icon feedback

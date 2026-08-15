@@ -1,4 +1,11 @@
   <releases>
+    <release version="1.4.1" date="2026-08-15">
+      <description>
+        <p>Correct mouse-wheel volume direction and stop upward adjustment at 100%.</p>
+        <p>Preserve externally amplified volume while lowering it incrementally.</p>
+        <p>Show a status indicator link when a newer stable release is available.</p>
+      </description>
+    </release>
     <release version="1.4.0" date="2026-08-15">
       <description>
         <p>Show current track information and media controls in the status indicator menu.</p>

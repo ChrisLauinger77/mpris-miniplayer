@@ -1,3 +1,12 @@
+mpris-miniplayer (1.4.1-1) unstable; urgency=medium
+
+  * Correct status indicator mouse-wheel direction and stop upward volume
+    adjustment at 100%.
+  * Preserve externally amplified volume while lowering it incrementally.
+  * Show a status indicator link when a newer stable release is available.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Sat, 15 Aug 2026 11:56:02 +0200
+
 mpris-miniplayer (1.4.0-1) unstable; urgency=medium
 
   * Show current track information and media controls in the status indicator
