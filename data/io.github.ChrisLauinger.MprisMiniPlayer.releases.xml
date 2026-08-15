@@ -1,4 +1,9 @@
   <releases>
+    <release version="1.4.2" date="2026-08-15">
+      <description>
+        <p>Show a fallback icon when album artwork is unavailable.</p>
+      </description>
+    </release>
     <release version="1.4.1" date="2026-08-15">
       <description>
         <p>Correct mouse-wheel volume direction and stop upward adjustment at 100%.</p>
