@@ -185,8 +185,17 @@ namespace MprisMiniPlayer {
             }
 
             main_window.refresh_players();
+            bool restore_suspended_window = restore_minimized
+                && main_window.visible
+                && is_main_window_suspended();
             if (request_activation) {
                 main_window.present();
+            } else if (restore_suspended_window) {
+                // Wayland does not provide an activation token through the
+                // StatusNotifier D-Bus API. Remapping restores a compositor-
+                // minimized surface without producing an activation notification.
+                main_window.set_visible(false);
+                main_window.set_visible(true);
             } else {
                 // A player can appear without user interaction. Requesting focus in
                 // that case is rejected by Wayland compositors and may produce an
@@ -229,17 +238,21 @@ namespace MprisMiniPlayer {
             bool window_shown = main_window != null
                 && main_window.visible
                 && main_window.get_mapped();
-            if (
-                window_shown
-                && main_toplevel != null
-                && (
-                    main_toplevel.get_state() & Gdk.ToplevelState.MINIMIZED
-                ) != 0
-            ) {
+            if (window_shown && is_main_window_suspended()) {
                 window_shown = false;
             }
 
             status_indicator.set_window_shown(window_shown);
+        }
+
+        private bool is_main_window_suspended() {
+            return main_toplevel != null
+                && (
+                    main_toplevel.get_state() & (
+                        Gdk.ToplevelState.MINIMIZED
+                        | Gdk.ToplevelState.SUSPENDED
+                    )
+                ) != 0;
         }
 
         private void hide_window() {
