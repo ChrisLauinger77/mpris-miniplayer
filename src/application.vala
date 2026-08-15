@@ -5,6 +5,7 @@ namespace MprisMiniPlayer {
         private AppSettings app_settings;
         private BackgroundPortal background_portal;
         private StatusIndicator status_indicator;
+        private UpdateChecker? update_checker;
         private MprisManager? manager;
         private Window? main_window;
         private PreferencesWindow? preferences_window;
@@ -12,6 +13,8 @@ namespace MprisMiniPlayer {
         private SimpleAction? compact_mode_action;
         private bool suppress_next_start_on_login_portal_update = false;
         private bool startup_activation_handled = false;
+        private bool update_check_started = false;
+        private string latest_release_url = "";
         private bool held = false;
 
         public Application() {
@@ -35,8 +38,10 @@ namespace MprisMiniPlayer {
             status_indicator = new StatusIndicator();
             status_indicator.activated.connect(() => present_window());
             status_indicator.action_requested.connect(on_status_indicator_action_requested);
+            status_indicator.support_changed.connect(maybe_start_update_check);
             status_indicator.set_compact_mode(app_settings.compact_mode);
             status_indicator.set_enabled(app_settings.show_status_indicator);
+            maybe_start_update_check();
 
             try {
                 manager = new MprisManager();
@@ -233,6 +238,7 @@ namespace MprisMiniPlayer {
 
             if (key == "show-status-indicator") {
                 status_indicator.set_enabled(app_settings.show_status_indicator);
+                maybe_start_update_check();
             }
 
             bool compact_mode = app_settings.compact_mode;
@@ -260,6 +266,9 @@ namespace MprisMiniPlayer {
                     break;
                 case "hide":
                     hide_window();
+                    break;
+                case "open-release":
+                    open_latest_release.begin();
                     break;
                 case "previous":
                     if (manager != null && manager.active_player != null) {
@@ -311,6 +320,36 @@ namespace MprisMiniPlayer {
                 case "quit":
                     quit_app();
                     break;
+            }
+        }
+
+        private void maybe_start_update_check() {
+            if (
+                update_check_started
+                || !app_settings.show_status_indicator
+                || !status_indicator.supported
+            ) {
+                return;
+            }
+
+            update_check_started = true;
+            update_checker = new UpdateChecker();
+            update_checker.update_available.connect((version, release_url) => {
+                latest_release_url = release_url;
+                status_indicator.set_update_available(version);
+            });
+            update_checker.check.begin();
+        }
+
+        private async void open_latest_release() {
+            if (latest_release_url == "") {
+                return;
+            }
+
+            try {
+                yield AppInfo.launch_default_for_uri_async(latest_release_url, null);
+            } catch (Error error) {
+                warning("Unable to open release page: %s", error.message);
             }
         }
 

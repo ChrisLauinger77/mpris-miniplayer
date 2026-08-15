@@ -151,6 +151,7 @@ namespace MprisMiniPlayer {
         private const int QUIT_ID = 6;
         private const int MEDIA_SEPARATOR_ID = 7;
         private const int SETTINGS_SEPARATOR_ID = 8;
+        private const int UPDATE_ID = 9;
         private const int TITLE_ID = 10;
         private const int ARTIST_ID = 11;
         private const int ALBUM_ID = 12;
@@ -171,6 +172,7 @@ namespace MprisMiniPlayer {
         private MprisPlayer? player;
         private ulong player_changed_handler_id = 0;
         private string player_state_signature = "none";
+        private string update_version = "";
 
         public signal void action_requested(string action);
 
@@ -237,6 +239,16 @@ namespace MprisMiniPlayer {
                 player_changed_handler_id = player.changed.connect(on_player_changed);
             }
             player_state_signature = build_player_state_signature();
+            notify_layout_changed();
+        }
+
+        [DBus (visible = false)]
+        public void set_update_available(string version) {
+            if (update_version == version) {
+                return;
+            }
+
+            update_version = version;
             notify_layout_changed();
         }
 
@@ -334,6 +346,9 @@ namespace MprisMiniPlayer {
 
                 children.add_value(new Variant.variant(build_item(SETTINGS_SEPARATOR_ID)));
                 children.add_value(new Variant.variant(build_item(COMPACT_MODE_ID)));
+                if (update_version != "") {
+                    children.add_value(new Variant.variant(build_item(UPDATE_ID)));
+                }
                 children.add_value(new Variant.variant(build_item(PREFERENCES_ID)));
                 children.add_value(new Variant.variant(build_item(ABOUT_ID)));
                 children.add_value(new Variant.variant(build_item(QUIT_ID)));
@@ -384,7 +399,11 @@ namespace MprisMiniPlayer {
             }
 
             properties.add("{sv}", "enabled", new Variant.boolean(is_enabled(id)));
-            properties.add("{sv}", "visible", new Variant.boolean(true));
+            properties.add(
+                "{sv}",
+                "visible",
+                new Variant.boolean(id != UPDATE_ID || update_version != "")
+            );
             properties.add("{sv}", "type", new Variant.string("standard"));
             properties.add("{sv}", "label", new Variant.string(get_label(id)));
             string icon_name = get_icon_name(id);
@@ -415,6 +434,8 @@ namespace MprisMiniPlayer {
                     return _("Show");
                 case HIDE_ID:
                     return _("Hide");
+                case UPDATE_ID:
+                    return _("Update available: %s").printf(update_version);
                 case TITLE_ID:
                     return truncate_label(player != null ? player.title : "", 30);
                 case ARTIST_ID:
@@ -465,6 +486,9 @@ namespace MprisMiniPlayer {
                     break;
                 case HIDE_ID:
                     action_requested("hide");
+                    break;
+                case UPDATE_ID:
+                    action_requested("open-release");
                     break;
                 case PREVIOUS_ID:
                     action_requested("previous");
@@ -553,6 +577,7 @@ namespace MprisMiniPlayer {
                 QUIT_ID,
                 MEDIA_SEPARATOR_ID,
                 SETTINGS_SEPARATOR_ID,
+                UPDATE_ID,
                 TITLE_ID,
                 ARTIST_ID,
                 ALBUM_ID,
@@ -630,6 +655,8 @@ namespace MprisMiniPlayer {
                         : "audio-volume-high-symbolic";
                 case MUTE_ID:
                     return "audio-volume-muted-symbolic";
+                case UPDATE_ID:
+                    return "software-update-available-symbolic";
                 default:
                     return "";
             }
@@ -686,6 +713,7 @@ namespace MprisMiniPlayer {
         private bool enabled = false;
         private bool compact_mode = false;
         private MprisPlayer? player;
+        private string update_version = "";
 
         public bool supported { get; private set; default = false; }
 
@@ -727,6 +755,14 @@ namespace MprisMiniPlayer {
 
             if (menu != null) {
                 menu.set_player(selected_player);
+            }
+        }
+
+        public void set_update_available(string version) {
+            update_version = version;
+
+            if (menu != null) {
+                menu.set_update_available(version);
             }
         }
 
@@ -825,12 +861,13 @@ namespace MprisMiniPlayer {
                     return;
                 }
 
-                action_requested(delta > 0 ? "volume-up" : "volume-down");
+                action_requested(delta > 0 ? "volume-down" : "volume-up");
                 show_volume_icon_feedback();
             });
             menu = new StatusNotifierMenu();
             menu.set_compact_mode(compact_mode);
             menu.set_player(player);
+            menu.set_update_available(update_version);
             menu.action_requested.connect((action) => action_requested(action));
 
             try {

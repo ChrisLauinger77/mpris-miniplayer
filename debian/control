@@ -9,6 +9,7 @@ Build-Depends:
  gettext,
  libadwaita-1-dev,
  libgtk-4-dev,
+ libsoup-3.0-dev,
  meson,
  ninja-build,
  valac
