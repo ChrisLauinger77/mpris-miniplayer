@@ -21,6 +21,19 @@ subdir('src')
 subdir('data')
 subdir('po')
 
+update_checker_test = executable(
+  'update-checker-test',
+  [
+    config_vala,
+    'src/update-checker.vala',
+    'tests/update-checker-test.vala',
+  ],
+  dependencies: dependency('libsoup-3.0'),
+  vala_args: ['--target-glib=2.66'],
+)
+
+test('update checker version comparison', update_checker_test)
+
 gnome.post_install(
   glib_compile_schemas: true,
   gtk_update_icon_cache: true,

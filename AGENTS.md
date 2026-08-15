@@ -102,6 +102,7 @@ Typical Debian dependencies:
 sudo apt install \
   meson ninja-build valac \
   libgtk-4-dev libadwaita-1-dev \
+  libsoup-3.0-dev \
   gettext desktop-file-utils appstream-util
 ```
 
@@ -113,6 +114,7 @@ Typical Fedora dependencies for building the application and RPM package:
 sudo dnf install \
   desktop-file-utils gcc gettext git \
   gtk4-devel libadwaita-devel meson \
+  libsoup3-devel \
   rpm-build vala
 ```
 

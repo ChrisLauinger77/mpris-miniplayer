@@ -17,6 +17,7 @@ executable(
     'main.vala',
     'app-settings.vala',
     'background-portal.vala',
+    'update-checker.vala',
     'status-indicator.vala',
     'application.vala',
     'preferences-window.vala',
@@ -29,6 +30,7 @@ executable(
     dependency('libadwaita-1', version: '>= 1.5'),
     dependency('gio-2.0'),
     dependency('gdk-pixbuf-2.0'),
+    dependency('libsoup-3.0'),
   ],
   vala_args: [
     '--target-glib=2.66',

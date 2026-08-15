@@ -68,6 +68,7 @@ When it starts without a player, it can stay hidden in the background and show t
 - Can show and hide the window automatically as players appear or disappear
 - Can show a status indicator with show, hide, compact mode, settings, about, and quit actions when the desktop supports it
 - Provides preferences for compact mode, background notifications, automatic visibility, status indicators, and start on login
+- Shows a status indicator link when a newer stable release is available
 - Hides the window on close; use Quit to stop the app
 
 ## Build from Source
@@ -75,7 +76,7 @@ When it starts without a player, it can stay hidden in the background and show t
 Install the typical development dependencies on Debian or Ubuntu:
 
 ```bash
-sudo apt install meson ninja-build valac libgtk-4-dev libadwaita-1-dev gettext desktop-file-utils appstream
+sudo apt install meson ninja-build valac libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev gettext desktop-file-utils appstream
 ```
 
 Build and run:

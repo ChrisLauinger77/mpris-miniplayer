@@ -56,6 +56,7 @@ jobs:
             gettext \
             libadwaita-1-dev \
             libgtk-4-dev \
+            libsoup-3.0-dev \
             meson \
             ninja-build \
             valac
@@ -91,6 +92,7 @@ jobs:
             git \
             gtk4-devel \
             libadwaita-devel \
+            libsoup3-devel \
             meson \
             rpm-build \
             vala
