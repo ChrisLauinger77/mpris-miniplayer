@@ -56,7 +56,7 @@ When it starts without a player, it can stay hidden in the background and show t
 
 - Detects MPRIS players on the session bus
 - Selects the first available player automatically
-- Shows track title, artist, album, and album art
+- Shows track title, artist, album, and album art, with a fallback player icon when artwork is unavailable
 - Provides previous, play/pause, and next controls
 - Shows playback progress and time
 - Lets you seek when the selected player supports it
@@ -66,7 +66,9 @@ When it starts without a player, it can stay hidden in the background and show t
 - Updates the UI when player metadata changes
 - Can keep running in the background when no player is available
 - Can show and hide the window automatically as players appear or disappear
-- Can show a status indicator with show, hide, compact mode, settings, about, and quit actions when the desktop supports it
+- Can show a status indicator with current track information, media controls, and volume presets when the desktop supports it
+- Adjusts volume by scrolling over the status indicator, with temporary icon feedback and a 100% upper limit
+- Provides status indicator actions for showing or hiding the window, compact mode, preferences, about, and quit
 - Provides preferences for compact mode, background notifications, automatic visibility, status indicators, and start on login
 - Shows a status indicator link when a newer stable release is available
 - Hides the window on close; use Quit to stop the app
@@ -107,8 +109,8 @@ sudo ninja -C build uninstall
 Pushing a version tag builds a Flatpak bundle, an amd64 Debian package, an x86_64 RPM package, and creates a GitHub release:
 
 ```bash
-git tag v1.3.3
-git push origin v1.3.3
+git tag v1.4.2
+git push origin v1.4.2
 ```
 
 The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`, `mpris-miniplayer_<tag>_amd64.deb`, and `mpris-miniplayer-<tag>.x86_64.rpm` to the generated release.
@@ -148,3 +150,17 @@ v1.0:
 - Polish AppStream metadata for clean validation
 - Add icon package integration
 - Add Debian packaging and amd64 release packages
+
+v1.1–v1.3:
+
+- Improve the About dialog and build-tree development workflow
+- Add a native status indicator with compact mode and reliable window controls
+- Add album artwork color tinting
+- Add RPM packaging and update the Flatpak runtime
+
+v1.4:
+
+- Show track information, media controls, and volume presets in the status indicator menu
+- Adjust volume by scrolling over the status indicator with temporary icon feedback
+- Notify users when a newer stable release is available
+- Show a fallback player icon when album artwork is unavailable
