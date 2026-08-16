@@ -1,4 +1,10 @@
   <releases>
+    <release version="1.5.0" date="2026-08-16">
+      <description>
+        <p>Show the appropriate window visibility action in the status indicator menu.</p>
+        <p>Restore minimized or suspended windows when activated from the status indicator.</p>
+      </description>
+    </release>
     <release version="1.4.2" date="2026-08-15">
       <description>
         <p>Show a fallback icon when album artwork is unavailable.</p>

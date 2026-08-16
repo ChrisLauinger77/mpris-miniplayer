@@ -1,3 +1,12 @@
+mpris-miniplayer (1.5.0-1) unstable; urgency=medium
+
+  * Show the appropriate window visibility action in the status indicator
+    menu.
+  * Restore minimized or suspended windows when activated from the status
+    indicator.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Sun, 16 Aug 2026 08:57:07 +0200
+
 mpris-miniplayer (1.4.2-1) unstable; urgency=medium
 
   * Show a fallback icon when album artwork is unavailable.
