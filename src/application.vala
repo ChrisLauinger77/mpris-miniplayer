@@ -10,6 +10,7 @@ namespace MprisMiniPlayer {
         private Window? main_window;
         private Gdk.Toplevel? main_toplevel;
         private ulong main_toplevel_state_handler_id = 0;
+        private uint restore_minimized_source_id = 0;
         private PreferencesWindow? preferences_window;
         private Adw.AboutDialog? about_dialog;
         private SimpleAction? compact_mode_action;
@@ -166,6 +167,7 @@ namespace MprisMiniPlayer {
             bool request_activation,
             bool restore_minimized = false
         ) {
+            clear_restore_minimized_source();
             if (main_window == null) {
                 main_window = new Window(
                     this,
@@ -194,8 +196,16 @@ namespace MprisMiniPlayer {
                 // Wayland does not provide an activation token through the
                 // StatusNotifier D-Bus API. Remapping restores a compositor-
                 // minimized surface without producing an activation notification.
+                // Defer showing it so GTK processes the unmap before the remap.
                 main_window.set_visible(false);
-                main_window.set_visible(true);
+                restore_minimized_source_id = Idle.add(() => {
+                    restore_minimized_source_id = 0;
+                    if (main_window != null) {
+                        main_window.unminimize();
+                        main_window.set_visible(true);
+                    }
+                    return Source.REMOVE;
+                });
             } else {
                 // A player can appear without user interaction. Requesting focus in
                 // that case is rejected by Wayland compositors and may produce an
@@ -256,11 +266,21 @@ namespace MprisMiniPlayer {
         }
 
         private void hide_window() {
+            clear_restore_minimized_source();
             if (main_window != null) {
                 main_window.set_visible(false);
             }
 
             enter_background();
+        }
+
+        private void clear_restore_minimized_source() {
+            if (restore_minimized_source_id == 0) {
+                return;
+            }
+
+            Source.remove(restore_minimized_source_id);
+            restore_minimized_source_id = 0;
         }
 
         private void present_preferences() {
@@ -458,6 +478,7 @@ namespace MprisMiniPlayer {
         }
 
         private void quit_app() {
+            clear_restore_minimized_source();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
             background_portal.leave_background();
             status_indicator.shutdown();
