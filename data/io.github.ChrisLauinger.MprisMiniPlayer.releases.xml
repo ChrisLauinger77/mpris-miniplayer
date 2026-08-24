@@ -1,4 +1,9 @@
   <releases>
+    <release version="1.5.1" date="2026-08-24">
+      <description>
+        <p>Restore a window minimized with its title-bar button on the first status indicator Show action.</p>
+      </description>
+    </release>
     <release version="1.5.0" date="2026-08-16">
       <description>
         <p>Show the appropriate window visibility action in the status indicator menu.</p>

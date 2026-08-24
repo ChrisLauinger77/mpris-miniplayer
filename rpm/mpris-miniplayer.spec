@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 1.5.0}
+%{!?pkg_version:%global pkg_version 1.5.1}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -47,6 +47,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Mon Aug 24 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.5.1-1
+- Restore title-bar-minimized windows on the first status indicator Show action
+
 * Sun Aug 16 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.5.0-1
 - Show the appropriate window visibility action in the status indicator
 - Restore minimized or suspended windows from the status indicator
