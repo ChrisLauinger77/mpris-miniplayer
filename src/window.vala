@@ -1,6 +1,9 @@
 namespace MprisMiniPlayer {
     public class Window : Adw.ApplicationWindow {
         private const int64 MAX_ARTWORK_BYTES = 10 * 1024 * 1024;
+        private const int MAX_ARTWORK_DIMENSION = 8192;
+        private const int64 MAX_ARTWORK_PIXELS = 16 * 1024 * 1024;
+        private const int ARTWORK_DECODE_SIZE = 256;
         private const size_t ARTWORK_READ_CHUNK_BYTES = 64 * 1024;
         private const uint ARTWORK_TIMEOUT_SECONDS = 15;
 
@@ -13,7 +16,7 @@ namespace MprisMiniPlayer {
         private uint artwork_request_id = 0;
         private Soup.Session artwork_session;
         private Cancellable? artwork_cancellable;
-        private Bytes? current_artwork_bytes;
+        private Gdk.Pixbuf? current_artwork_pixbuf;
         private Gtk.CssProvider tint_provider;
 
         private Gtk.Box main_box;
@@ -80,8 +83,8 @@ namespace MprisMiniPlayer {
             album_tint_enabled = enabled;
             if (!enabled) {
                 clear_album_tint();
-            } else if (current_artwork_bytes != null) {
-                apply_album_tint_from_bytes(current_artwork_bytes);
+            } else if (current_artwork_pixbuf != null) {
+                apply_album_tint(current_artwork_pixbuf);
             }
         }
 
@@ -358,7 +361,7 @@ namespace MprisMiniPlayer {
             cover_stack.visible_child_name = "empty";
             cover.paintable = null;
             current_art_url = "";
-            current_artwork_bytes = null;
+            current_artwork_pixbuf = null;
             cancel_artwork_request();
             artwork_request_id++;
             clear_album_tint();
@@ -381,7 +384,7 @@ namespace MprisMiniPlayer {
 
             current_art_url = art_url;
             uint request_id = ++artwork_request_id;
-            current_artwork_bytes = null;
+            current_artwork_pixbuf = null;
             cancel_artwork_request();
             cover.paintable = null;
             cover_stack.visible_child_name = "empty";
@@ -477,18 +480,28 @@ namespace MprisMiniPlayer {
                     return;
                 }
 
-                var texture = Gdk.Texture.from_bytes(bytes);
-                current_artwork_bytes = bytes;
+                Gdk.Pixbuf pixbuf = decode_artwork(bytes);
+                Gdk.MemoryFormat format = pixbuf.get_has_alpha()
+                    ? Gdk.MemoryFormat.R8G8B8A8
+                    : Gdk.MemoryFormat.R8G8B8;
+                var texture = new Gdk.MemoryTexture(
+                    pixbuf.get_width(),
+                    pixbuf.get_height(),
+                    format,
+                    pixbuf.read_pixel_bytes(),
+                    (size_t) pixbuf.get_rowstride()
+                );
+                current_artwork_pixbuf = pixbuf;
                 cover.paintable = texture;
                 cover_stack.visible_child_name = "artwork";
                 artwork_cancellable = null;
                 if (album_tint_enabled) {
-                    apply_album_tint_from_bytes(bytes);
+                    apply_album_tint(pixbuf);
                 }
             } catch (Error error) {
                 if (request_id == artwork_request_id) {
                     artwork_cancellable = null;
-                    current_artwork_bytes = null;
+                    current_artwork_pixbuf = null;
                     cover.paintable = null;
                     cover_stack.visible_child_name = "empty";
                     clear_album_tint();
@@ -575,6 +588,80 @@ namespace MprisMiniPlayer {
             return new Bytes(data);
         }
 
+        private Gdk.Pixbuf decode_artwork(Bytes bytes) throws Error {
+            var loader = new Gdk.PixbufLoader();
+            bool dimensions_ready = false;
+            bool dimensions_valid = false;
+
+            loader.size_prepared.connect((width, height) => {
+                dimensions_ready = true;
+                dimensions_valid = (
+                    width > 0
+                    && height > 0
+                    && width <= MAX_ARTWORK_DIMENSION
+                    && height <= MAX_ARTWORK_DIMENSION
+                    && (int64) width * (int64) height <= MAX_ARTWORK_PIXELS
+                );
+
+                if (!dimensions_valid) {
+                    loader.set_size(1, 1);
+                    return;
+                }
+
+                double scale = double.min(
+                    1.0,
+                    ARTWORK_DECODE_SIZE / (double) int.max(width, height)
+                );
+                loader.set_size(
+                    int.max(1, (int) (width * scale + 0.5)),
+                    int.max(1, (int) (height * scale + 0.5))
+                );
+            });
+
+            loader.write_bytes(bytes);
+            loader.close();
+            if (!dimensions_ready) {
+                throw new IOError.INVALID_DATA("Artwork has no valid dimensions");
+            }
+            if (!dimensions_valid) {
+                throw new IOError.MESSAGE_TOO_LARGE(
+                    "Album artwork dimensions exceed the supported limit"
+                );
+            }
+
+            unowned Gdk.Pixbuf? loaded_pixbuf = loader.get_pixbuf();
+            if (loaded_pixbuf == null) {
+                throw new IOError.INVALID_DATA("Unable to decode album artwork");
+            }
+
+            Gdk.Pixbuf? pixbuf;
+            if (
+                loaded_pixbuf.get_width() > ARTWORK_DECODE_SIZE
+                || loaded_pixbuf.get_height() > ARTWORK_DECODE_SIZE
+            ) {
+                double scale = double.min(
+                    1.0,
+                    ARTWORK_DECODE_SIZE / (double) int.max(
+                        loaded_pixbuf.get_width(),
+                        loaded_pixbuf.get_height()
+                    )
+                );
+                pixbuf = loaded_pixbuf.scale_simple(
+                    int.max(1, (int) (loaded_pixbuf.get_width() * scale + 0.5)),
+                    int.max(1, (int) (loaded_pixbuf.get_height() * scale + 0.5)),
+                    Gdk.InterpType.BILINEAR
+                );
+            } else {
+                pixbuf = loaded_pixbuf.copy();
+            }
+
+            if (pixbuf == null) {
+                throw new IOError.FAILED("Unable to copy decoded album artwork");
+            }
+
+            return pixbuf;
+        }
+
         private void cancel_artwork_request() {
             if (artwork_cancellable == null) {
                 return;
@@ -582,21 +669,6 @@ namespace MprisMiniPlayer {
 
             artwork_cancellable.cancel();
             artwork_cancellable = null;
-        }
-
-        private void apply_album_tint_from_bytes(Bytes bytes) {
-            try {
-                var stream = new MemoryInputStream.from_bytes(bytes);
-                var pixbuf = new Gdk.Pixbuf.from_stream_at_scale(
-                    stream,
-                    32,
-                    32,
-                    true
-                );
-                apply_album_tint(pixbuf);
-            } catch (Error error) {
-                clear_album_tint();
-            }
         }
 
         private void apply_album_tint(Gdk.Pixbuf pixbuf) {
