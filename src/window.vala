@@ -583,7 +583,7 @@ namespace MprisMiniPlayer {
         }
 
         private Gdk.Pixbuf decode_artwork(Bytes bytes) throws Error {
-            reject_animated_artwork(bytes);
+            validate_static_artwork(bytes);
 
             var loader = new Gdk.PixbufLoader();
             bool dimensions_ready = false;
@@ -687,13 +687,26 @@ namespace MprisMiniPlayer {
             );
         }
 
-        private void reject_animated_artwork(Bytes bytes) throws Error {
+        private void validate_static_artwork(Bytes bytes) throws Error {
             int size = (int) bytes.get_size();
             if (
                 artwork_bytes_match(bytes, 0, "GIF87a")
                 || artwork_bytes_match(bytes, 0, "GIF89a")
             ) {
                 throw new IOError.NOT_SUPPORTED("GIF artwork is not supported");
+            }
+
+            if (
+                size >= 3
+                && bytes[0] == 0xff
+                && bytes[1] == 0xd8
+                && bytes[2] == 0xff
+            ) {
+                return;
+            }
+
+            if (size >= 2 && bytes[0] == 'B' && bytes[1] == 'M') {
+                return;
             }
 
             if (
@@ -705,7 +718,7 @@ namespace MprisMiniPlayer {
                 && bytes[6] == 0x1a
                 && bytes[7] == 0x0a
             ) {
-                reject_animated_png(bytes, size);
+                validate_static_png(bytes, size);
                 return;
             }
 
@@ -714,11 +727,14 @@ namespace MprisMiniPlayer {
                 && artwork_bytes_match(bytes, 0, "RIFF")
                 && artwork_bytes_match(bytes, 8, "WEBP")
             ) {
-                reject_animated_webp(bytes, size);
+                validate_static_webp(bytes, size);
+                return;
             }
+
+            throw new IOError.NOT_SUPPORTED("Artwork image format is not supported");
         }
 
-        private void reject_animated_png(Bytes bytes, int size) throws Error {
+        private void validate_static_png(Bytes bytes, int size) throws Error {
             int offset = 8;
             while (offset <= size - 12) {
                 uint32 chunk_length = read_uint32_be(bytes, offset);
@@ -740,7 +756,7 @@ namespace MprisMiniPlayer {
             }
         }
 
-        private void reject_animated_webp(Bytes bytes, int size) throws Error {
+        private void validate_static_webp(Bytes bytes, int size) throws Error {
             int offset = 12;
             while (offset <= size - 8) {
                 uint32 chunk_length = read_uint32_le(bytes, offset + 4);
