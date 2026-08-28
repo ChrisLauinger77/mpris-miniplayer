@@ -7,6 +7,9 @@ namespace MprisMiniPlayer {
         private bool album_tint_enabled = false;
         private string current_art_url = "";
         private uint artwork_request_id = 0;
+        private Soup.Session artwork_session;
+        private Cancellable? artwork_cancellable;
+        private Bytes? current_artwork_bytes;
         private Gtk.CssProvider tint_provider;
 
         private Gtk.Box main_box;
@@ -51,6 +54,7 @@ namespace MprisMiniPlayer {
             this.manager = manager;
             this.compact_mode = compact_mode;
             this.album_tint_enabled = album_tint_enabled;
+            artwork_session = new Soup.Session();
 
             tint_provider = new Gtk.CssProvider();
             Gtk.StyleContext.add_provider_for_display(
@@ -72,8 +76,8 @@ namespace MprisMiniPlayer {
             album_tint_enabled = enabled;
             if (!enabled) {
                 clear_album_tint();
-            } else if (current_art_url != "") {
-                load_album_color.begin(current_art_url, artwork_request_id);
+            } else if (current_artwork_bytes != null) {
+                apply_album_tint_from_bytes(current_artwork_bytes);
             }
         }
 
@@ -350,6 +354,8 @@ namespace MprisMiniPlayer {
             cover_stack.visible_child_name = "empty";
             cover.paintable = null;
             current_art_url = "";
+            current_artwork_bytes = null;
+            cancel_artwork_request();
             artwork_request_id++;
             clear_album_tint();
             progress_row.visible = false;
@@ -371,42 +377,114 @@ namespace MprisMiniPlayer {
 
             current_art_url = art_url;
             uint request_id = ++artwork_request_id;
+            current_artwork_bytes = null;
+            cancel_artwork_request();
+            cover.paintable = null;
+            cover_stack.visible_child_name = "empty";
+            clear_album_tint();
             if (art_url == "") {
-                cover.paintable = null;
-                cover_stack.visible_child_name = "empty";
-                clear_album_tint();
                 return;
             }
 
-            var file = File.new_for_uri(art_url);
-            cover.set_file(file);
-            cover_stack.visible_child_name = "artwork";
-            if (album_tint_enabled) {
-                load_album_color.begin(art_url, request_id);
+            artwork_cancellable = new Cancellable();
+            load_artwork.begin(art_url, request_id, artwork_cancellable);
+        }
+
+        private async void load_artwork(
+            string art_url,
+            uint request_id,
+            Cancellable cancellable
+        ) {
+            try {
+                Bytes bytes;
+                if (art_url.has_prefix("data:")) {
+                    bytes = decode_data_uri(art_url);
+                } else if (art_url.has_prefix("http://") || art_url.has_prefix("https://")) {
+                    var message = new Soup.Message("GET", art_url);
+                    bytes = yield artwork_session.send_and_read_async(
+                        message,
+                        Priority.DEFAULT,
+                        cancellable
+                    );
+
+                    uint status = message.get_status();
+                    if (status < 200 || status >= 300) {
+                        throw new IOError.FAILED(
+                            "Artwork request returned HTTP status %u".printf(status)
+                        );
+                    }
+                } else {
+                    string? etag;
+                    bytes = yield File.new_for_uri(art_url).load_bytes_async(
+                        cancellable,
+                        out etag
+                    );
+                }
+
+                if (request_id != artwork_request_id || cancellable.is_cancelled()) {
+                    return;
+                }
+
+                var texture = Gdk.Texture.from_bytes(bytes);
+                current_artwork_bytes = bytes;
+                cover.paintable = texture;
+                cover_stack.visible_child_name = "artwork";
+                artwork_cancellable = null;
+                if (album_tint_enabled) {
+                    apply_album_tint_from_bytes(bytes);
+                }
+            } catch (Error error) {
+                if (request_id == artwork_request_id) {
+                    artwork_cancellable = null;
+                    current_artwork_bytes = null;
+                    cover.paintable = null;
+                    cover_stack.visible_child_name = "empty";
+                    clear_album_tint();
+                    debug("Unable to load album artwork: %s", error.message);
+                }
             }
         }
 
-        private async void load_album_color(string art_url, uint request_id) {
+        private Bytes decode_data_uri(string uri) throws Error {
+            int separator = uri.index_of_char(',');
+            if (separator < 0) {
+                throw new IOError.INVALID_ARGUMENT("Artwork data URI has no payload");
+            }
+
+            string media_type = uri.substring(5, separator - 5);
+            if (!media_type.down().has_suffix(";base64")) {
+                throw new IOError.NOT_SUPPORTED("Artwork data URI is not base64 encoded");
+            }
+
+            uint8[] data = Base64.decode(uri.substring(separator + 1));
+            if (data.length == 0) {
+                throw new IOError.INVALID_DATA("Artwork data URI has an empty payload");
+            }
+
+            return new Bytes(data);
+        }
+
+        private void cancel_artwork_request() {
+            if (artwork_cancellable == null) {
+                return;
+            }
+
+            artwork_cancellable.cancel();
+            artwork_cancellable = null;
+        }
+
+        private void apply_album_tint_from_bytes(Bytes bytes) {
             try {
-                var file = File.new_for_uri(art_url);
-                var stream = yield file.read_async();
-                var pixbuf = yield new Gdk.Pixbuf.from_stream_at_scale_async(
+                var stream = new MemoryInputStream.from_bytes(bytes);
+                var pixbuf = new Gdk.Pixbuf.from_stream_at_scale(
                     stream,
                     32,
                     32,
                     true
                 );
-                yield stream.close_async();
-
-                if (!album_tint_enabled || request_id != artwork_request_id) {
-                    return;
-                }
-
                 apply_album_tint(pixbuf);
             } catch (Error error) {
-                if (request_id == artwork_request_id) {
-                    clear_album_tint();
-                }
+                clear_album_tint();
             }
         }
 
@@ -655,5 +733,6 @@ namespace MprisMiniPlayer {
 
             return "%d:%02d".printf(minutes, seconds);
         }
+
     }
 }
