@@ -408,9 +408,15 @@ namespace MprisMiniPlayer {
 
             try {
                 Bytes bytes = new Bytes(null);
-                if (art_url.has_prefix("data:")) {
+                string? parsed_scheme = Uri.parse_scheme(art_url);
+                if (parsed_scheme == null) {
+                    throw new IOError.INVALID_ARGUMENT("Artwork URI has no valid scheme");
+                }
+
+                string normalized_scheme = parsed_scheme.down();
+                if (normalized_scheme == "data") {
                     bytes = decode_data_uri(art_url);
-                } else if (art_url.has_prefix("http://") || art_url.has_prefix("https://")) {
+                } else if (normalized_scheme == "http" || normalized_scheme == "https") {
                     Uri uri = Uri.parse(art_url, UriFlags.NONE);
                     string scheme = uri.get_scheme().down();
                     string? host = uri.get_host();
