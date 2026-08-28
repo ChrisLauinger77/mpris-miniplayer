@@ -589,6 +589,8 @@ namespace MprisMiniPlayer {
         }
 
         private Gdk.Pixbuf decode_artwork(Bytes bytes) throws Error {
+            reject_animated_artwork(bytes);
+
             var loader = new Gdk.PixbufLoader();
             bool dimensions_ready = false;
             bool dimensions_valid = false;
@@ -660,6 +662,116 @@ namespace MprisMiniPlayer {
             }
 
             return pixbuf;
+        }
+
+        private void reject_animated_artwork(Bytes bytes) throws Error {
+            int size = (int) bytes.get_size();
+            if (
+                artwork_bytes_match(bytes, 0, "GIF87a")
+                || artwork_bytes_match(bytes, 0, "GIF89a")
+            ) {
+                throw new IOError.NOT_SUPPORTED("GIF artwork is not supported");
+            }
+
+            if (
+                size >= 8
+                && bytes[0] == 0x89
+                && artwork_bytes_match(bytes, 1, "PNG")
+                && bytes[4] == 0x0d
+                && bytes[5] == 0x0a
+                && bytes[6] == 0x1a
+                && bytes[7] == 0x0a
+            ) {
+                reject_animated_png(bytes, size);
+                return;
+            }
+
+            if (
+                size >= 12
+                && artwork_bytes_match(bytes, 0, "RIFF")
+                && artwork_bytes_match(bytes, 8, "WEBP")
+            ) {
+                reject_animated_webp(bytes, size);
+            }
+        }
+
+        private void reject_animated_png(Bytes bytes, int size) throws Error {
+            int offset = 8;
+            while (offset <= size - 12) {
+                uint32 chunk_length = read_uint32_be(bytes, offset);
+                if (chunk_length > (uint32) (size - offset - 12)) {
+                    return;
+                }
+
+                if (artwork_bytes_match(bytes, offset + 4, "acTL")) {
+                    throw new IOError.NOT_SUPPORTED("Animated artwork is not supported");
+                }
+                if (
+                    artwork_bytes_match(bytes, offset + 4, "IDAT")
+                    || artwork_bytes_match(bytes, offset + 4, "IEND")
+                ) {
+                    return;
+                }
+
+                offset += 12 + (int) chunk_length;
+            }
+        }
+
+        private void reject_animated_webp(Bytes bytes, int size) throws Error {
+            int offset = 12;
+            while (offset <= size - 8) {
+                uint32 chunk_length = read_uint32_le(bytes, offset + 4);
+                if (chunk_length > (uint32) (size - offset - 8)) {
+                    return;
+                }
+
+                if (
+                    artwork_bytes_match(bytes, offset, "ANIM")
+                    || artwork_bytes_match(bytes, offset, "ANMF")
+                    || (
+                        artwork_bytes_match(bytes, offset, "VP8X")
+                        && chunk_length > 0
+                        && (bytes[offset + 8] & 0x02) != 0
+                    )
+                ) {
+                    throw new IOError.NOT_SUPPORTED("Animated artwork is not supported");
+                }
+
+                int padded_length = (int) chunk_length + ((int) chunk_length & 1);
+                offset += 8 + padded_length;
+            }
+        }
+
+        private bool artwork_bytes_match(Bytes bytes, int offset, string text) {
+            if (offset < 0 || offset + text.length > (int) bytes.get_size()) {
+                return false;
+            }
+
+            for (int index = 0; index < text.length; index++) {
+                if (bytes[offset + index] != (uint8) text[index]) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private uint32 read_uint32_be(Bytes bytes, int offset) {
+            return (
+                ((uint32) bytes[offset] << 24)
+                | ((uint32) bytes[offset + 1] << 16)
+                | ((uint32) bytes[offset + 2] << 8)
+                | bytes[offset + 3]
+            );
+        }
+
+        private uint32 read_uint32_le(Bytes bytes, int offset) {
+            return (
+                bytes[offset]
+                | ((uint32) bytes[offset + 1] << 8)
+                | ((uint32) bytes[offset + 2] << 16)
+                | ((uint32) bytes[offset + 3] << 24)
+            );
         }
 
         private void cancel_artwork_request() {
