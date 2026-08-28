@@ -411,7 +411,22 @@ namespace MprisMiniPlayer {
                 if (art_url.has_prefix("data:")) {
                     bytes = decode_data_uri(art_url);
                 } else if (art_url.has_prefix("http://") || art_url.has_prefix("https://")) {
-                    var message = new Soup.Message("GET", art_url);
+                    Uri uri = Uri.parse(art_url, UriFlags.NONE);
+                    string scheme = uri.get_scheme().down();
+                    string? host = uri.get_host();
+                    if (
+                        (scheme != "http" && scheme != "https")
+                        || host == null
+                        || host == ""
+                    ) {
+                        throw new IOError.INVALID_ARGUMENT("Artwork HTTP URI is invalid");
+                    }
+
+                    Soup.Message? message = new Soup.Message.from_uri("GET", uri);
+                    if (message == null) {
+                        throw new IOError.INVALID_ARGUMENT("Artwork HTTP URI is invalid");
+                    }
+
                     var stream = yield artwork_session.send_async(
                         message,
                         Priority.DEFAULT,
