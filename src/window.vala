@@ -444,7 +444,7 @@ namespace MprisMiniPlayer {
 
                     uint status = message.get_status();
                     if (status < 200 || status >= 300) {
-                        close_artwork_stream(stream);
+                        yield close_artwork_stream(stream, cancellable);
                         throw new IOError.FAILED(
                             "Artwork request returned HTTP status %u".printf(status)
                         );
@@ -452,7 +452,7 @@ namespace MprisMiniPlayer {
 
                     int64 content_length = message.get_response_headers().get_content_length();
                     if (content_length > MAX_ARTWORK_BYTES) {
-                        close_artwork_stream(stream);
+                        yield close_artwork_stream(stream, cancellable);
                         throw new IOError.MESSAGE_TOO_LARGE(
                             "Album artwork exceeds the %" + int64.FORMAT + " byte limit",
                             MAX_ARTWORK_BYTES
@@ -462,7 +462,7 @@ namespace MprisMiniPlayer {
                     try {
                         bytes = yield read_artwork_stream(stream, cancellable);
                     } finally {
-                        close_artwork_stream(stream);
+                        yield close_artwork_stream(stream, cancellable);
                     }
                 } else {
                     var stream = yield File.new_for_uri(art_url).read_async(
@@ -472,7 +472,7 @@ namespace MprisMiniPlayer {
                     try {
                         bytes = yield read_artwork_stream(stream, cancellable);
                     } finally {
-                        close_artwork_stream(stream);
+                        yield close_artwork_stream(stream, cancellable);
                     }
                 }
 
@@ -538,9 +538,12 @@ namespace MprisMiniPlayer {
             return buffer.steal_as_bytes();
         }
 
-        private void close_artwork_stream(InputStream stream) {
+        private async void close_artwork_stream(
+            InputStream stream,
+            Cancellable cancellable
+        ) {
             try {
-                stream.close();
+                yield stream.close_async(Priority.DEFAULT, cancellable);
             } catch (Error error) {
                 debug("Unable to close album artwork stream: %s", error.message);
             }
