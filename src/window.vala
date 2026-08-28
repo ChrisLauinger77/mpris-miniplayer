@@ -481,16 +481,7 @@ namespace MprisMiniPlayer {
                 }
 
                 Gdk.Pixbuf pixbuf = decode_artwork(bytes);
-                Gdk.MemoryFormat format = pixbuf.get_has_alpha()
-                    ? Gdk.MemoryFormat.R8G8B8A8
-                    : Gdk.MemoryFormat.R8G8B8;
-                var texture = new Gdk.MemoryTexture(
-                    pixbuf.get_width(),
-                    pixbuf.get_height(),
-                    format,
-                    pixbuf.read_pixel_bytes(),
-                    (size_t) pixbuf.get_rowstride()
-                );
+                var texture = texture_from_pixbuf(pixbuf);
                 current_artwork_pixbuf = pixbuf;
                 cover.paintable = texture;
                 cover_stack.visible_child_name = "artwork";
@@ -662,6 +653,35 @@ namespace MprisMiniPlayer {
             }
 
             return pixbuf;
+        }
+
+        private Gdk.MemoryTexture texture_from_pixbuf(Gdk.Pixbuf pixbuf) {
+            int width = pixbuf.get_width();
+            int height = pixbuf.get_height();
+            int channels = pixbuf.get_n_channels();
+            int source_stride = pixbuf.get_rowstride();
+            int texture_stride = width * channels;
+            uint8[] texture_pixels = new uint8[texture_stride * height];
+            unowned uint8[] source_pixels = pixbuf.get_pixels();
+
+            for (int y = 0; y < height; y++) {
+                int source_offset = y * source_stride;
+                int texture_offset = y * texture_stride;
+                for (int x = 0; x < texture_stride; x++) {
+                    texture_pixels[texture_offset + x] = source_pixels[source_offset + x];
+                }
+            }
+
+            Gdk.MemoryFormat format = pixbuf.get_has_alpha()
+                ? Gdk.MemoryFormat.R8G8B8A8
+                : Gdk.MemoryFormat.R8G8B8;
+            return new Gdk.MemoryTexture(
+                width,
+                height,
+                format,
+                new Bytes.take((owned) texture_pixels),
+                (size_t) texture_stride
+            );
         }
 
         private void reject_animated_artwork(Bytes bytes) throws Error {
