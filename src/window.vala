@@ -1,5 +1,9 @@
 namespace MprisMiniPlayer {
     public class Window : Adw.ApplicationWindow {
+        private const int64 MAX_ARTWORK_BYTES = 10 * 1024 * 1024;
+        private const size_t ARTWORK_READ_CHUNK_BYTES = 64 * 1024;
+        private const uint ARTWORK_TIMEOUT_SECONDS = 15;
+
         private MprisManager? manager;
         private MprisPlayer? player;
         private ulong player_changed_handler_id = 0;
@@ -395,13 +399,20 @@ namespace MprisMiniPlayer {
             uint request_id,
             Cancellable cancellable
         ) {
+            uint timeout_id = 0;
+            timeout_id = Timeout.add_seconds(ARTWORK_TIMEOUT_SECONDS, () => {
+                timeout_id = 0;
+                cancellable.cancel();
+                return Source.REMOVE;
+            });
+
             try {
-                Bytes bytes;
+                Bytes bytes = new Bytes(null);
                 if (art_url.has_prefix("data:")) {
                     bytes = decode_data_uri(art_url);
                 } else if (art_url.has_prefix("http://") || art_url.has_prefix("https://")) {
                     var message = new Soup.Message("GET", art_url);
-                    bytes = yield artwork_session.send_and_read_async(
+                    var stream = yield artwork_session.send_async(
                         message,
                         Priority.DEFAULT,
                         cancellable
@@ -409,16 +420,36 @@ namespace MprisMiniPlayer {
 
                     uint status = message.get_status();
                     if (status < 200 || status >= 300) {
+                        close_artwork_stream(stream);
                         throw new IOError.FAILED(
                             "Artwork request returned HTTP status %u".printf(status)
                         );
                     }
+
+                    int64 content_length = message.get_response_headers().get_content_length();
+                    if (content_length > MAX_ARTWORK_BYTES) {
+                        close_artwork_stream(stream);
+                        throw new IOError.MESSAGE_TOO_LARGE(
+                            "Album artwork exceeds the %" + int64.FORMAT + " byte limit",
+                            MAX_ARTWORK_BYTES
+                        );
+                    }
+
+                    try {
+                        bytes = yield read_artwork_stream(stream, cancellable);
+                    } finally {
+                        close_artwork_stream(stream);
+                    }
                 } else {
-                    string? etag;
-                    bytes = yield File.new_for_uri(art_url).load_bytes_async(
-                        cancellable,
-                        out etag
+                    var stream = yield File.new_for_uri(art_url).read_async(
+                        Priority.DEFAULT,
+                        cancellable
                     );
+                    try {
+                        bytes = yield read_artwork_stream(stream, cancellable);
+                    } finally {
+                        close_artwork_stream(stream);
+                    }
                 }
 
                 if (request_id != artwork_request_id || cancellable.is_cancelled()) {
@@ -442,6 +473,51 @@ namespace MprisMiniPlayer {
                     clear_album_tint();
                     debug("Unable to load album artwork: %s", error.message);
                 }
+            } finally {
+                if (timeout_id != 0) {
+                    Source.remove(timeout_id);
+                }
+            }
+        }
+
+        private async Bytes read_artwork_stream(
+            InputStream stream,
+            Cancellable cancellable
+        ) throws Error {
+            var buffer = new MemoryOutputStream.resizable();
+            int64 total_bytes = 0;
+
+            while (true) {
+                Bytes chunk = yield stream.read_bytes_async(
+                    ARTWORK_READ_CHUNK_BYTES,
+                    Priority.DEFAULT,
+                    cancellable
+                );
+                size_t chunk_size = chunk.get_size();
+                if (chunk_size == 0) {
+                    break;
+                }
+
+                total_bytes += (int64) chunk_size;
+                if (total_bytes > MAX_ARTWORK_BYTES) {
+                    throw new IOError.MESSAGE_TOO_LARGE(
+                        "Album artwork exceeds the %" + int64.FORMAT + " byte limit",
+                        MAX_ARTWORK_BYTES
+                    );
+                }
+
+                buffer.write_bytes(chunk, cancellable);
+            }
+
+            buffer.close(cancellable);
+            return buffer.steal_as_bytes();
+        }
+
+        private void close_artwork_stream(InputStream stream) {
+            try {
+                stream.close();
+            } catch (Error error) {
+                debug("Unable to close album artwork stream: %s", error.message);
             }
         }
 
@@ -456,9 +532,23 @@ namespace MprisMiniPlayer {
                 throw new IOError.NOT_SUPPORTED("Artwork data URI is not base64 encoded");
             }
 
-            uint8[] data = Base64.decode(uri.substring(separator + 1));
+            string payload = uri.substring(separator + 1);
+            if ((int64) payload.length > MAX_ARTWORK_BYTES * 4 / 3 + 4) {
+                throw new IOError.MESSAGE_TOO_LARGE(
+                    "Album artwork exceeds the %" + int64.FORMAT + " byte limit",
+                    MAX_ARTWORK_BYTES
+                );
+            }
+
+            uint8[] data = Base64.decode(payload);
             if (data.length == 0) {
                 throw new IOError.INVALID_DATA("Artwork data URI has an empty payload");
+            }
+            if ((int64) data.length > MAX_ARTWORK_BYTES) {
+                throw new IOError.MESSAGE_TOO_LARGE(
+                    "Album artwork exceeds the %" + int64.FORMAT + " byte limit",
+                    MAX_ARTWORK_BYTES
+                );
             }
 
             return new Bytes(data);
