@@ -1,4 +1,10 @@
   <releases>
+    <release version="1.5.2" date="2026-08-28">
+      <description>
+        <p>Load remote, local, and embedded MPRIS artwork reliably while retaining the fallback icon when artwork is unavailable.</p>
+        <p>Bound artwork downloads and decoded images to prevent unresponsive or excessive resource use.</p>
+      </description>
+    </release>
     <release version="1.5.1" date="2026-08-24">
       <description>
         <p>Restore a window minimized with its title-bar button on the first status indicator Show action.</p>

@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 1.5.1}
+%{!?pkg_version:%global pkg_version 1.5.2}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -47,6 +47,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Fri Aug 28 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.5.2-1
+- Load remote, local, and embedded MPRIS artwork reliably
+- Bound artwork downloads and decoded images
+
 * Mon Aug 24 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.5.1-1
 - Restore title-bar-minimized windows on the first status indicator Show action
 
