@@ -444,9 +444,9 @@ namespace MprisMiniPlayer {
         private string get_label(int id) {
             switch (id) {
                 case SHOW_ID:
-                    return _("Show");
+                    return _("Show MPRIS MiniPlayer");
                 case HIDE_ID:
-                    return _("Hide");
+                    return _("Hide MPRIS MiniPlayer");
                 case UPDATE_ID:
                     return _("Update available: %s").printf(update_version);
                 case TITLE_ID:

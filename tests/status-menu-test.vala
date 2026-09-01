@@ -40,6 +40,18 @@ private bool get_boolean_property(
     }
 }
 
+private string get_string_property(
+    MprisMiniPlayer.StatusNotifierMenu menu,
+    int id,
+    string name
+) {
+    try {
+        return menu.get_property(id, name).get_string();
+    } catch (Error error) {
+        assert_not_reached();
+    }
+}
+
 private void test_hidden_layout() {
     var menu = new MprisMiniPlayer.StatusNotifierMenu();
     uint revision;
@@ -49,6 +61,11 @@ private void test_hidden_layout() {
     assert_false(layout_contains_id(layout, HIDE_ID));
     assert_true(get_boolean_property(menu, SHOW_ID, "visible"));
     assert_true(get_boolean_property(menu, SHOW_ID, "enabled"));
+    assert_cmpstr(
+        get_string_property(menu, SHOW_ID, "label"),
+        CompareOperator.EQ,
+        "Show MPRIS MiniPlayer"
+    );
     assert_false(get_boolean_property(menu, HIDE_ID, "visible"));
     assert_false(get_boolean_property(menu, HIDE_ID, "enabled"));
 }
@@ -66,6 +83,11 @@ private void test_shown_layout() {
     assert_false(get_boolean_property(menu, SHOW_ID, "enabled"));
     assert_true(get_boolean_property(menu, HIDE_ID, "visible"));
     assert_true(get_boolean_property(menu, HIDE_ID, "enabled"));
+    assert_cmpstr(
+        get_string_property(menu, HIDE_ID, "label"),
+        CompareOperator.EQ,
+        "Hide MPRIS MiniPlayer"
+    );
 }
 
 private void test_shown_state_revision() {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 15:51+0200\n"
+"POT-Creation-Date: 2026-09-01 18:22+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/status-indicator.vala:39 src/application.vala:285 src/window.vala:46
+#: src/status-indicator.vala:40 src/application.vala:305 src/window.vala:56
 msgid "MPRIS MiniPlayer"
 msgstr ""
 
@@ -46,84 +46,84 @@ msgstr ""
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr ""
 
-#: src/status-indicator.vala:446
-msgid "Show"
+#: src/status-indicator.vala:447
+msgid "Show MPRIS MiniPlayer"
 msgstr ""
 
-#: src/status-indicator.vala:448
-msgid "Hide"
+#: src/status-indicator.vala:449
+msgid "Hide MPRIS MiniPlayer"
 msgstr ""
 
-#: src/status-indicator.vala:450
+#: src/status-indicator.vala:451
 #, c-format
 msgid "Update available: %s"
 msgstr ""
 
-#: src/status-indicator.vala:458 src/window.vala:288
+#: src/status-indicator.vala:459 src/window.vala:299
 msgid "No player detected"
 msgstr ""
 
-#: src/status-indicator.vala:460 src/window.vala:240
+#: src/status-indicator.vala:461 src/window.vala:251
 msgid "Previous"
 msgstr ""
 
-#: src/status-indicator.vala:463
+#: src/status-indicator.vala:464
 msgid "Pause"
 msgstr ""
 
-#: src/status-indicator.vala:464
+#: src/status-indicator.vala:465
 msgid "Play"
 msgstr ""
 
-#: src/status-indicator.vala:466 src/window.vala:259
+#: src/status-indicator.vala:467 src/window.vala:270
 msgid "Next"
 msgstr ""
 
-#: src/status-indicator.vala:468
+#: src/status-indicator.vala:469
 #, c-format
 msgid "Volume: %d%%"
 msgstr ""
 
-#: src/status-indicator.vala:471 src/window.vala:641
+#: src/status-indicator.vala:472 src/window.vala:1053
 msgid "Mute"
 msgstr ""
 
-#: src/status-indicator.vala:472 src/window.vala:637
+#: src/status-indicator.vala:473 src/window.vala:1049
 msgid "Restore volume"
 msgstr ""
 
-#: src/status-indicator.vala:482 src/window.vala:136
+#: src/status-indicator.vala:483 src/window.vala:147
 msgid "Compact Mode"
 msgstr ""
 
-#: src/status-indicator.vala:484 src/preferences-window.vala:15
-#: src/preferences-window.vala:32 src/window.vala:137
+#: src/status-indicator.vala:485 src/preferences-window.vala:15
+#: src/preferences-window.vala:32 src/window.vala:148
 msgid "Preferences"
 msgstr ""
 
-#: src/status-indicator.vala:486
+#: src/status-indicator.vala:487
 msgid "About"
 msgstr ""
 
-#: src/status-indicator.vala:488 src/window.vala:138
+#: src/status-indicator.vala:489 src/window.vala:149
 msgid "Quit"
 msgstr ""
 
-#: src/application.vala:445
+#: src/application.vala:465
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr ""
 
-#: src/application.vala:447
+#: src/application.vala:467
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
 msgstr ""
 
-#: src/application.vala:449
+#: src/application.vala:469
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 
-#: src/application.vala:451
+#: src/application.vala:471
 msgid "Open"
 msgstr ""
 
@@ -183,47 +183,47 @@ msgstr ""
 msgid "Not supported by this desktop"
 msgstr ""
 
-#: src/window.vala:129
+#: src/window.vala:140
 msgid "Choose player"
 msgstr ""
 
-#: src/window.vala:142
+#: src/window.vala:153
 msgid "Main menu"
 msgstr ""
 
-#: src/window.vala:147
+#: src/window.vala:158
 msgid "About MPRIS MiniPlayer"
 msgstr ""
 
-#: src/window.vala:176
+#: src/window.vala:187
 msgid "No player running"
 msgstr ""
 
-#: src/window.vala:182
+#: src/window.vala:193
 msgid "Start an MPRIS-compatible media player"
 msgstr ""
 
-#: src/window.vala:223 src/window.vala:234
+#: src/window.vala:234 src/window.vala:245
 msgid "Volume"
 msgstr ""
 
-#: src/window.vala:249
+#: src/window.vala:260
 msgid "Play or pause"
 msgstr ""
 
-#: src/window.vala:279
+#: src/window.vala:290
 msgid "Session D-Bus unavailable"
 msgstr ""
 
-#: src/window.vala:279 src/window.vala:294
+#: src/window.vala:290 src/window.vala:305
 msgid "Unable to monitor MPRIS players"
 msgstr ""
 
-#: src/window.vala:288
+#: src/window.vala:299
 msgid "Start any MPRIS-compatible player"
 msgstr ""
 
-#: src/window.vala:294
+#: src/window.vala:305
 msgid "Player unavailable"
 msgstr ""
 
