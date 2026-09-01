@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 1.5.2}
+%{!?pkg_version:%global pkg_version 1.5.3}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -48,6 +48,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Tue Sep 01 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.5.3-1
+- Use a monochrome symbolic icon for the status indicator
+- Identify MPRIS MiniPlayer in the status indicator Show and Hide actions
+
 * Fri Aug 28 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 1.5.2-1
 - Load remote, local, and embedded MPRIS artwork reliably
 - Bound artwork downloads and decoded images

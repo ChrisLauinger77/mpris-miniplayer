@@ -1,3 +1,12 @@
+mpris-miniplayer (1.5.3-1) unstable; urgency=medium
+
+  * Use a monochrome symbolic icon for the status indicator to match the
+    desktop panel.
+  * Identify MPRIS MiniPlayer by name in the status indicator Show and Hide
+    actions.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Tue, 01 Sep 2026 18:28:21 +0200
+
 mpris-miniplayer (1.5.2-1) unstable; urgency=medium
 
   * Load remote, local, and embedded MPRIS artwork reliably while retaining

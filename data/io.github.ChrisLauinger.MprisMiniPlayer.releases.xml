@@ -1,4 +1,10 @@
   <releases>
+    <release version="1.5.3" date="2026-09-01">
+      <description>
+        <p>Use a monochrome symbolic icon for the status indicator to match the desktop panel.</p>
+        <p>Identify MPRIS MiniPlayer by name in the status indicator Show and Hide actions.</p>
+      </description>
+    </release>
     <release version="1.5.2" date="2026-08-28">
       <description>
         <p>Load remote, local, and embedded MPRIS artwork reliably while retaining the fallback icon when artwork is unavailable.</p>
