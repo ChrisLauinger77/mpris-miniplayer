@@ -44,6 +44,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/applications/io.github.ChrisLauinger.MprisMiniPlayer.desktop
 %{_datadir}/glib-2.0/schemas/io.github.ChrisLauinger.MprisMiniPlayer.gschema.xml
 %{_datadir}/icons/hicolor/scalable/apps/io.github.ChrisLauinger.MprisMiniPlayer.svg
+%{_datadir}/icons/hicolor/scalable/status/io.github.ChrisLauinger.MprisMiniPlayer-symbolic.svg
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog

@@ -1,6 +1,8 @@
 private const int ROOT_ID = 0;
 private const int SHOW_ID = 1;
 private const int HIDE_ID = 2;
+private const string SYMBOLIC_ICON_NAME =
+    "io.github.ChrisLauinger.MprisMiniPlayer-symbolic";
 
 private bool layout_contains_id(Variant layout, int expected_id) {
     Variant children = layout.get_child_value(2);
@@ -109,11 +111,27 @@ private void test_only_current_action_activates() {
     }
 }
 
+private void test_status_item_uses_symbolic_icon() {
+    var item = new MprisMiniPlayer.StatusNotifierItem();
+    assert_cmpstr(item.icon_name, CompareOperator.EQ, SYMBOLIC_ICON_NAME);
+
+    item.show_volume_icon(0.5);
+    assert_cmpstr(
+        item.icon_name,
+        CompareOperator.EQ,
+        "audio-volume-medium-symbolic"
+    );
+
+    item.restore_app_icon();
+    assert_cmpstr(item.icon_name, CompareOperator.EQ, SYMBOLIC_ICON_NAME);
+}
+
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
     Test.add_func("/status-menu/shown-layout", test_shown_layout);
     Test.add_func("/status-menu/shown-state-revision", test_shown_state_revision);
     Test.add_func("/status-menu/current-action", test_only_current_action_activates);
+    Test.add_func("/status-item/symbolic-icon", test_status_item_uses_symbolic_icon);
     return Test.run();
 }

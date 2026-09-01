@@ -51,3 +51,8 @@ install_data(
   'icons' / (app_id + '.svg'),
   install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'apps',
 )
+
+install_data(
+  'icons' / (app_id + '-symbolic.svg'),
+  install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'status',
+)

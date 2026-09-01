@@ -7,8 +7,9 @@ namespace MprisMiniPlayer {
     [DBus (name = "org.kde.StatusNotifierItem")]
     public class StatusNotifierItem : Object {
         private const string APP_ID = "io.github.ChrisLauinger.MprisMiniPlayer";
+        private const string SYMBOLIC_ICON_NAME = APP_ID + "-symbolic";
         private const string MENU_OBJECT_PATH = "/StatusNotifierMenu";
-        private string displayed_icon_name = APP_ID;
+        private string displayed_icon_name = SYMBOLIC_ICON_NAME;
 
         public signal void activated();
         public signal void scroll_requested(int delta, string orientation);
@@ -131,11 +132,11 @@ namespace MprisMiniPlayer {
 
         [DBus (visible = false)]
         public void restore_app_icon() {
-            if (displayed_icon_name == APP_ID) {
+            if (displayed_icon_name == SYMBOLIC_ICON_NAME) {
                 return;
             }
 
-            displayed_icon_name = APP_ID;
+            displayed_icon_name = SYMBOLIC_ICON_NAME;
             new_icon();
         }
     }
