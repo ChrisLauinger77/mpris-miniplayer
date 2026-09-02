@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
         private const string KEY_COMPACT_MODE = "compact-mode";
         private const string KEY_TINT_WITH_ALBUM_COLOR = "tint-with-album-color";
         private const string KEY_SHOW_STATUS_INDICATOR = "show-status-indicator";
+        private const string KEY_KEEP_QUEUE_OPEN = "keep-queue-open";
 
         private GLib.Settings? settings;
         private bool fallback_show_background_notification = true;
@@ -15,8 +16,10 @@ namespace MprisMiniPlayer {
         private bool fallback_compact_mode = false;
         private bool fallback_tint_with_album_color = false;
         private bool fallback_show_status_indicator = true;
+        private bool fallback_keep_queue_open = true;
         private bool has_tint_with_album_color_key = false;
         private bool has_show_status_indicator_key = false;
+        private bool has_keep_queue_open_key = false;
         private bool syncing = false;
 
         public signal void changed(string key);
@@ -27,6 +30,7 @@ namespace MprisMiniPlayer {
             if (schema != null) {
                 has_tint_with_album_color_key = schema.has_key(KEY_TINT_WITH_ALBUM_COLOR);
                 has_show_status_indicator_key = schema.has_key(KEY_SHOW_STATUS_INDICATOR);
+                has_keep_queue_open_key = schema.has_key(KEY_KEEP_QUEUE_OPEN);
                 settings = new GLib.Settings(SCHEMA_ID);
                 settings.changed.connect(on_settings_changed);
             } else {
@@ -139,6 +143,24 @@ namespace MprisMiniPlayer {
                 } else if (fallback_show_status_indicator != value) {
                     fallback_show_status_indicator = value;
                     changed(KEY_SHOW_STATUS_INDICATOR);
+                }
+            }
+        }
+
+        public bool keep_queue_open {
+            get {
+                if (settings != null && has_keep_queue_open_key) {
+                    return settings.get_boolean(KEY_KEEP_QUEUE_OPEN);
+                }
+
+                return fallback_keep_queue_open;
+            }
+            set {
+                if (settings != null && has_keep_queue_open_key) {
+                    settings.set_boolean(KEY_KEEP_QUEUE_OPEN, value);
+                } else if (fallback_keep_queue_open != value) {
+                    fallback_keep_queue_open = value;
+                    changed(KEY_KEEP_QUEUE_OPEN);
                 }
             }
         }

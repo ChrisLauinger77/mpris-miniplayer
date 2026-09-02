@@ -14,6 +14,11 @@ namespace MprisMiniPlayer {
         private PreferencesWindow? preferences_window;
         private Adw.AboutDialog? about_dialog;
         private SimpleAction? compact_mode_action;
+        private SimpleAction? shuffle_action;
+        private SimpleAction? repeat_action;
+        private SimpleAction? repeat_cycle_action;
+        private MprisPlayer? action_player;
+        private ulong action_player_changed_handler_id = 0;
         private bool suppress_next_start_on_login_portal_update = false;
         private bool startup_activation_handled = false;
         private bool update_check_started = false;
@@ -52,6 +57,7 @@ namespace MprisMiniPlayer {
                 manager.player_priority_changed.connect(on_player_priority_changed);
                 manager.active_player_changed.connect(on_active_player_changed);
                 status_indicator.set_player(manager.active_player);
+                bind_player_actions(manager.active_player);
             } catch (Error error) {
                 warning("Unable to monitor MPRIS players: %s", error.message);
             }
@@ -99,6 +105,49 @@ namespace MprisMiniPlayer {
             });
             add_action(compact_mode_action);
 
+            shuffle_action = new SimpleAction.stateful(
+                "shuffle",
+                null,
+                new Variant.boolean(false)
+            );
+            shuffle_action.activate.connect(() => {
+                if (action_player != null) {
+                    action_player.toggle_shuffle();
+                }
+            });
+            shuffle_action.change_state.connect((value) => {
+                if (
+                    action_player != null
+                    && value.get_boolean() != action_player.shuffle
+                ) {
+                    action_player.toggle_shuffle();
+                }
+            });
+            shuffle_action.set_enabled(false);
+            add_action(shuffle_action);
+
+            repeat_action = new SimpleAction.stateful(
+                "repeat",
+                new VariantType("s"),
+                new Variant.string("None")
+            );
+            repeat_action.change_state.connect((value) => {
+                if (action_player != null) {
+                    action_player.change_loop_status(value.get_string());
+                }
+            });
+            repeat_action.set_enabled(false);
+            add_action(repeat_action);
+
+            repeat_cycle_action = new SimpleAction("repeat-cycle", null);
+            repeat_cycle_action.activate.connect(() => {
+                if (action_player != null) {
+                    action_player.cycle_loop_status();
+                }
+            });
+            repeat_cycle_action.set_enabled(false);
+            add_action(repeat_cycle_action);
+
             var quit_action = new SimpleAction("quit", null);
             quit_action.activate.connect(() => quit_app());
             add_action(quit_action);
@@ -142,8 +191,47 @@ namespace MprisMiniPlayer {
 
         private void on_active_player_changed() {
             status_indicator.set_player(manager != null ? manager.active_player : null);
+            bind_player_actions(manager != null ? manager.active_player : null);
             if (main_window != null) {
                 main_window.refresh_players();
+            }
+        }
+
+        private void bind_player_actions(MprisPlayer? selected_player) {
+            if (action_player != null && action_player_changed_handler_id != 0) {
+                SignalHandler.disconnect(action_player, action_player_changed_handler_id);
+                action_player_changed_handler_id = 0;
+            }
+
+            action_player = selected_player;
+            if (action_player != null) {
+                action_player_changed_handler_id = action_player.changed.connect(sync_player_actions);
+            }
+            sync_player_actions();
+        }
+
+        private void sync_player_actions() {
+            bool can_shuffle = action_player != null
+                && action_player.has_shuffle
+                && action_player.can_control;
+            bool can_repeat = action_player != null
+                && action_player.has_loop_status
+                && action_player.can_control;
+
+            if (shuffle_action != null) {
+                shuffle_action.set_enabled(can_shuffle);
+                shuffle_action.set_state(new Variant.boolean(
+                    action_player != null && action_player.shuffle
+                ));
+            }
+            if (repeat_action != null) {
+                repeat_action.set_enabled(can_repeat);
+                repeat_action.set_state(new Variant.string(
+                    action_player != null ? action_player.loop_status : "None"
+                ));
+            }
+            if (repeat_cycle_action != null) {
+                repeat_cycle_action.set_enabled(can_repeat);
             }
         }
 
@@ -173,7 +261,8 @@ namespace MprisMiniPlayer {
                     this,
                     manager,
                     app_settings.compact_mode,
-                    app_settings.tint_with_album_color
+                    app_settings.tint_with_album_color,
+                    app_settings.keep_queue_open
                 );
                 main_window.close_request.connect(() => {
                     hide_window();
@@ -340,6 +429,7 @@ namespace MprisMiniPlayer {
             if (main_window != null) {
                 main_window.set_compact_mode(compact_mode);
                 main_window.set_album_tint_enabled(app_settings.tint_with_album_color);
+                main_window.set_keep_queue_open(app_settings.keep_queue_open);
             }
             status_indicator.set_compact_mode(compact_mode);
         }
@@ -377,6 +467,20 @@ namespace MprisMiniPlayer {
                         manager.active_player.next();
                     }
                     break;
+                case "shuffle":
+                    if (manager != null && manager.active_player != null) {
+                        manager.active_player.toggle_shuffle();
+                    }
+                    break;
+                case "repeat-none":
+                    set_active_player_loop_status("None");
+                    break;
+                case "repeat-track":
+                    set_active_player_loop_status("Track");
+                    break;
+                case "repeat-playlist":
+                    set_active_player_loop_status("Playlist");
+                    break;
                 case "mute":
                     if (manager != null && manager.active_player != null) {
                         manager.active_player.toggle_mute();
@@ -412,6 +516,12 @@ namespace MprisMiniPlayer {
                 case "quit":
                     quit_app();
                     break;
+            }
+        }
+
+        private void set_active_player_loop_status(string loop_status) {
+            if (manager != null && manager.active_player != null) {
+                manager.active_player.change_loop_status(loop_status);
             }
         }
 

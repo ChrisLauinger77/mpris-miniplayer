@@ -7,6 +7,7 @@ namespace MprisMiniPlayer {
         private Adw.SwitchRow compact_mode_row;
         private Adw.SwitchRow album_tint_row;
         private Adw.SwitchRow status_indicator_row;
+        private Adw.SwitchRow keep_queue_open_row;
         private StatusIndicator? status_indicator;
 
         public PreferencesWindow(Gtk.Application app, AppSettings app_settings, StatusIndicator? status_indicator) {
@@ -83,6 +84,15 @@ namespace MprisMiniPlayer {
             });
             behavior_group.add(album_tint_row);
 
+            keep_queue_open_row = new Adw.SwitchRow();
+            keep_queue_open_row.title = _("Keep player queue open");
+            keep_queue_open_row.subtitle = _("Keep the queue in the player window open after selecting a track");
+            keep_queue_open_row.active = app_settings.keep_queue_open;
+            keep_queue_open_row.notify["active"].connect(() => {
+                app_settings.keep_queue_open = keep_queue_open_row.active;
+            });
+            behavior_group.add(keep_queue_open_row);
+
             status_indicator_row = new Adw.SwitchRow();
             status_indicator_row.title = _("Status indicator");
             status_indicator_row.active = app_settings.show_status_indicator;
@@ -101,6 +111,7 @@ namespace MprisMiniPlayer {
             automatic_visibility_row.active = app_settings.automatic_window_visibility;
             compact_mode_row.active = app_settings.compact_mode;
             album_tint_row.active = app_settings.tint_with_album_color;
+            keep_queue_open_row.active = app_settings.keep_queue_open;
             sync_status_indicator_row();
         }
 

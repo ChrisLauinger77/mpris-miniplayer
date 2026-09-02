@@ -1,8 +1,123 @@
 private const int ROOT_ID = 0;
 private const int SHOW_ID = 1;
 private const int HIDE_ID = 2;
+private const int PREVIOUS_ID = 20;
+private const int PLAY_PAUSE_ID = 21;
+private const int NEXT_ID = 22;
+private const int SHUFFLE_ID = 23;
+private const int REPEAT_ID = 24;
+private const int REPEAT_NONE_ID = 25;
+private const int REPEAT_TRACK_ID = 26;
+private const int REPEAT_PLAYLIST_ID = 27;
+private const int VOLUME_ID = 30;
+private const int QUEUE_ID = 40;
+private const int QUEUE_TRACK_BASE_ID = 1000;
 private const string SYMBOLIC_ICON_NAME =
     "io.github.ChrisLauinger.MprisMiniPlayer-symbolic";
+private const string ROOT_IFACE = "org.mpris.MediaPlayer2";
+private const string PLAYER_IFACE = "org.mpris.MediaPlayer2.Player";
+private const string TRACKLIST_IFACE = "org.mpris.MediaPlayer2.TrackList";
+
+private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
+    public bool shuffle = false;
+    public string loop_status = "None";
+    public string last_go_to = "";
+    public string[] track_ids = {
+        "/org/mpris/MediaPlayer2/track/one",
+        "/org/mpris/MediaPlayer2/track/two"
+    };
+
+    public Variant get_all(string interface_name) throws Error {
+        var properties = new VariantBuilder(new VariantType("a{sv}"));
+        if (interface_name == ROOT_IFACE) {
+            properties.add("{sv}", "HasTrackList", new Variant.boolean(true));
+        } else if (interface_name == PLAYER_IFACE) {
+            properties.add("{sv}", "PlaybackStatus", new Variant.string("Playing"));
+            properties.add("{sv}", "CanControl", new Variant.boolean(true));
+            properties.add("{sv}", "CanPlay", new Variant.boolean(true));
+            properties.add("{sv}", "CanPause", new Variant.boolean(true));
+            properties.add("{sv}", "Shuffle", new Variant.boolean(shuffle));
+            properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
+            properties.add("{sv}", "Volume", new Variant.double(0.55));
+            properties.add("{sv}", "Metadata", current_metadata());
+        }
+        return properties.end();
+    }
+
+    public Variant read_property(string interface_name, string property_name) throws Error {
+        if (interface_name == TRACKLIST_IFACE && property_name == "Tracks") {
+            return new Variant.objv(track_ids);
+        }
+        if (interface_name == PLAYER_IFACE && property_name == "Position") {
+            return new Variant.int64(0);
+        }
+        throw new IOError.NOT_SUPPORTED("Unsupported test property");
+    }
+
+    public void write_property(
+        string interface_name,
+        string property_name,
+        Variant value
+    ) throws Error {
+        if (property_name == "Shuffle") {
+            shuffle = value.get_boolean();
+        } else if (property_name == "LoopStatus") {
+            loop_status = value.get_string();
+        }
+    }
+
+    public Variant call(
+        string interface_name,
+        string method_name,
+        Variant? parameters,
+        VariantType? reply_type = null
+    ) throws Error {
+        if (interface_name == TRACKLIST_IFACE && method_name == "GetTracksMetadata") {
+            var metadata = new VariantBuilder(new VariantType("aa{sv}"));
+            foreach (string id in track_ids) {
+                metadata.add_value(metadata_for_track(id));
+            }
+            return new Variant.tuple({ metadata.end() });
+        }
+        if (interface_name == TRACKLIST_IFACE && method_name == "GoTo") {
+            last_go_to = parameters.get_child_value(0).get_string();
+        }
+        return new Variant.tuple({});
+    }
+
+    public void emit_state(bool shuffle, string loop_status) {
+        this.shuffle = shuffle;
+        this.loop_status = loop_status;
+        var properties = new VariantBuilder(new VariantType("a{sv}"));
+        properties.add("{sv}", "Shuffle", new Variant.boolean(shuffle));
+        properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
+        properties_changed(PLAYER_IFACE, properties.end(), new Variant.strv({}));
+    }
+
+    private Variant current_metadata() {
+        var metadata = new VariantBuilder(new VariantType("a{sv}"));
+        metadata.add(
+            "{sv}",
+            "mpris:trackid",
+            new Variant.object_path("/org/mpris/MediaPlayer2/track/two")
+        );
+        metadata.add("{sv}", "xesam:title", new Variant.string("Second"));
+        metadata.add("{sv}", "xesam:artist", new Variant.strv({ "Artist" }));
+        return metadata.end();
+    }
+
+    private Variant metadata_for_track(string id) {
+        var metadata = new VariantBuilder(new VariantType("a{sv}"));
+        metadata.add("{sv}", "mpris:trackid", new Variant.object_path(id));
+        metadata.add(
+            "{sv}",
+            "xesam:title",
+            new Variant.string(id.has_suffix("one") ? "First" : "Second")
+        );
+        metadata.add("{sv}", "xesam:artist", new Variant.strv({ "Artist" }));
+        return metadata.end();
+    }
+}
 
 private bool layout_contains_id(Variant layout, int expected_id) {
     Variant children = layout.get_child_value(2);
@@ -13,6 +128,17 @@ private bool layout_contains_id(Variant layout, int expected_id) {
         }
     }
     return false;
+}
+
+private int layout_index_of_id(Variant layout, int expected_id) {
+    Variant children = layout.get_child_value(2);
+    for (size_t i = 0; i < children.n_children(); i++) {
+        Variant item = children.get_child_value(i).get_variant();
+        if (item.get_child_value(0).get_int32() == expected_id) {
+            return (int) i;
+        }
+    }
+    return -1;
 }
 
 private Variant get_root_layout(
@@ -50,6 +176,32 @@ private string get_string_property(
     } catch (Error error) {
         assert_not_reached();
     }
+}
+
+private int get_int_property(
+    MprisMiniPlayer.StatusNotifierMenu menu,
+    int id,
+    string name
+) {
+    try {
+        return menu.get_property(id, name).get_int32();
+    } catch (Error error) {
+        assert_not_reached();
+    }
+}
+
+private Variant get_layout(
+    MprisMiniPlayer.StatusNotifierMenu menu,
+    int parent_id,
+    out uint revision
+) {
+    Variant layout = new Variant("(ia{sv}av)", 0, null, null);
+    try {
+        menu.get_layout(parent_id, -1, {}, out revision, out layout);
+    } catch (Error error) {
+        assert_not_reached();
+    }
+    return layout;
 }
 
 private void test_hidden_layout() {
@@ -148,12 +300,93 @@ private void test_status_item_uses_symbolic_icon() {
     assert_cmpstr(item.icon_name, CompareOperator.EQ, SYMBOLIC_ICON_NAME);
 }
 
+private void test_player_modes_and_queue_layout() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+
+    uint revision;
+    Variant root = get_root_layout(menu, out revision);
+    assert_true(layout_contains_id(root, SHUFFLE_ID));
+    assert_true(layout_contains_id(root, REPEAT_ID));
+    assert_true(layout_contains_id(root, QUEUE_ID));
+    assert_true(layout_index_of_id(root, QUEUE_ID) < layout_index_of_id(root, VOLUME_ID));
+    assert_true(layout_index_of_id(root, VOLUME_ID) < layout_index_of_id(root, SHUFFLE_ID));
+    assert_true(layout_index_of_id(root, SHUFFLE_ID) < layout_index_of_id(root, PREVIOUS_ID));
+    assert_true(layout_index_of_id(root, PREVIOUS_ID) < layout_index_of_id(root, PLAY_PAUSE_ID));
+    assert_true(layout_index_of_id(root, PLAY_PAUSE_ID) < layout_index_of_id(root, NEXT_ID));
+    assert_true(layout_index_of_id(root, NEXT_ID) < layout_index_of_id(root, REPEAT_ID));
+
+    Variant repeat = get_layout(menu, REPEAT_ID, out revision);
+    assert_true(layout_contains_id(repeat, REPEAT_NONE_ID));
+    assert_true(layout_contains_id(repeat, REPEAT_TRACK_ID));
+    assert_true(layout_contains_id(repeat, REPEAT_PLAYLIST_ID));
+    assert_cmpint(get_int_property(menu, REPEAT_NONE_ID, "toggle-state"), CompareOperator.EQ, 1);
+
+    Variant queue = get_layout(menu, QUEUE_ID, out revision);
+    assert_true(layout_contains_id(queue, QUEUE_TRACK_BASE_ID));
+    assert_true(layout_contains_id(queue, QUEUE_TRACK_BASE_ID + 1));
+    assert_cmpint(
+        get_int_property(menu, QUEUE_TRACK_BASE_ID + 1, "toggle-state"),
+        CompareOperator.EQ,
+        1
+    );
+}
+
+private void test_player_mode_actions_and_external_updates() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+    string action = "";
+    menu.action_requested.connect((requested_action) => action = requested_action);
+
+    uint initial_revision;
+    get_root_layout(menu, out initial_revision);
+    try {
+        menu.event(SHUFFLE_ID, "clicked", new Variant.string(""), 0);
+        assert_cmpstr(action, CompareOperator.EQ, "shuffle");
+        menu.event(REPEAT_TRACK_ID, "clicked", new Variant.string(""), 0);
+        assert_cmpstr(action, CompareOperator.EQ, "repeat-track");
+        menu.event(QUEUE_TRACK_BASE_ID, "clicked", new Variant.string(""), 0);
+    } catch (Error error) {
+        assert_not_reached();
+    }
+    assert_cmpstr(
+        transport.last_go_to,
+        CompareOperator.EQ,
+        "/org/mpris/MediaPlayer2/track/one"
+    );
+
+    transport.emit_state(true, "Playlist");
+    uint changed_revision;
+    get_root_layout(menu, out changed_revision);
+    assert_true(changed_revision > initial_revision);
+    assert_cmpint(get_int_property(menu, SHUFFLE_ID, "toggle-state"), CompareOperator.EQ, 1);
+    assert_cmpint(
+        get_int_property(menu, REPEAT_PLAYLIST_ID, "toggle-state"),
+        CompareOperator.EQ,
+        1
+    );
+    assert_cmpstr(
+        get_string_property(menu, REPEAT_ID, "label"),
+        CompareOperator.EQ,
+        "Repeat: Queue"
+    );
+}
+
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
     Test.add_func("/status-menu/shown-layout", test_shown_layout);
     Test.add_func("/status-menu/shown-state-revision", test_shown_state_revision);
     Test.add_func("/status-menu/current-action", test_only_current_action_activates);
+    Test.add_func("/status-menu/player-modes-and-queue", test_player_modes_and_queue_layout);
+    Test.add_func(
+        "/status-menu/player-mode-actions-and-updates",
+        test_player_mode_actions_and_external_updates
+    );
     Test.add_func("/status-item/symbolic-icon", test_status_item_uses_symbolic_icon);
     return Test.run();
 }

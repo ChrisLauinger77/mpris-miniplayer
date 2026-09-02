@@ -161,12 +161,20 @@ namespace MprisMiniPlayer {
         private const int PREVIOUS_ID = 20;
         private const int PLAY_PAUSE_ID = 21;
         private const int NEXT_ID = 22;
+        private const int SHUFFLE_ID = 23;
+        private const int REPEAT_ID = 24;
+        private const int REPEAT_NONE_ID = 25;
+        private const int REPEAT_TRACK_ID = 26;
+        private const int REPEAT_PLAYLIST_ID = 27;
         private const int VOLUME_ID = 30;
         private const int MUTE_ID = 31;
         private const int VOLUME_25_ID = 32;
         private const int VOLUME_50_ID = 33;
         private const int VOLUME_75_ID = 34;
         private const int VOLUME_100_ID = 35;
+        private const int QUEUE_ID = 40;
+        private const int QUEUE_EMPTY_ID = 41;
+        private const int QUEUE_TRACK_BASE_ID = 1000;
 
         private uint revision = 1;
         private bool compact_mode = false;
@@ -276,6 +284,10 @@ namespace MprisMiniPlayer {
             revision = this.revision;
             if (parent_id == VOLUME_ID) {
                 layout = build_volume_item(recursion_depth);
+            } else if (parent_id == REPEAT_ID) {
+                layout = build_repeat_item(recursion_depth);
+            } else if (parent_id == QUEUE_ID) {
+                layout = build_queue_item(recursion_depth);
             } else if (parent_id == ROOT_ID) {
                 layout = build_layout(recursion_depth);
             } else {
@@ -349,11 +361,26 @@ namespace MprisMiniPlayer {
                         children.add_value(new Variant.variant(build_item(ALBUM_ID)));
                     }
                     children.add_value(new Variant.variant(build_item(CONTROLS_SEPARATOR_ID)));
+                    if (player.has_track_list) {
+                        children.add_value(new Variant.variant(
+                            build_queue_item(recursion_depth - 1)
+                        ));
+                    }
+                    if (player.has_volume) {
+                        children.add_value(new Variant.variant(
+                            build_volume_item(recursion_depth - 1)
+                        ));
+                    }
+                    if (player.has_shuffle) {
+                        children.add_value(new Variant.variant(build_item(SHUFFLE_ID)));
+                    }
                     children.add_value(new Variant.variant(build_item(PREVIOUS_ID)));
                     children.add_value(new Variant.variant(build_item(PLAY_PAUSE_ID)));
                     children.add_value(new Variant.variant(build_item(NEXT_ID)));
-                    if (player.has_volume) {
-                        children.add_value(new Variant.variant(build_volume_item(recursion_depth - 1)));
+                    if (player.has_loop_status) {
+                        children.add_value(new Variant.variant(
+                            build_repeat_item(recursion_depth - 1)
+                        ));
                     }
                 }
 
@@ -403,6 +430,42 @@ namespace MprisMiniPlayer {
             });
         }
 
+        private Variant build_repeat_item(int recursion_depth = -1) {
+            var children = new VariantBuilder(new VariantType("av"));
+            if (recursion_depth != 0) {
+                children.add_value(new Variant.variant(build_item(REPEAT_NONE_ID)));
+                children.add_value(new Variant.variant(build_item(REPEAT_TRACK_ID)));
+                children.add_value(new Variant.variant(build_item(REPEAT_PLAYLIST_ID)));
+            }
+
+            return new Variant.tuple({
+                new Variant.int32(REPEAT_ID),
+                build_properties(REPEAT_ID),
+                children.end()
+            });
+        }
+
+        private Variant build_queue_item(int recursion_depth = -1) {
+            var children = new VariantBuilder(new VariantType("av"));
+            if (recursion_depth != 0 && player != null) {
+                if (player.queue.length == 0) {
+                    children.add_value(new Variant.variant(build_item(QUEUE_EMPTY_ID)));
+                } else {
+                    for (int index = 0; index < player.queue.length; index++) {
+                        children.add_value(new Variant.variant(
+                            build_item(QUEUE_TRACK_BASE_ID + index)
+                        ));
+                    }
+                }
+            }
+
+            return new Variant.tuple({
+                new Variant.int32(QUEUE_ID),
+                build_properties(QUEUE_ID),
+                children.end()
+            });
+        }
+
         private Variant build_properties(int id) {
             var properties = new VariantBuilder(new VariantType("a{sv}"));
             if (is_separator(id)) {
@@ -423,19 +486,22 @@ namespace MprisMiniPlayer {
             if (icon_name != "") {
                 properties.add("{sv}", "icon-name", new Variant.string(icon_name));
             }
-            if (id == COMPACT_MODE_ID) {
+            if (id == COMPACT_MODE_ID || id == SHUFFLE_ID) {
                 properties.add("{sv}", "toggle-type", new Variant.string("checkmark"));
-                properties.add("{sv}", "toggle-state", new Variant.int32(compact_mode ? 1 : 0));
+                bool toggled = id == COMPACT_MODE_ID
+                    ? compact_mode
+                    : player != null && player.shuffle;
+                properties.add("{sv}", "toggle-state", new Variant.int32(toggled ? 1 : 0));
             }
-            if (is_volume_preset(id)) {
+            if (is_volume_preset(id) || is_repeat_mode(id) || is_queue_track(id)) {
                 properties.add("{sv}", "toggle-type", new Variant.string("radio"));
                 properties.add(
                     "{sv}",
                     "toggle-state",
-                    new Variant.int32(volume_matches_preset(id) ? 1 : 0)
+                    new Variant.int32(item_is_selected(id) ? 1 : 0)
                 );
             }
-            if (id == VOLUME_ID) {
+            if (id == VOLUME_ID || id == REPEAT_ID || id == QUEUE_ID) {
                 properties.add("{sv}", "children-display", new Variant.string("submenu"));
             }
             return properties.end();
@@ -465,6 +531,20 @@ namespace MprisMiniPlayer {
                         : _("Play");
                 case NEXT_ID:
                     return _("Next");
+                case SHUFFLE_ID:
+                    return _("Shuffle");
+                case REPEAT_ID:
+                    return repeat_label();
+                case REPEAT_NONE_ID:
+                    return _("Off");
+                case REPEAT_TRACK_ID:
+                    return _("Current Track");
+                case REPEAT_PLAYLIST_ID:
+                    return _("Queue");
+                case QUEUE_ID:
+                    return _("Queue");
+                case QUEUE_EMPTY_ID:
+                    return _("Queue is empty");
                 case VOLUME_ID:
                     return _("Volume: %d%%").printf(current_volume_percent());
                 case MUTE_ID:
@@ -488,11 +568,19 @@ namespace MprisMiniPlayer {
                 case QUIT_ID:
                     return _("Quit");
                 default:
-                    return "";
+                    return is_queue_track(id) ? queue_track_label(id) : "";
             }
         }
 
         private void activate_item(int id) {
+            if (is_queue_track(id)) {
+                int index = id - QUEUE_TRACK_BASE_ID;
+                if (player != null && index >= 0 && index < player.queue.length) {
+                    player.go_to(player.queue[index].id);
+                }
+                return;
+            }
+
             switch (id) {
                 case SHOW_ID:
                     action_requested("show");
@@ -511,6 +599,18 @@ namespace MprisMiniPlayer {
                     break;
                 case NEXT_ID:
                     action_requested("next");
+                    break;
+                case SHUFFLE_ID:
+                    action_requested("shuffle");
+                    break;
+                case REPEAT_NONE_ID:
+                    action_requested("repeat-none");
+                    break;
+                case REPEAT_TRACK_ID:
+                    action_requested("repeat-track");
+                    break;
+                case REPEAT_PLAYLIST_ID:
+                    action_requested("repeat-playlist");
                     break;
                 case MUTE_ID:
                     action_requested("mute");
@@ -564,7 +664,9 @@ namespace MprisMiniPlayer {
                 return "none";
             }
 
-            return "%s\x1f%s\x1f%s\x1f%s\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d".printf(
+            var signature = new StringBuilder();
+            signature.append_printf(
+                "%s\x1f%s\x1f%s\x1f%s\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%s\x1f%d\x1f%s",
                 player.title,
                 player.artist,
                 player.album,
@@ -575,12 +677,27 @@ namespace MprisMiniPlayer {
                 player.can_pause ? 1 : 0,
                 player.can_control ? 1 : 0,
                 player.has_volume ? 1 : 0,
-                current_volume_percent()
+                current_volume_percent(),
+                player.has_shuffle ? 1 : 0,
+                player.shuffle ? 1 : 0,
+                player.loop_status,
+                player.has_track_list ? 1 : 0,
+                player.track_id
             );
+            foreach (MprisTrack track in player.queue) {
+                signature.append_printf(
+                    "\x1e%s\x1f%s\x1f%s\x1f%s",
+                    track.id,
+                    track.title,
+                    track.artist,
+                    track.album
+                );
+            }
+            return signature.str;
         }
 
         private int[] all_ids() {
-            return {
+            int[] ids = {
                 ROOT_ID,
                 SHOW_ID,
                 HIDE_ID,
@@ -599,13 +716,26 @@ namespace MprisMiniPlayer {
                 PREVIOUS_ID,
                 PLAY_PAUSE_ID,
                 NEXT_ID,
+                SHUFFLE_ID,
+                REPEAT_ID,
+                REPEAT_NONE_ID,
+                REPEAT_TRACK_ID,
+                REPEAT_PLAYLIST_ID,
                 VOLUME_ID,
                 MUTE_ID,
                 VOLUME_25_ID,
                 VOLUME_50_ID,
                 VOLUME_75_ID,
-                VOLUME_100_ID
+                VOLUME_100_ID,
+                QUEUE_ID,
+                QUEUE_EMPTY_ID
             };
+            if (player != null && player.has_track_list) {
+                for (int index = 0; index < player.queue.length; index++) {
+                    ids += QUEUE_TRACK_BASE_ID + index;
+                }
+            }
+            return ids;
         }
 
         private bool is_known_id(int id) {
@@ -652,6 +782,21 @@ namespace MprisMiniPlayer {
             if (id == NEXT_ID) {
                 return player != null && player.can_go_next;
             }
+            if (id == SHUFFLE_ID) {
+                return player != null && player.has_shuffle && player.can_control;
+            }
+            if (id == REPEAT_ID || is_repeat_mode(id)) {
+                return player != null && player.has_loop_status && player.can_control;
+            }
+            if (id == QUEUE_ID) {
+                return player != null && player.has_track_list;
+            }
+            if (id == QUEUE_EMPTY_ID) {
+                return false;
+            }
+            if (is_queue_track(id)) {
+                return player != null && player.has_track_list;
+            }
             if (id == VOLUME_ID || id == MUTE_ID || is_volume_preset(id)) {
                 return player != null && player.has_volume && player.can_control;
             }
@@ -678,6 +823,16 @@ namespace MprisMiniPlayer {
                         : "media-playback-start-symbolic";
                 case NEXT_ID:
                     return "media-skip-forward-symbolic";
+                case SHUFFLE_ID:
+                    return "media-playlist-shuffle-symbolic";
+                case REPEAT_ID:
+                case REPEAT_NONE_ID:
+                case REPEAT_PLAYLIST_ID:
+                    return "media-playlist-repeat-symbolic";
+                case REPEAT_TRACK_ID:
+                    return "media-playlist-repeat-song-symbolic";
+                case QUEUE_ID:
+                    return "view-list-symbolic";
                 case VOLUME_ID:
                     return current_volume_percent() == 0
                         ? "audio-volume-muted-symbolic"
@@ -702,6 +857,73 @@ namespace MprisMiniPlayer {
 
             int preset = (id - VOLUME_25_ID + 1) * 25;
             return current_volume_percent() == preset;
+        }
+
+        private bool is_repeat_mode(int id) {
+            return id >= REPEAT_NONE_ID && id <= REPEAT_PLAYLIST_ID;
+        }
+
+        private string repeat_label() {
+            if (player == null || player.loop_status == "None") {
+                return _("Repeat: Off");
+            }
+            if (player.loop_status == "Track") {
+                return _("Repeat: Current Track");
+            }
+            return _("Repeat: Queue");
+        }
+
+        private bool is_queue_track(int id) {
+            if (player == null || !player.has_track_list || id < QUEUE_TRACK_BASE_ID) {
+                return false;
+            }
+
+            int index = id - QUEUE_TRACK_BASE_ID;
+            return index >= 0 && index < player.queue.length;
+        }
+
+        private string queue_track_label(int id) {
+            if (!is_queue_track(id)) {
+                return "";
+            }
+
+            MprisTrack track = player.queue[id - QUEUE_TRACK_BASE_ID];
+            string label = track.artist == ""
+                ? track.title
+                : _("%s — %s").printf(track.title, track.artist);
+            return truncate_label(label, 40);
+        }
+
+        private bool item_is_selected(int id) {
+            if (is_volume_preset(id)) {
+                return volume_matches_preset(id);
+            }
+            if (player == null) {
+                return false;
+            }
+            if (is_repeat_mode(id)) {
+                switch (id) {
+                    case REPEAT_NONE_ID:
+                        return player.loop_status == "None";
+                    case REPEAT_TRACK_ID:
+                        return player.loop_status == "Track";
+                    case REPEAT_PLAYLIST_ID:
+                        return player.loop_status == "Playlist";
+                }
+            }
+            if (is_queue_track(id)) {
+                int index = id - QUEUE_TRACK_BASE_ID;
+                if (player.queue[index].id != player.track_id) {
+                    return false;
+                }
+                for (int earlier = 0; earlier < index; earlier++) {
+                    if (player.queue[earlier].id == player.track_id) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
         }
 
         private int current_volume_percent() {
