@@ -1,40 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="bg" x1="20" y1="12" x2="108" y2="116" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#3fc5b6"/>
-      <stop offset="0.48" stop-color="#1f8a9e"/>
-      <stop offset="1" stop-color="#26466f"/>
+    <linearGradient id="shell" x1="20" y1="14" x2="110" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9141ac"/>
+      <stop offset="0.52" stop-color="#613583"/>
+      <stop offset="1" stop-color="#1c71d8"/>
     </linearGradient>
-    <linearGradient id="cover" x1="30" y1="28" x2="80" y2="82" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f6d365"/>
-      <stop offset="0.54" stop-color="#f07356"/>
-      <stop offset="1" stop-color="#4d3b8f"/>
+    <linearGradient id="cover" x1="30" y1="39" x2="64" y2="89" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f9f06b"/>
+      <stop offset="0.48" stop-color="#ff7800"/>
+      <stop offset="1" stop-color="#e01b24"/>
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0b1724" flood-opacity="0.35"/>
-    </filter>
+    <linearGradient id="card" x1="24" y1="30" x2="105" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#deddda"/>
+    </linearGradient>
   </defs>
 
-  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#bg)"/>
-  <path d="M24 95c19 11 60 12 80-4v9c-17 18-63 19-80 3z" fill="#10283f" opacity="0.22"/>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#shell)"/>
+  <path d="M34 11h60c13 0 23 10 23 23v5C91 26 46 27 11 49V34c0-13 10-23 23-23z" fill="#ffffff" opacity="0.10"/>
+  <path d="M11 92c28 13 72 17 106-2v4c0 13-10 23-23 23H34c-13 0-23-10-23-23z" fill="#241236" opacity="0.18"/>
 
-  <g filter="url(#shadow)">
-    <rect x="27" y="27" width="57" height="57" rx="13" fill="url(#cover)"/>
-    <circle cx="55.5" cy="55.5" r="15.5" fill="#ffffff" opacity="0.86"/>
-    <circle cx="55.5" cy="55.5" r="5.5" fill="#26466f"/>
-    <path d="M31 74c15-10 30-12 49-4v9H31z" fill="#231f46" opacity="0.35"/>
-  </g>
+  <rect x="20" y="34" width="88" height="68" rx="16" fill="#241236" opacity="0.30"/>
+  <g>
+    <rect x="20" y="30" width="88" height="68" rx="16" fill="url(#card)"/>
+    <rect x="29" y="39" width="34" height="50" rx="8" fill="url(#cover)"/>
+    <circle cx="46" cy="64" r="11" fill="#ffffff" opacity="0.90"/>
+    <circle cx="46" cy="64" r="3.5" fill="#613583"/>
+    <path d="M29 79c9-7 21-10 34-5v7c-10-3-22-1-34 8z" fill="#a51d2d" opacity="0.38"/>
 
-  <g fill="none" stroke="#d8fff7" stroke-linecap="round" stroke-width="6" opacity="0.9">
-    <path d="M91 39c7 6 11 15 11 25s-4 19-11 25"/>
-    <path d="M101 28c10 9 16 22 16 36s-6 27-16 36" opacity="0.62"/>
-  </g>
+    <rect x="72" y="41" width="25" height="5" rx="2.5" fill="#241f31" opacity="0.90"/>
+    <rect x="72" y="51" width="18" height="4" rx="2" fill="#5e5c64" opacity="0.58"/>
+    <rect x="72" y="61" width="27" height="3" rx="1.5" fill="#9a9996"/>
+    <circle cx="82" cy="62.5" r="3" fill="#1c71d8"/>
 
-  <g filter="url(#shadow)">
-    <rect x="42" y="82" width="58" height="25" rx="12.5" fill="#f8fafc"/>
-    <path d="M63 90.5v8l-7-4z" fill="#1f8a9e"/>
-    <path d="M73 90l9 4.5-9 4.5z" fill="#26466f"/>
-    <rect x="87" y="90.5" width="3" height="8" rx="1.5" fill="#26466f"/>
+    <rect x="70" y="72" width="30" height="18" rx="9" fill="#241f31"/>
+    <path d="M81 77.5v7l6-3.5z" fill="#ffffff"/>
+    <rect x="91" y="77.5" width="2.5" height="7" rx="1.25" fill="#ffffff" opacity="0.72"/>
   </g>
 </svg>
