@@ -18,6 +18,13 @@ private const string ROOT_IFACE = "org.mpris.MediaPlayer2";
 private const string PLAYER_IFACE = "org.mpris.MediaPlayer2.Player";
 private const string TRACKLIST_IFACE = "org.mpris.MediaPlayer2.TrackList";
 
+private void drain_main_context() {
+    MainContext context = MainContext.default();
+    while (context.pending()) {
+        context.iteration(false);
+    }
+}
+
 private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
     public bool shuffle = false;
     public string loop_status = "None";
@@ -54,6 +61,13 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         throw new IOError.NOT_SUPPORTED("Unsupported test property");
     }
 
+    public async Variant read_property_async(
+        string interface_name,
+        string property_name
+    ) throws Error {
+        return read_property(interface_name, property_name);
+    }
+
     public void write_property(
         string interface_name,
         string property_name,
@@ -73,8 +87,10 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         VariantType? reply_type = null
     ) throws Error {
         if (interface_name == TRACKLIST_IFACE && method_name == "GetTracksMetadata") {
+            Variant requested_ids = parameters.get_child_value(0);
             var metadata = new VariantBuilder(new VariantType("aa{sv}"));
-            foreach (string id in track_ids) {
+            for (size_t index = 0; index < requested_ids.n_children(); index++) {
+                string id = requested_ids.get_child_value(index).get_string();
                 metadata.add_value(metadata_for_track(id));
             }
             return new Variant.tuple({ metadata.end() });
@@ -85,6 +101,15 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         return new Variant.tuple({});
     }
 
+    public async Variant call_async(
+        string interface_name,
+        string method_name,
+        Variant? parameters,
+        VariantType? reply_type = null
+    ) throws Error {
+        return call(interface_name, method_name, parameters, reply_type);
+    }
+
     public void emit_state(bool shuffle, string loop_status) {
         this.shuffle = shuffle;
         this.loop_status = loop_status;
@@ -92,6 +117,11 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         properties.add("{sv}", "Shuffle", new Variant.boolean(shuffle));
         properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
         properties_changed(PLAYER_IFACE, properties.end(), new Variant.strv({}));
+    }
+
+    public void replace_queue(string[] ids) {
+        track_ids = ids;
+        track_list_changed();
     }
 
     private Variant current_metadata() {
@@ -139,6 +169,11 @@ private int layout_index_of_id(Variant layout, int expected_id) {
         }
     }
     return -1;
+}
+
+private int layout_child_id(Variant layout, int index) {
+    Variant children = layout.get_child_value(2);
+    return children.get_child_value(index).get_variant().get_child_value(0).get_int32();
 }
 
 private Variant get_root_layout(
@@ -303,6 +338,7 @@ private void test_status_item_uses_symbolic_icon() {
 private void test_player_modes_and_queue_layout() {
     var transport = new StatusMenuTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
     var menu = new MprisMiniPlayer.StatusNotifierMenu();
     menu.set_player(player);
 
@@ -337,6 +373,7 @@ private void test_player_modes_and_queue_layout() {
 private void test_player_mode_actions_and_external_updates() {
     var transport = new StatusMenuTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
     var menu = new MprisMiniPlayer.StatusNotifierMenu();
     menu.set_player(player);
     string action = "";
@@ -376,6 +413,43 @@ private void test_player_mode_actions_and_external_updates() {
     );
 }
 
+private void test_stale_queue_menu_id_is_not_reused() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+
+    uint revision;
+    Variant initial_queue = get_layout(menu, QUEUE_ID, out revision);
+    int removed_track_menu_id = layout_child_id(initial_queue, 0);
+
+    transport.replace_queue({ "/org/mpris/MediaPlayer2/track/two" });
+    drain_main_context();
+    Variant updated_queue = get_layout(menu, QUEUE_ID, out revision);
+    int remaining_track_menu_id = layout_child_id(updated_queue, 0);
+    assert_true(remaining_track_menu_id != removed_track_menu_id);
+
+    transport.last_go_to = "";
+    try {
+        menu.event(removed_track_menu_id, "clicked", new Variant.string(""), 0);
+    } catch (Error error) {
+        assert_not_reached();
+    }
+    assert_cmpstr(transport.last_go_to, CompareOperator.EQ, "");
+
+    try {
+        menu.event(remaining_track_menu_id, "clicked", new Variant.string(""), 0);
+    } catch (Error error) {
+        assert_not_reached();
+    }
+    assert_cmpstr(
+        transport.last_go_to,
+        CompareOperator.EQ,
+        "/org/mpris/MediaPlayer2/track/two"
+    );
+}
+
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
@@ -386,6 +460,10 @@ public int main(string[] args) {
     Test.add_func(
         "/status-menu/player-mode-actions-and-updates",
         test_player_mode_actions_and_external_updates
+    );
+    Test.add_func(
+        "/status-menu/stale-queue-menu-id",
+        test_stale_queue_menu_id_is_not_reused
     );
     Test.add_func("/status-item/symbolic-icon", test_status_item_uses_symbolic_icon);
     return Test.run();

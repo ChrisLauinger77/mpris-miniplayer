@@ -9,12 +9,22 @@ namespace MprisMiniPlayer {
 
         public abstract Variant get_all(string interface_name) throws Error;
         public abstract Variant read_property(string interface_name, string property_name) throws Error;
+        public abstract async Variant read_property_async(
+            string interface_name,
+            string property_name
+        ) throws Error;
         public abstract void write_property(
             string interface_name,
             string property_name,
             Variant value
         ) throws Error;
         public abstract Variant call(
+            string interface_name,
+            string method_name,
+            Variant? parameters,
+            VariantType? reply_type = null
+        ) throws Error;
+        public abstract async Variant call_async(
             string interface_name,
             string method_name,
             Variant? parameters,
@@ -94,6 +104,24 @@ namespace MprisMiniPlayer {
             return result.get_child_value(0);
         }
 
+        public async Variant read_property_async(
+            string interface_name,
+            string property_name
+        ) throws Error {
+            Variant result = yield bus.call(
+                bus_name,
+                OBJECT_PATH,
+                PROPERTIES_IFACE,
+                "Get",
+                new Variant("(ss)", interface_name, property_name),
+                new VariantType("(v)"),
+                DBusCallFlags.NONE,
+                -1,
+                null
+            );
+            return result.get_child_value(0);
+        }
+
         public void write_property(
             string interface_name,
             string property_name,
@@ -126,6 +154,25 @@ namespace MprisMiniPlayer {
                 reply_type,
                 DBusCallFlags.NONE,
                 -1
+            );
+        }
+
+        public async Variant call_async(
+            string interface_name,
+            string method_name,
+            Variant? parameters,
+            VariantType? reply_type = null
+        ) throws Error {
+            return yield bus.call(
+                bus_name,
+                OBJECT_PATH,
+                interface_name,
+                method_name,
+                parameters,
+                reply_type,
+                DBusCallFlags.NONE,
+                -1,
+                null
             );
         }
 
@@ -175,6 +222,7 @@ namespace MprisMiniPlayer {
     }
 
     public class MprisPlayer : Object {
+        private const int TRACK_METADATA_BATCH_SIZE = 64;
         private const string ROOT_IFACE = "org.mpris.MediaPlayer2";
         private const string PLAYER_IFACE = "org.mpris.MediaPlayer2.Player";
         private const string TRACKLIST_IFACE = "org.mpris.MediaPlayer2.TrackList";
@@ -184,6 +232,7 @@ namespace MprisMiniPlayer {
         private ulong track_list_changed_handler_id;
         private bool monitor_track_list = true;
         private double restore_volume = 1.0;
+        private uint queue_refresh_generation = 0;
 
         public string bus_name { get; construct; }
         public string title { get; private set; default = "Unknown track"; }
@@ -364,6 +413,7 @@ namespace MprisMiniPlayer {
         }
 
         public void refresh_queue(bool emit_changed = true) {
+            uint generation = ++queue_refresh_generation;
             if (!has_track_list) {
                 if (queue.length > 0) {
                     queue = {};
@@ -374,25 +424,36 @@ namespace MprisMiniPlayer {
                 return;
             }
 
+            refresh_queue_async.begin(generation);
+        }
+
+        private async void refresh_queue_async(uint generation) {
             try {
                 Variant tracks = unwrap_variant(
-                    transport.read_property(TRACKLIST_IFACE, "Tracks")
+                    yield transport.read_property_async(TRACKLIST_IFACE, "Tracks")
                 );
-                string[] track_ids = {};
-                for (size_t index = 0; index < tracks.n_children(); index++) {
-                    track_ids += tracks.get_child_value(index).get_string();
+                if (generation != queue_refresh_generation || !has_track_list) {
+                    return;
                 }
 
-                queue = load_track_metadata(track_ids);
-                if (emit_changed) {
-                    changed();
+                int track_count = (int) tracks.n_children();
+                string[] track_ids = new string[track_count];
+                for (int index = 0; index < track_count; index++) {
+                    track_ids[index] = tracks.get_child_value(index).get_string();
                 }
+
+                queue = yield load_track_metadata(track_ids, generation);
+                if (generation != queue_refresh_generation || !has_track_list) {
+                    return;
+                }
+                changed();
             } catch (Error error) {
+                if (generation != queue_refresh_generation) {
+                    return;
+                }
                 debug("Unable to refresh queue for %s: %s", bus_name, error.message);
                 queue = {};
-                if (emit_changed) {
-                    changed();
-                }
+                changed();
             }
         }
 
@@ -690,37 +751,59 @@ namespace MprisMiniPlayer {
             return builder.str;
         }
 
-        private MprisTrack[] load_track_metadata(string[] track_ids) throws Error {
-            MprisTrack[] loaded_tracks = {};
+        private async MprisTrack[] load_track_metadata(
+            string[] track_ids,
+            uint generation
+        ) throws Error {
+            MprisTrack[] loaded_tracks = new MprisTrack[track_ids.length];
             if (track_ids.length == 0) {
                 return loaded_tracks;
             }
 
-            Variant result = transport.call(
-                TRACKLIST_IFACE,
-                "GetTracksMetadata",
-                new Variant("(@ao)", new Variant.objv(track_ids)),
-                new VariantType("(aa{sv})")
-            );
-            Variant metadata_list = result.get_child_value(0);
+            for (int offset = 0; offset < track_ids.length; offset += TRACK_METADATA_BATCH_SIZE) {
+                int batch_size = int.min(
+                    TRACK_METADATA_BATCH_SIZE,
+                    track_ids.length - offset
+                );
+                string[] batch_ids = new string[batch_size];
+                for (int index = 0; index < batch_size; index++) {
+                    batch_ids[index] = track_ids[offset + index];
+                }
 
-            for (int index = 0; index < track_ids.length; index++) {
-                string title = _("Unknown track");
-                string artist = _("Unknown artist");
-                string album = "";
-                if (index < metadata_list.n_children()) {
-                    Variant metadata = metadata_list.get_child_value(index);
-                    title = get_metadata_string(metadata, "xesam:title", title);
-                    album = get_metadata_string(metadata, "xesam:album", "");
-                    Variant? artists_value = lookup_property(metadata, "xesam:artist");
-                    if (artists_value != null) {
-                        string artists = get_string_array_value(artists_value);
-                        if (artists != "") {
-                            artist = artists;
+                Variant result = yield transport.call_async(
+                    TRACKLIST_IFACE,
+                    "GetTracksMetadata",
+                    new Variant("(@ao)", new Variant.objv(batch_ids)),
+                    new VariantType("(aa{sv})")
+                );
+                if (generation != queue_refresh_generation) {
+                    return {};
+                }
+                Variant metadata_list = result.get_child_value(0);
+
+                for (int index = 0; index < batch_size; index++) {
+                    string title = _("Unknown track");
+                    string artist = _("Unknown artist");
+                    string album = "";
+                    if (index < metadata_list.n_children()) {
+                        Variant metadata = metadata_list.get_child_value(index);
+                        title = get_metadata_string(metadata, "xesam:title", title);
+                        album = get_metadata_string(metadata, "xesam:album", "");
+                        Variant? artists_value = lookup_property(metadata, "xesam:artist");
+                        if (artists_value != null) {
+                            string artists = get_string_array_value(artists_value);
+                            if (artists != "") {
+                                artist = artists;
+                            }
                         }
                     }
+                    loaded_tracks[offset + index] = new MprisTrack(
+                        track_ids[offset + index],
+                        title,
+                        artist,
+                        album
+                    );
                 }
-                loaded_tracks += new MprisTrack(track_ids[index], title, artist, album);
             }
 
             return loaded_tracks;

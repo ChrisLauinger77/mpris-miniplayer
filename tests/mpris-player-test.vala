@@ -2,6 +2,13 @@ private const string ROOT_IFACE = "org.mpris.MediaPlayer2";
 private const string PLAYER_IFACE = "org.mpris.MediaPlayer2.Player";
 private const string TRACKLIST_IFACE = "org.mpris.MediaPlayer2.TrackList";
 
+private void drain_main_context() {
+    MainContext context = MainContext.default();
+    while (context.pending()) {
+        context.iteration(false);
+    }
+}
+
 private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     public bool shuffle = false;
     public string loop_status = "None";
@@ -14,6 +21,7 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     public string last_property = "";
     public string last_go_to = "";
     public int queue_reads = 0;
+    public int[] metadata_batch_sizes = {};
 
     public Variant get_all(string interface_name) throws Error {
         var properties = new VariantBuilder(new VariantType("a{sv}"));
@@ -43,6 +51,13 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         throw new IOError.NOT_SUPPORTED("Unsupported test property");
     }
 
+    public async Variant read_property_async(
+        string interface_name,
+        string property_name
+    ) throws Error {
+        return read_property(interface_name, property_name);
+    }
+
     public void write_property(
         string interface_name,
         string property_name,
@@ -64,8 +79,12 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         VariantType? reply_type = null
     ) throws Error {
         if (interface_name == TRACKLIST_IFACE && method_name == "GetTracksMetadata") {
+            assert_nonnull(parameters);
+            Variant requested_ids = parameters.get_child_value(0);
+            metadata_batch_sizes += (int) requested_ids.n_children();
             var metadata = new VariantBuilder(new VariantType("aa{sv}"));
-            foreach (string id in track_ids) {
+            for (size_t index = 0; index < requested_ids.n_children(); index++) {
+                string id = requested_ids.get_child_value(index).get_string();
                 metadata.add_value(metadata_for_track(id));
             }
             return new Variant.tuple({ metadata.end() });
@@ -75,6 +94,15 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
             last_go_to = parameters.get_child_value(0).get_string();
         }
         return new Variant.tuple({});
+    }
+
+    public async Variant call_async(
+        string interface_name,
+        string method_name,
+        Variant? parameters,
+        VariantType? reply_type = null
+    ) throws Error {
+        return call(interface_name, method_name, parameters, reply_type);
     }
 
     public void emit_player_state(bool shuffle, string loop_status) {
@@ -123,6 +151,7 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
 private void test_initial_state_and_queue() {
     var transport = new FakeTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
 
     assert_true(player.has_shuffle);
     assert_false(player.shuffle);
@@ -138,6 +167,7 @@ private void test_initial_state_and_queue() {
 private void test_shuffle_and_repeat_updates() {
     var transport = new FakeTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
 
     player.toggle_shuffle();
     assert_true(player.shuffle);
@@ -158,6 +188,7 @@ private void test_shuffle_and_repeat_updates() {
 private void test_queue_signals_and_go_to() {
     var transport = new FakeTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
     int initial_reads = transport.queue_reads;
 
     assert_true(player.go_to("/org/mpris/MediaPlayer2/track/three"));
@@ -170,6 +201,7 @@ private void test_queue_signals_and_go_to() {
     assert_true(transport.queue_reads > initial_reads);
 
     transport.replace_queue({ "/org/mpris/MediaPlayer2/track/three" });
+    drain_main_context();
     assert_cmpint(player.queue.length, CompareOperator.EQ, 1);
     assert_cmpstr(
         player.queue[0].id,
@@ -201,11 +233,33 @@ private void test_repeat_cycle_helper() {
     );
 }
 
+private void test_large_queue_metadata_is_batched() {
+    var transport = new FakeTransport();
+    string[] track_ids = new string[145];
+    for (int index = 0; index < track_ids.length; index++) {
+        track_ids[index] = "/org/mpris/MediaPlayer2/track/item_%d".printf(index);
+    }
+    transport.track_ids = track_ids;
+
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    assert_cmpint(player.queue.length, CompareOperator.EQ, track_ids.length);
+    assert_cmpint(transport.metadata_batch_sizes.length, CompareOperator.EQ, 3);
+    foreach (int batch_size in transport.metadata_batch_sizes) {
+        assert_true(batch_size > 0);
+        assert_true(batch_size <= 64);
+    }
+}
+
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/mpris-player/initial-state-and-queue", test_initial_state_and_queue);
     Test.add_func("/mpris-player/shuffle-repeat-updates", test_shuffle_and_repeat_updates);
     Test.add_func("/mpris-player/queue-signals-and-go-to", test_queue_signals_and_go_to);
     Test.add_func("/mpris-player/repeat-cycle-helper", test_repeat_cycle_helper);
+    Test.add_func(
+        "/mpris-player/large-queue-metadata-is-batched",
+        test_large_queue_metadata_is_batched
+    );
     return Test.run();
 }

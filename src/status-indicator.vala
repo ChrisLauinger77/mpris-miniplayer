@@ -141,6 +141,16 @@ namespace MprisMiniPlayer {
         }
     }
 
+    private class StatusQueueItem : Object {
+        public int menu_id;
+        public MprisTrack track;
+
+        public StatusQueueItem(int menu_id, MprisTrack track) {
+            this.menu_id = menu_id;
+            this.track = track;
+        }
+    }
+
     [DBus (name = "com.canonical.dbusmenu")]
     public class StatusNotifierMenu : Object {
         private const int ROOT_ID = 0;
@@ -183,6 +193,8 @@ namespace MprisMiniPlayer {
         private ulong player_changed_handler_id = 0;
         private string player_state_signature = "none";
         private string update_version = "";
+        private StatusQueueItem[] queue_items = {};
+        private int next_queue_menu_id = QUEUE_TRACK_BASE_ID;
 
         public signal void action_requested(string action);
 
@@ -255,9 +267,11 @@ namespace MprisMiniPlayer {
             }
 
             player = selected_player;
+            queue_items = {};
             if (player != null) {
                 player_changed_handler_id = player.changed.connect(on_player_changed);
             }
+            sync_queue_items();
             player_state_signature = build_player_state_signature();
             notify_layout_changed();
         }
@@ -448,12 +462,12 @@ namespace MprisMiniPlayer {
         private Variant build_queue_item(int recursion_depth = -1) {
             var children = new VariantBuilder(new VariantType("av"));
             if (recursion_depth != 0 && player != null) {
-                if (player.queue.length == 0) {
+                if (queue_items.length == 0) {
                     children.add_value(new Variant.variant(build_item(QUEUE_EMPTY_ID)));
                 } else {
-                    for (int index = 0; index < player.queue.length; index++) {
+                    foreach (StatusQueueItem item in queue_items) {
                         children.add_value(new Variant.variant(
-                            build_item(QUEUE_TRACK_BASE_ID + index)
+                            build_item(item.menu_id)
                         ));
                     }
                 }
@@ -573,10 +587,10 @@ namespace MprisMiniPlayer {
         }
 
         private void activate_item(int id) {
-            if (is_queue_track(id)) {
-                int index = id - QUEUE_TRACK_BASE_ID;
-                if (player != null && index >= 0 && index < player.queue.length) {
-                    player.go_to(player.queue[index].id);
+            StatusQueueItem? queue_item = find_queue_item(id);
+            if (queue_item != null) {
+                if (player != null) {
+                    player.go_to(queue_item.track.id);
                 }
                 return;
             }
@@ -650,6 +664,7 @@ namespace MprisMiniPlayer {
         }
 
         private void on_player_changed() {
+            sync_queue_items();
             string new_signature = build_player_state_signature();
             if (new_signature == player_state_signature) {
                 return;
@@ -731,8 +746,8 @@ namespace MprisMiniPlayer {
                 QUEUE_EMPTY_ID
             };
             if (player != null && player.has_track_list) {
-                for (int index = 0; index < player.queue.length; index++) {
-                    ids += QUEUE_TRACK_BASE_ID + index;
+                foreach (StatusQueueItem item in queue_items) {
+                    ids += item.menu_id;
                 }
             }
             return ids;
@@ -874,20 +889,16 @@ namespace MprisMiniPlayer {
         }
 
         private bool is_queue_track(int id) {
-            if (player == null || !player.has_track_list || id < QUEUE_TRACK_BASE_ID) {
-                return false;
-            }
-
-            int index = id - QUEUE_TRACK_BASE_ID;
-            return index >= 0 && index < player.queue.length;
+            return find_queue_item(id) != null;
         }
 
         private string queue_track_label(int id) {
-            if (!is_queue_track(id)) {
+            StatusQueueItem? queue_item = find_queue_item(id);
+            if (queue_item == null) {
                 return "";
             }
 
-            MprisTrack track = player.queue[id - QUEUE_TRACK_BASE_ID];
+            MprisTrack track = queue_item.track;
             string label = track.artist == ""
                 ? track.title
                 : _("%s — %s").printf(track.title, track.artist);
@@ -912,18 +923,59 @@ namespace MprisMiniPlayer {
                 }
             }
             if (is_queue_track(id)) {
-                int index = id - QUEUE_TRACK_BASE_ID;
-                if (player.queue[index].id != player.track_id) {
+                StatusQueueItem? queue_item = find_queue_item(id);
+                if (queue_item == null || queue_item.track.id != player.track_id) {
                     return false;
                 }
-                for (int earlier = 0; earlier < index; earlier++) {
-                    if (player.queue[earlier].id == player.track_id) {
+                foreach (StatusQueueItem earlier in queue_items) {
+                    if (earlier.menu_id == id) {
+                        break;
+                    }
+                    if (earlier.track.id == player.track_id) {
                         return false;
                     }
                 }
                 return true;
             }
             return false;
+        }
+
+        private StatusQueueItem? find_queue_item(int menu_id) {
+            foreach (StatusQueueItem item in queue_items) {
+                if (item.menu_id == menu_id) {
+                    return item;
+                }
+            }
+            return null;
+        }
+
+        private void sync_queue_items() {
+            if (player == null || !player.has_track_list) {
+                queue_items = {};
+                return;
+            }
+
+            bool unchanged = queue_items.length == player.queue.length;
+            if (unchanged) {
+                for (int index = 0; index < player.queue.length; index++) {
+                    if (queue_items[index].track != player.queue[index]) {
+                        unchanged = false;
+                        break;
+                    }
+                }
+            }
+            if (unchanged) {
+                return;
+            }
+
+            StatusQueueItem[] updated_items = new StatusQueueItem[player.queue.length];
+            for (int index = 0; index < player.queue.length; index++) {
+                updated_items[index] = new StatusQueueItem(
+                    next_queue_menu_id++,
+                    player.queue[index]
+                );
+            }
+            queue_items = updated_items;
         }
 
         private int current_volume_percent() {

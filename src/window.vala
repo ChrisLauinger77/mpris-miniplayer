@@ -88,6 +88,7 @@ namespace MprisMiniPlayer {
         private Menu main_menu;
         private SimpleAction queue_track_action;
         private string queue_state_signature = "";
+        private bool queue_view_dirty = true;
         private Gtk.MenuButton player_button;
         private Gtk.Image player_icon;
         private Gtk.Label player_label;
@@ -392,6 +393,7 @@ namespace MprisMiniPlayer {
             queue_popover.child = queue_panel;
             queue_popover.notify["visible"].connect(() => {
                 if (queue_popover.visible) {
+                    sync_queue_views(true);
                     scroll_current_queue_row_to_center();
                 }
             });
@@ -451,6 +453,7 @@ namespace MprisMiniPlayer {
 
             player = selected_player;
             queue_state_signature = "";
+            queue_view_dirty = true;
             if (player != null) {
                 player_changed_handler_id = player.changed.connect(update_player_state);
                 update_player_state();
@@ -504,7 +507,7 @@ namespace MprisMiniPlayer {
             update_controls(false);
             update_secondary_controls();
             queue_state_signature = "";
-            rebuild_queue_list();
+            queue_view_dirty = true;
         }
 
         private void update_secondary_controls() {
@@ -544,15 +547,23 @@ namespace MprisMiniPlayer {
             }
         }
 
-        private void sync_queue_views() {
+        private void sync_queue_views(bool force = false) {
             string signature = build_queue_state_signature();
-            if (signature == queue_state_signature) {
+            if (signature != queue_state_signature) {
+                queue_state_signature = signature;
+                queue_view_dirty = true;
+            }
+
+            if (!queue_popover.visible && !force) {
+                return;
+            }
+            if (!queue_view_dirty) {
                 sync_current_queue_row();
                 return;
             }
 
-            queue_state_signature = signature;
             rebuild_queue_list();
+            queue_view_dirty = false;
         }
 
         private string build_queue_state_signature() {
