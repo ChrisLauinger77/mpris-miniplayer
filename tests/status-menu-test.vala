@@ -480,6 +480,49 @@ private void test_stale_queue_menu_id_is_not_reused() {
     );
 }
 
+private void test_unchanged_queue_preserves_menu_ids() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+
+    uint initial_revision;
+    Variant initial_queue = get_layout(menu, QUEUE_ID, out initial_revision);
+    int first_track_menu_id = layout_child_id(initial_queue, 0);
+
+    transport.replace_queue({
+        "/org/mpris/MediaPlayer2/track/one",
+        "/org/mpris/MediaPlayer2/track/two"
+    });
+    drain_main_context();
+
+    uint updated_revision;
+    Variant updated_queue = get_layout(menu, QUEUE_ID, out updated_revision);
+    assert_cmpuint(updated_revision, CompareOperator.EQ, initial_revision);
+    assert_cmpint(
+        layout_child_id(updated_queue, 0),
+        CompareOperator.EQ,
+        first_track_menu_id
+    );
+
+    try {
+        menu.event(
+            first_track_menu_id,
+            "clicked",
+            new Variant.string(""),
+            0
+        );
+    } catch (Error error) {
+        assert_not_reached();
+    }
+    assert_cmpstr(
+        transport.last_go_to,
+        CompareOperator.EQ,
+        "/org/mpris/MediaPlayer2/track/one"
+    );
+}
+
 private void test_large_queue_layout_is_bounded() {
     var transport = new StatusMenuTransport();
     string[] track_ids = new string[145];
@@ -552,6 +595,10 @@ public int main(string[] args) {
     Test.add_func(
         "/status-menu/stale-queue-menu-id",
         test_stale_queue_menu_id_is_not_reused
+    );
+    Test.add_func(
+        "/status-menu/unchanged-queue-preserves-menu-ids",
+        test_unchanged_queue_preserves_menu_ids
     );
     Test.add_func(
         "/status-menu/large-queue-layout-is-bounded",

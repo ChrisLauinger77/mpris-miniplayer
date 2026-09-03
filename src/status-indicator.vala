@@ -1074,16 +1074,26 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            bool unchanged = queue_items.length == player.queue.length;
-            if (unchanged) {
+            bool same_visible_state = queue_items.length == player.queue.length;
+            if (same_visible_state) {
                 for (int index = 0; index < player.queue.length; index++) {
-                    if (queue_items[index].track != player.queue[index]) {
-                        unchanged = false;
+                    MprisTrack previous = queue_items[index].track;
+                    MprisTrack current = player.queue[index];
+                    if (
+                        previous.id != current.id
+                        || previous.title != current.title
+                        || previous.artist != current.artist
+                        || previous.album != current.album
+                    ) {
+                        same_visible_state = false;
                         break;
                     }
                 }
             }
-            if (unchanged) {
+            if (same_visible_state) {
+                for (int index = 0; index < player.queue.length; index++) {
+                    queue_items[index].track = player.queue[index];
+                }
                 return;
             }
 
