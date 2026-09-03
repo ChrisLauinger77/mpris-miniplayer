@@ -15,7 +15,6 @@ namespace MprisMiniPlayer {
         private Adw.AboutDialog? about_dialog;
         private SimpleAction? compact_mode_action;
         private SimpleAction? shuffle_action;
-        private SimpleAction? repeat_action;
         private SimpleAction? repeat_cycle_action;
         private MprisPlayer? action_player;
         private ulong action_player_changed_handler_id = 0;
@@ -126,19 +125,6 @@ namespace MprisMiniPlayer {
             shuffle_action.set_enabled(false);
             add_action(shuffle_action);
 
-            repeat_action = new SimpleAction.stateful(
-                "repeat",
-                new VariantType("s"),
-                new Variant.string("None")
-            );
-            repeat_action.change_state.connect((value) => {
-                if (action_player != null) {
-                    action_player.change_loop_status(value.get_string());
-                }
-            });
-            repeat_action.set_enabled(false);
-            add_action(repeat_action);
-
             repeat_cycle_action = new SimpleAction("repeat-cycle", null);
             repeat_cycle_action.activate.connect(() => {
                 if (action_player != null) {
@@ -222,12 +208,6 @@ namespace MprisMiniPlayer {
                 shuffle_action.set_enabled(can_shuffle);
                 shuffle_action.set_state(new Variant.boolean(
                     action_player != null && action_player.shuffle
-                ));
-            }
-            if (repeat_action != null) {
-                repeat_action.set_enabled(can_repeat);
-                repeat_action.set_state(new Variant.string(
-                    action_player != null ? action_player.loop_status : "None"
                 ));
             }
             if (repeat_cycle_action != null) {

@@ -106,7 +106,6 @@ namespace MprisMiniPlayer {
         private Gtk.SingleSelection queue_selection;
         private int current_queue_index = -1;
         private Menu main_menu;
-        private SimpleAction queue_track_action;
         private string queue_state_signature = "";
         private bool queue_view_dirty = true;
         private Gtk.MenuButton player_button;
@@ -461,17 +460,6 @@ namespace MprisMiniPlayer {
             });
             queue_button.set_popover(queue_popover);
 
-            queue_track_action = new SimpleAction(
-                "queue-track",
-                new VariantType("s")
-            );
-            queue_track_action.activate.connect((parameter) => {
-                if (player != null && parameter != null) {
-                    player.go_to(parameter.get_string());
-                }
-            });
-            add_action(queue_track_action);
-
             update_controls(false);
         }
 
@@ -576,7 +564,6 @@ namespace MprisMiniPlayer {
             bool can_shuffle = player != null && player.has_shuffle && player.can_control;
             bool can_repeat = player != null && player.has_loop_status && player.can_control;
             bool has_track_list = player != null && player.has_track_list;
-            bool has_queue_entries = has_track_list && player.queue.length > 0;
 
             shuffle_button.sensitive = can_shuffle;
             shuffle_button.active = player != null && player.shuffle;
@@ -599,7 +586,6 @@ namespace MprisMiniPlayer {
             }
 
             queue_button.sensitive = has_track_list;
-            queue_track_action.set_enabled(has_queue_entries);
             set_control_label(
                 queue_button,
                 has_track_list ? _("Queue") : _("Queue unavailable")
