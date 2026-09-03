@@ -206,6 +206,7 @@ namespace MprisMiniPlayer {
         private MprisPlayer? player;
         private ulong player_changed_handler_id = 0;
         private string player_state_signature = "none";
+        private uint64 synced_queue_revision = uint64.MAX;
         private string update_version = "";
         private StatusQueueItem[] queue_items = {};
         private StatusQueueGroup[] queue_groups = {};
@@ -286,10 +287,12 @@ namespace MprisMiniPlayer {
             queue_items = {};
             queue_groups = {};
             all_queue_groups = {};
+            synced_queue_revision = uint64.MAX;
             if (player != null) {
                 player_changed_handler_id = player.changed.connect(on_player_changed);
             }
             sync_queue_items();
+            synced_queue_revision = player != null ? player.queue_revision : 0;
             player_state_signature = build_player_state_signature();
             notify_layout_changed();
         }
@@ -741,9 +744,17 @@ namespace MprisMiniPlayer {
         }
 
         private void on_player_changed() {
-            sync_queue_items();
+            bool queue_layout_changed = false;
+            uint64 queue_revision = player != null ? player.queue_revision : 0;
+            if (queue_revision != synced_queue_revision) {
+                queue_layout_changed = sync_queue_items();
+                synced_queue_revision = queue_revision;
+            }
             string new_signature = build_player_state_signature();
-            if (new_signature == player_state_signature) {
+            if (
+                new_signature == player_state_signature
+                && !queue_layout_changed
+            ) {
                 return;
             }
 
@@ -777,15 +788,6 @@ namespace MprisMiniPlayer {
                 player.has_track_list ? 1 : 0,
                 player.track_id
             );
-            foreach (MprisTrack track in player.queue) {
-                signature.append_printf(
-                    "\x1e%s\x1f%s\x1f%s\x1f%s",
-                    track.id,
-                    track.title,
-                    track.artist,
-                    track.album
-                );
-            }
             return signature.str;
         }
 
@@ -1066,12 +1068,14 @@ namespace MprisMiniPlayer {
             return null;
         }
 
-        private void sync_queue_items() {
+        private bool sync_queue_items() {
             if (player == null || !player.has_track_list) {
+                bool had_queue_items = queue_items.length > 0
+                    || queue_groups.length > 0;
                 queue_items = {};
                 queue_groups = {};
                 all_queue_groups = {};
-                return;
+                return had_queue_items;
             }
 
             bool same_visible_state = queue_items.length == player.queue.length;
@@ -1094,7 +1098,7 @@ namespace MprisMiniPlayer {
                 for (int index = 0; index < player.queue.length; index++) {
                     queue_items[index].track = player.queue[index];
                 }
-                return;
+                return false;
             }
 
             StatusQueueItem[] updated_items = new StatusQueueItem[player.queue.length];
@@ -1107,6 +1111,7 @@ namespace MprisMiniPlayer {
             queue_items = updated_items;
             all_queue_groups = {};
             queue_groups = build_queue_groups(0, queue_items.length);
+            return true;
         }
 
         private StatusQueueGroup[] build_queue_groups(int start_index, int end_index) {

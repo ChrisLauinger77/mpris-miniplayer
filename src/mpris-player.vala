@@ -259,6 +259,7 @@ namespace MprisMiniPlayer {
         public string loop_status { get; private set; default = "None"; }
         public bool has_track_list { get; private set; default = false; }
         public MprisTrack[] queue = {};
+        public uint64 queue_revision { get; private set; default = 0; }
 
         public signal void changed();
 
@@ -417,6 +418,7 @@ namespace MprisMiniPlayer {
             if (!has_track_list) {
                 if (queue.length > 0) {
                     queue = {};
+                    queue_revision++;
                     if (emit_changed) {
                         changed();
                     }
@@ -450,6 +452,7 @@ namespace MprisMiniPlayer {
                     return;
                 }
                 queue = loaded_queue;
+                queue_revision++;
                 changed();
             } catch (Error error) {
                 if (generation != queue_refresh_generation) {
@@ -457,6 +460,7 @@ namespace MprisMiniPlayer {
                 }
                 debug("Unable to refresh queue for %s: %s", bus_name, error.message);
                 queue = {};
+                queue_revision++;
                 changed();
             }
         }
@@ -594,8 +598,9 @@ namespace MprisMiniPlayer {
             identity = get_string_property(properties, "Identity", identity);
             desktop_entry = get_string_property(properties, "DesktopEntry", desktop_entry);
             has_track_list = get_bool_property(properties, "HasTrackList", has_track_list);
-            if (!has_track_list) {
+            if (!has_track_list && queue.length > 0) {
                 queue = {};
+                queue_revision++;
             }
         }
 

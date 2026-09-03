@@ -107,7 +107,8 @@ namespace MprisMiniPlayer {
         private Gtk.SingleSelection queue_selection;
         private int current_queue_index = -1;
         private Menu main_menu;
-        private string queue_state_signature = "";
+        private uint64 displayed_queue_revision = uint64.MAX;
+        private string displayed_queue_track_id = "";
         private bool queue_view_dirty = true;
         private Gtk.MenuButton player_button;
         private Gtk.Image player_icon;
@@ -525,7 +526,8 @@ namespace MprisMiniPlayer {
             }
 
             player = selected_player;
-            queue_state_signature = "";
+            displayed_queue_revision = uint64.MAX;
+            displayed_queue_track_id = "";
             queue_view_dirty = true;
             if (player != null) {
                 player_changed_handler_id = player.changed.connect(update_player_state);
@@ -579,7 +581,8 @@ namespace MprisMiniPlayer {
             update_volume();
             update_controls(false);
             update_secondary_controls();
-            queue_state_signature = "";
+            displayed_queue_revision = uint64.MAX;
+            displayed_queue_track_id = "";
             queue_view_dirty = true;
         }
 
@@ -619,9 +622,12 @@ namespace MprisMiniPlayer {
         }
 
         private void sync_queue_views(bool force = false) {
-            string signature = build_queue_state_signature();
-            if (signature != queue_state_signature) {
-                queue_state_signature = signature;
+            uint64 revision = player != null ? player.queue_revision : 0;
+            string track_id = player != null ? player.track_id : "";
+            bool current_track_changed = track_id != displayed_queue_track_id;
+            displayed_queue_track_id = track_id;
+            if (revision != displayed_queue_revision) {
+                displayed_queue_revision = revision;
                 queue_view_dirty = true;
             }
 
@@ -629,29 +635,14 @@ namespace MprisMiniPlayer {
                 return;
             }
             if (!queue_view_dirty) {
-                sync_current_queue_row();
+                if (force || current_track_changed) {
+                    sync_current_queue_row();
+                }
                 return;
             }
 
             rebuild_queue_list();
             queue_view_dirty = false;
-        }
-
-        private string build_queue_state_signature() {
-            if (player == null || !player.has_track_list) {
-                return "none";
-            }
-
-            var signature = new StringBuilder();
-            foreach (var track in player.queue) {
-                signature.append_c('\x1f');
-                signature.append(track.id);
-                signature.append_c('\x1e');
-                signature.append(track.title);
-                signature.append_c('\x1e');
-                signature.append(track.artist);
-            }
-            return signature.str;
         }
 
         private void rebuild_main_menu() {

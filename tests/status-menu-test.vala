@@ -490,12 +490,19 @@ private void test_unchanged_queue_preserves_menu_ids() {
     uint initial_revision;
     Variant initial_queue = get_layout(menu, QUEUE_ID, out initial_revision);
     int first_track_menu_id = layout_child_id(initial_queue, 0);
+    uint64 initial_queue_revision = player.queue_revision;
+
+    transport.emit_state(true, "Track");
+    drain_main_context();
+    assert_true(player.queue_revision == initial_queue_revision);
+    get_layout(menu, QUEUE_ID, out initial_revision);
 
     transport.replace_queue({
         "/org/mpris/MediaPlayer2/track/one",
         "/org/mpris/MediaPlayer2/track/two"
     });
     drain_main_context();
+    assert_true(player.queue_revision > initial_queue_revision);
 
     uint updated_revision;
     Variant updated_queue = get_layout(menu, QUEUE_ID, out updated_revision);
