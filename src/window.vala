@@ -420,7 +420,7 @@ namespace MprisMiniPlayer {
                             item_view.bind_track(
                                 track,
                                 queue_track_label(track),
-                                list_item.selected
+                                is_current_queue_track(track, list_item.position)
                             );
                         }
                     });
@@ -434,7 +434,7 @@ namespace MprisMiniPlayer {
                     item_view.bind_track(
                         track,
                         queue_track_label(track),
-                        list_item.selected
+                        is_current_queue_track(track, list_item.position)
                     );
                 }
             });
@@ -712,6 +712,13 @@ namespace MprisMiniPlayer {
                 return track.title;
             }
             return _("%s — %s").printf(track.title, track.artist);
+        }
+
+        private bool is_current_queue_track(MprisTrack track, uint position) {
+            return player != null
+                && current_queue_index >= 0
+                && position == (uint) current_queue_index
+                && track.id == player.track_id;
         }
 
         private void on_queue_item_activated(uint position) {
