@@ -1,3 +1,15 @@
+mpris-miniplayer (2.0.0-1) unstable; urgency=medium
+
+  * Add synchronized shuffle and repeat controls to the player window and
+    status indicator menu.
+  * Add an adaptive, scrollable queue for players with MPRIS TrackList
+    support.
+  * Allow queue selection from the status indicator menu.
+  * Add a preference to keep the player queue open after track selection.
+  * Refresh the application and symbolic status indicator icons.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Thu, 03 Sep 2026 18:43:56 +0200
+
 mpris-miniplayer (1.5.3-1) unstable; urgency=medium
 
   * Use a monochrome symbolic icon for the status indicator to match the

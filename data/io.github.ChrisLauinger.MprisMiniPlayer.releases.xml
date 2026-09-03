@@ -1,4 +1,12 @@
   <releases>
+    <release version="2.0.0" date="2026-09-03">
+      <description>
+        <p>Add synchronized shuffle and repeat controls to the player window and status indicator menu.</p>
+        <p>Add an adaptive, scrollable queue for players with MPRIS TrackList support, including queue selection from the status indicator.</p>
+        <p>Add a preference to keep the player queue open after selecting a track.</p>
+        <p>Refresh the application and symbolic status indicator icons.</p>
+      </description>
+    </release>
     <release version="1.5.3" date="2026-09-01">
       <description>
         <p>Use a monochrome symbolic icon for the status indicator to match the desktop panel.</p>
