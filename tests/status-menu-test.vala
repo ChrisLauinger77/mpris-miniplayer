@@ -202,6 +202,10 @@ private int layout_child_count(Variant layout) {
     return (int) layout.get_child_value(2).n_children();
 }
 
+private int group_property_count(Variant properties) {
+    return (int) properties.n_children();
+}
+
 private Variant get_root_layout(
     MprisMiniPlayer.StatusNotifierMenu menu,
     out uint revision
@@ -494,6 +498,25 @@ private void test_large_queue_layout_is_bounded() {
     int first_group_id = layout_child_id(queue, 0);
     Variant first_group = get_layout(menu, first_group_id, out revision);
     assert_cmpint(layout_child_count(first_group), CompareOperator.EQ, 64);
+    int first_track_id = layout_child_id(first_group, 0);
+
+    try {
+        Variant properties = menu.get_group_properties({}, {});
+        assert_true(group_property_count(properties) < track_ids.length);
+        assert_true(group_property_count(properties) <= 64 + 32);
+
+        Variant requested_properties = menu.get_group_properties(
+            { first_track_id },
+            {}
+        );
+        assert_cmpint(
+            group_property_count(requested_properties),
+            CompareOperator.EQ,
+            1
+        );
+    } catch (Error error) {
+        assert_not_reached();
+    }
 }
 
 private void test_repeat_availability_updates_layout() {

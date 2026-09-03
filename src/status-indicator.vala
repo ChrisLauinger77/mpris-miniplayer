@@ -333,7 +333,9 @@ namespace MprisMiniPlayer {
         [DBus (name = "GetGroupProperties", signature = "a(ia{sv})")]
         public Variant get_group_properties(int[] ids, string[] property_names) throws DBusError, IOError {
             var items = new VariantBuilder(new VariantType("a(ia{sv})"));
-            int[] requested_ids = ids.length == 0 ? all_ids() : ids;
+            int[] requested_ids = ids.length == 0
+                ? default_group_property_ids()
+                : ids;
 
             foreach (int id in requested_ids) {
                 if (is_known_id(id)) {
@@ -787,7 +789,7 @@ namespace MprisMiniPlayer {
             return signature.str;
         }
 
-        private int[] all_ids() {
+        private int[] base_ids() {
             int[] ids = {
                 ROOT_ID,
                 SHOW_ID,
@@ -821,21 +823,41 @@ namespace MprisMiniPlayer {
                 QUEUE_ID,
                 QUEUE_EMPTY_ID
             };
+            return ids;
+        }
+
+        private int[] default_group_property_ids() {
+            int[] ids = base_ids();
             if (player != null && player.has_track_list) {
-                foreach (StatusQueueItem item in queue_items) {
-                    ids += item.menu_id;
-                }
-                foreach (StatusQueueGroup group in all_queue_groups) {
-                    ids += group.menu_id;
+                if (queue_groups.length > 0) {
+                    foreach (StatusQueueGroup group in queue_groups) {
+                        ids += group.menu_id;
+                    }
+                } else {
+                    foreach (StatusQueueItem item in queue_items) {
+                        ids += item.menu_id;
+                    }
                 }
             }
             return ids;
         }
 
         private bool is_known_id(int id) {
-            foreach (int known_id in all_ids()) {
+            foreach (int known_id in base_ids()) {
                 if (id == known_id) {
                     return true;
+                }
+            }
+            if (player != null && player.has_track_list) {
+                foreach (StatusQueueItem item in queue_items) {
+                    if (id == item.menu_id) {
+                        return true;
+                    }
+                }
+                foreach (StatusQueueGroup group in all_queue_groups) {
+                    if (id == group.menu_id) {
+                        return true;
+                    }
                 }
             }
             return false;

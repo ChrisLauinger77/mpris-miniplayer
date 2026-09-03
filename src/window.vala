@@ -1,40 +1,57 @@
 namespace MprisMiniPlayer {
-    private class QueueRow : Gtk.ListBoxRow {
-        public string track_id { get; construct; }
-        private Gtk.Box? row_box;
-        private Gtk.Label? title_label;
-        private Gtk.Image? current_icon;
+    private class QueueItemView : Gtk.Box {
+        private Gtk.Label title_label;
+        private Gtk.Label artist_label;
+        private Gtk.Image current_icon;
 
-        public QueueRow(string track_id) {
-            Object(track_id: track_id);
+        public QueueItemView() {
+            Object(orientation: Gtk.Orientation.HORIZONTAL, spacing: 10);
+            margin_top = 8;
+            margin_bottom = 8;
+            margin_start = 10;
+            margin_end = 10;
+
+            var labels = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
+            labels.hexpand = true;
+            append(labels);
+
+            title_label = new Gtk.Label("");
+            title_label.halign = Gtk.Align.START;
+            title_label.ellipsize = Pango.EllipsizeMode.END;
+            labels.append(title_label);
+
+            artist_label = new Gtk.Label("");
+            artist_label.halign = Gtk.Align.START;
+            artist_label.ellipsize = Pango.EllipsizeMode.END;
+            artist_label.add_css_class("dim-label");
+            labels.append(artist_label);
+
+            current_icon = new Gtk.Image.from_icon_name(
+                "media-playback-start-symbolic"
+            );
+            current_icon.tooltip_text = _("Currently playing");
+            current_icon.visible = false;
+            append(current_icon);
         }
 
-        public void bind_content(Gtk.Box row_box, Gtk.Label title_label) {
-            this.row_box = row_box;
-            this.title_label = title_label;
-        }
-
-        public void set_current(bool current) {
-            if (row_box == null || title_label == null) {
-                return;
-            }
-
+        public void bind_track(
+            MprisTrack track,
+            string accessible_label,
+            bool current
+        ) {
+            title_label.label = track.title;
+            title_label.tooltip_text = track.title;
+            artist_label.label = track.artist;
+            artist_label.tooltip_text = track.artist;
+            artist_label.visible = track.artist != "";
             if (current) {
                 title_label.add_css_class("heading");
-                if (current_icon == null) {
-                    current_icon = new Gtk.Image.from_icon_name(
-                        "media-playback-start-symbolic"
-                    );
-                    current_icon.tooltip_text = _("Currently playing");
-                    row_box.append(current_icon);
-                }
             } else {
                 title_label.remove_css_class("heading");
-                if (current_icon != null) {
-                    row_box.remove(current_icon);
-                    current_icon = null;
-                }
             }
+            current_icon.visible = current;
+            tooltip_text = accessible_label;
+            update_property(Gtk.AccessibleProperty.LABEL, accessible_label);
         }
     }
 
@@ -83,8 +100,11 @@ namespace MprisMiniPlayer {
         private Gtk.MenuButton queue_button;
         private Gtk.Popover queue_popover;
         private Gtk.ScrolledWindow queue_scrolled;
-        private Gtk.ListBox queue_list;
-        private Gtk.ListBoxRow? current_queue_row;
+        private Gtk.Stack queue_stack;
+        private Gtk.ListView queue_list;
+        private GLib.ListStore queue_store;
+        private Gtk.SingleSelection queue_selection;
+        private int current_queue_index = -1;
         private Menu main_menu;
         private SimpleAction queue_track_action;
         private string queue_state_signature = "";
@@ -384,12 +404,54 @@ namespace MprisMiniPlayer {
             queue_scrolled.propagate_natural_height = true;
             queue_scrolled.max_content_height = 320;
             queue_scrolled.set_size_request(340, -1);
-            queue_list = new Gtk.ListBox();
-            queue_list.selection_mode = Gtk.SelectionMode.SINGLE;
-            queue_list.activate_on_single_click = true;
-            queue_list.row_activated.connect(on_queue_row_activated);
+            queue_store = new GLib.ListStore(typeof(MprisTrack));
+            queue_selection = new Gtk.SingleSelection(queue_store);
+            queue_selection.autoselect = false;
+            queue_selection.can_unselect = true;
+            var queue_factory = new Gtk.SignalListItemFactory();
+            queue_factory.setup.connect((object) => {
+                var list_item = object as Gtk.ListItem;
+                if (list_item != null) {
+                    list_item.child = new QueueItemView();
+                    list_item.notify["selected"].connect(() => {
+                        var track = list_item.item as MprisTrack;
+                        var item_view = list_item.child as QueueItemView;
+                        if (track != null && item_view != null) {
+                            item_view.bind_track(
+                                track,
+                                queue_track_label(track),
+                                list_item.selected
+                            );
+                        }
+                    });
+                }
+            });
+            queue_factory.bind.connect((object) => {
+                var list_item = object as Gtk.ListItem;
+                var track = list_item != null ? list_item.item as MprisTrack : null;
+                var item_view = list_item != null ? list_item.child as QueueItemView : null;
+                if (track != null && item_view != null) {
+                    item_view.bind_track(
+                        track,
+                        queue_track_label(track),
+                        list_item.selected
+                    );
+                }
+            });
+            queue_list = new Gtk.ListView(queue_selection, queue_factory);
+            queue_list.single_click_activate = true;
+            queue_list.activate.connect(on_queue_item_activated);
             queue_scrolled.child = queue_list;
-            queue_panel.append(queue_scrolled);
+            queue_stack = new Gtk.Stack();
+            queue_stack.add_named(queue_scrolled, "tracks");
+            var empty_label = new Gtk.Label(_("Queue is empty"));
+            empty_label.margin_top = 18;
+            empty_label.margin_bottom = 18;
+            empty_label.margin_start = 18;
+            empty_label.margin_end = 18;
+            empty_label.add_css_class("dim-label");
+            queue_stack.add_named(empty_label, "empty");
+            queue_panel.append(queue_stack);
             queue_popover.child = queue_panel;
             queue_popover.notify["visible"].connect(() => {
                 if (queue_popover.visible) {
@@ -598,98 +660,48 @@ namespace MprisMiniPlayer {
         }
 
         private void rebuild_queue_list() {
-            current_queue_row = null;
-            Gtk.Widget? child = queue_list.get_first_child();
-            while (child != null) {
-                Gtk.Widget next = child.get_next_sibling();
-                queue_list.remove(child);
-                child = next;
-            }
+            current_queue_index = -1;
+            queue_store.remove_all();
 
             if (player == null || !player.has_track_list) {
+                queue_stack.visible_child_name = "empty";
                 return;
             }
 
             if (player.queue.length == 0) {
-                var empty_row = new Gtk.ListBoxRow();
-                empty_row.activatable = false;
-                empty_row.selectable = false;
-                var empty_label = new Gtk.Label(_("Queue is empty"));
-                empty_label.margin_top = 18;
-                empty_label.margin_bottom = 18;
-                empty_label.margin_start = 18;
-                empty_label.margin_end = 18;
-                empty_label.add_css_class("dim-label");
-                empty_row.child = empty_label;
-                queue_list.append(empty_row);
+                queue_stack.visible_child_name = "empty";
                 return;
             }
 
+            queue_stack.visible_child_name = "tracks";
             foreach (var track in player.queue) {
-                var row = new QueueRow(track.id);
-                var row_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
-                row_box.margin_top = 8;
-                row_box.margin_bottom = 8;
-                row_box.margin_start = 10;
-                row_box.margin_end = 10;
-                row.child = row_box;
-
-                var labels = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
-                labels.hexpand = true;
-                row_box.append(labels);
-
-                var title = new Gtk.Label(track.title);
-                title.halign = Gtk.Align.START;
-                title.ellipsize = Pango.EllipsizeMode.END;
-                title.tooltip_text = track.title;
-                labels.append(title);
-                row.bind_content(row_box, title);
-
-                if (track.artist != "") {
-                    var artist = new Gtk.Label(track.artist);
-                    artist.halign = Gtk.Align.START;
-                    artist.ellipsize = Pango.EllipsizeMode.END;
-                    artist.add_css_class("dim-label");
-                    artist.tooltip_text = track.artist;
-                    labels.append(artist);
-                }
-
-                row.tooltip_text = queue_track_label(track);
-                row.update_property(Gtk.AccessibleProperty.LABEL, queue_track_label(track));
-                queue_list.append(row);
+                queue_store.append(track);
             }
 
             sync_current_queue_row();
         }
 
         private void sync_current_queue_row() {
-            Gtk.ListBoxRow? previous_current_row = current_queue_row;
-            current_queue_row = null;
-
-            Gtk.Widget? child = queue_list.get_first_child();
-            while (child != null) {
-                var row = child as QueueRow;
-                if (row != null) {
-                    bool current = current_queue_row == null
-                        && player != null
-                        && row.track_id == player.track_id;
-                    row.set_current(current);
-                    if (current) {
-                        current_queue_row = row;
+            int previous_index = current_queue_index;
+            current_queue_index = -1;
+            if (player != null) {
+                for (int index = 0; index < player.queue.length; index++) {
+                    if (player.queue[index].id == player.track_id) {
+                        current_queue_index = index;
+                        break;
                     }
                 }
-                child = child.get_next_sibling();
             }
 
-            if (current_queue_row == null) {
-                queue_list.unselect_all();
+            if (current_queue_index < 0) {
+                queue_selection.selected = Gtk.INVALID_LIST_POSITION;
                 return;
             }
 
-            queue_list.select_row(current_queue_row);
+            queue_selection.selected = (uint) current_queue_index;
             if (
                 queue_popover.visible
-                && current_queue_row != previous_current_row
+                && current_queue_index != previous_index
             ) {
                 scroll_current_queue_row_to_center();
             }
@@ -702,10 +714,10 @@ namespace MprisMiniPlayer {
             return _("%s — %s").printf(track.title, track.artist);
         }
 
-        private void on_queue_row_activated(Gtk.ListBoxRow row) {
-            var queue_row = row as QueueRow;
-            if (player != null && queue_row != null) {
-                player.go_to(queue_row.track_id);
+        private void on_queue_item_activated(uint position) {
+            var track = queue_store.get_item(position) as MprisTrack;
+            if (player != null && track != null) {
+                player.go_to(track.id);
             }
             if (!keep_queue_open) {
                 queue_popover.popdown();
@@ -713,25 +725,18 @@ namespace MprisMiniPlayer {
         }
 
         private void scroll_current_queue_row_to_center() {
-            if (current_queue_row == null) {
+            if (current_queue_index < 0) {
                 return;
             }
 
             Idle.add(() => {
-                if (current_queue_row == null || !queue_popover.visible) {
+                if (current_queue_index < 0 || !queue_popover.visible) {
                     return Source.REMOVE;
                 }
-
-                Graphene.Rect bounds;
-                if (!current_queue_row.compute_bounds(queue_list, out bounds)) {
-                    return Source.REMOVE;
-                }
-                Gtk.Adjustment adjustment = queue_scrolled.get_vadjustment();
-                double centered = bounds.origin.y
-                    - (adjustment.page_size - bounds.size.height) / 2.0;
-                adjustment.value = double.max(
-                    adjustment.lower,
-                    double.min(centered, adjustment.upper - adjustment.page_size)
+                queue_list.scroll_to(
+                    (uint) current_queue_index,
+                    Gtk.ListScrollFlags.FOCUS,
+                    null
                 );
                 return Source.REMOVE;
             });
