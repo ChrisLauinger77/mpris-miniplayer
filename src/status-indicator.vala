@@ -210,7 +210,12 @@ namespace MprisMiniPlayer {
         private string update_version = "";
         private StatusQueueItem[] queue_items = {};
         private StatusQueueGroup[] queue_groups = {};
-        private StatusQueueGroup[] all_queue_groups = {};
+        private HashTable<int, StatusQueueItem> queue_items_by_id =
+            new HashTable<int, StatusQueueItem>(direct_hash, direct_equal);
+        private HashTable<int, StatusQueueGroup> queue_groups_by_id =
+            new HashTable<int, StatusQueueGroup>(direct_hash, direct_equal);
+        private string indexed_current_track_id = "";
+        private int current_queue_menu_id = -1;
         private int next_queue_menu_id = QUEUE_TRACK_BASE_ID;
 
         public signal void action_requested(string action);
@@ -286,7 +291,10 @@ namespace MprisMiniPlayer {
             player = selected_player;
             queue_items = {};
             queue_groups = {};
-            all_queue_groups = {};
+            queue_items_by_id.remove_all();
+            queue_groups_by_id.remove_all();
+            indexed_current_track_id = "";
+            current_queue_menu_id = -1;
             synced_queue_revision = uint64.MAX;
             if (player != null) {
                 player_changed_handler_id = player.changed.connect(on_player_changed);
@@ -750,6 +758,7 @@ namespace MprisMiniPlayer {
                 queue_layout_changed = sync_queue_items();
                 synced_queue_revision = queue_revision;
             }
+            sync_current_queue_menu_id();
             string new_signature = build_player_state_signature();
             if (
                 new_signature == player_state_signature
@@ -851,16 +860,8 @@ namespace MprisMiniPlayer {
                 }
             }
             if (player != null && player.has_track_list) {
-                foreach (StatusQueueItem item in queue_items) {
-                    if (id == item.menu_id) {
-                        return true;
-                    }
-                }
-                foreach (StatusQueueGroup group in all_queue_groups) {
-                    if (id == group.menu_id) {
-                        return true;
-                    }
-                }
+                return queue_items_by_id.contains(id)
+                    || queue_groups_by_id.contains(id);
             }
             return false;
         }
@@ -1033,39 +1034,17 @@ namespace MprisMiniPlayer {
                 }
             }
             if (is_queue_track(id)) {
-                StatusQueueItem? queue_item = find_queue_item(id);
-                if (queue_item == null || queue_item.track.id != player.track_id) {
-                    return false;
-                }
-                foreach (StatusQueueItem earlier in queue_items) {
-                    if (earlier.menu_id == id) {
-                        break;
-                    }
-                    if (earlier.track.id == player.track_id) {
-                        return false;
-                    }
-                }
-                return true;
+                return id == current_queue_menu_id;
             }
             return false;
         }
 
         private StatusQueueItem? find_queue_item(int menu_id) {
-            foreach (StatusQueueItem item in queue_items) {
-                if (item.menu_id == menu_id) {
-                    return item;
-                }
-            }
-            return null;
+            return queue_items_by_id.lookup(menu_id);
         }
 
         private StatusQueueGroup? find_queue_group(int menu_id) {
-            foreach (StatusQueueGroup group in all_queue_groups) {
-                if (group.menu_id == menu_id) {
-                    return group;
-                }
-            }
-            return null;
+            return queue_groups_by_id.lookup(menu_id);
         }
 
         private bool sync_queue_items() {
@@ -1074,7 +1053,9 @@ namespace MprisMiniPlayer {
                     || queue_groups.length > 0;
                 queue_items = {};
                 queue_groups = {};
-                all_queue_groups = {};
+                queue_items_by_id.remove_all();
+                queue_groups_by_id.remove_all();
+                sync_current_queue_menu_id(true);
                 return had_queue_items;
             }
 
@@ -1098,20 +1079,46 @@ namespace MprisMiniPlayer {
                 for (int index = 0; index < player.queue.length; index++) {
                     queue_items[index].track = player.queue[index];
                 }
+                sync_current_queue_menu_id(true);
                 return false;
             }
 
+            queue_items_by_id.remove_all();
             StatusQueueItem[] updated_items = new StatusQueueItem[player.queue.length];
             for (int index = 0; index < player.queue.length; index++) {
                 updated_items[index] = new StatusQueueItem(
                     next_queue_menu_id++,
                     player.queue[index]
                 );
+                queue_items_by_id.insert(
+                    updated_items[index].menu_id,
+                    updated_items[index]
+                );
             }
             queue_items = updated_items;
-            all_queue_groups = {};
+            queue_groups_by_id.remove_all();
             queue_groups = build_queue_groups(0, queue_items.length);
+            sync_current_queue_menu_id(true);
             return true;
+        }
+
+        private void sync_current_queue_menu_id(bool force = false) {
+            string track_id = player != null ? player.track_id : "";
+            if (!force && track_id == indexed_current_track_id) {
+                return;
+            }
+
+            indexed_current_track_id = track_id;
+            current_queue_menu_id = -1;
+            if (track_id == "") {
+                return;
+            }
+            foreach (StatusQueueItem item in queue_items) {
+                if (item.track.id == track_id) {
+                    current_queue_menu_id = item.menu_id;
+                    return;
+                }
+            }
         }
 
         private StatusQueueGroup[] build_queue_groups(int start_index, int end_index) {
@@ -1133,7 +1140,7 @@ namespace MprisMiniPlayer {
                 var group = new StatusQueueGroup(next_queue_menu_id++, start, end);
                 group.children = build_queue_groups(start, end);
                 groups += group;
-                all_queue_groups += group;
+                queue_groups_by_id.insert(group.menu_id, group);
             }
             return groups;
         }
