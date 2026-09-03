@@ -22,6 +22,8 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     public string last_go_to = "";
     public int queue_reads = 0;
     public int[] metadata_batch_sizes = {};
+    public bool hold_next_metadata_call = false;
+    private SourceFunc? held_metadata_callback;
 
     public Variant get_all(string interface_name) throws Error {
         var properties = new VariantBuilder(new VariantType("a{sv}"));
@@ -102,7 +104,23 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         Variant? parameters,
         VariantType? reply_type = null
     ) throws Error {
+        if (
+            interface_name == TRACKLIST_IFACE
+            && method_name == "GetTracksMetadata"
+            && hold_next_metadata_call
+        ) {
+            hold_next_metadata_call = false;
+            held_metadata_callback = call_async.callback;
+            yield;
+        }
         return call(interface_name, method_name, parameters, reply_type);
+    }
+
+    public void release_metadata_call() {
+        if (held_metadata_callback != null) {
+            SourceFunc callback = (owned) held_metadata_callback;
+            Idle.add((owned) callback);
+        }
     }
 
     public void emit_player_state(bool shuffle, string loop_status) {
@@ -251,6 +269,32 @@ private void test_large_queue_metadata_is_batched() {
     }
 }
 
+private void test_obsolete_queue_result_is_not_published() {
+    var transport = new FakeTransport();
+    transport.hold_next_metadata_call = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+
+    transport.track_ids = { "/org/mpris/MediaPlayer2/track/three" };
+    player.refresh_queue();
+    drain_main_context();
+    assert_cmpint(player.queue.length, CompareOperator.EQ, 1);
+    assert_cmpstr(
+        player.queue[0].id,
+        CompareOperator.EQ,
+        "/org/mpris/MediaPlayer2/track/three"
+    );
+
+    transport.release_metadata_call();
+    drain_main_context();
+    assert_cmpint(player.queue.length, CompareOperator.EQ, 1);
+    assert_cmpstr(
+        player.queue[0].id,
+        CompareOperator.EQ,
+        "/org/mpris/MediaPlayer2/track/three"
+    );
+}
+
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/mpris-player/initial-state-and-queue", test_initial_state_and_queue);
@@ -260,6 +304,10 @@ public int main(string[] args) {
     Test.add_func(
         "/mpris-player/large-queue-metadata-is-batched",
         test_large_queue_metadata_is_batched
+    );
+    Test.add_func(
+        "/mpris-player/obsolete-queue-result-is-not-published",
+        test_obsolete_queue_result_is_not_published
     );
     return Test.run();
 }

@@ -29,6 +29,7 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
     public bool shuffle = false;
     public string loop_status = "None";
     public string last_go_to = "";
+    public bool expose_loop_status = true;
     public string[] track_ids = {
         "/org/mpris/MediaPlayer2/track/one",
         "/org/mpris/MediaPlayer2/track/two"
@@ -44,7 +45,9 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
             properties.add("{sv}", "CanPlay", new Variant.boolean(true));
             properties.add("{sv}", "CanPause", new Variant.boolean(true));
             properties.add("{sv}", "Shuffle", new Variant.boolean(shuffle));
-            properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
+            if (expose_loop_status) {
+                properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
+            }
             properties.add("{sv}", "Volume", new Variant.double(0.55));
             properties.add("{sv}", "Metadata", current_metadata());
         }
@@ -124,6 +127,25 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         track_list_changed();
     }
 
+    public void set_repeat_available(bool available) {
+        expose_loop_status = available;
+        var properties = new VariantBuilder(new VariantType("a{sv}"));
+        if (available) {
+            properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
+        }
+        string[] invalidated;
+        if (available) {
+            invalidated = {};
+        } else {
+            invalidated = { "LoopStatus" };
+        }
+        properties_changed(
+            PLAYER_IFACE,
+            properties.end(),
+            new Variant.strv(invalidated)
+        );
+    }
+
     private Variant current_metadata() {
         var metadata = new VariantBuilder(new VariantType("a{sv}"));
         metadata.add(
@@ -174,6 +196,10 @@ private int layout_index_of_id(Variant layout, int expected_id) {
 private int layout_child_id(Variant layout, int index) {
     Variant children = layout.get_child_value(2);
     return children.get_child_value(index).get_variant().get_child_value(0).get_int32();
+}
+
+private int layout_child_count(Variant layout) {
+    return (int) layout.get_child_value(2).n_children();
 }
 
 private Variant get_root_layout(
@@ -450,6 +476,45 @@ private void test_stale_queue_menu_id_is_not_reused() {
     );
 }
 
+private void test_large_queue_layout_is_bounded() {
+    var transport = new StatusMenuTransport();
+    string[] track_ids = new string[145];
+    for (int index = 0; index < track_ids.length; index++) {
+        track_ids[index] = "/org/mpris/MediaPlayer2/track/item_%d".printf(index);
+    }
+    transport.track_ids = track_ids;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+
+    uint revision;
+    Variant queue = get_layout(menu, QUEUE_ID, out revision);
+    assert_cmpint(layout_child_count(queue), CompareOperator.EQ, 3);
+    int first_group_id = layout_child_id(queue, 0);
+    Variant first_group = get_layout(menu, first_group_id, out revision);
+    assert_cmpint(layout_child_count(first_group), CompareOperator.EQ, 64);
+}
+
+private void test_repeat_availability_updates_layout() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+
+    uint initial_revision;
+    Variant initial_layout = get_root_layout(menu, out initial_revision);
+    assert_true(layout_contains_id(initial_layout, REPEAT_ID));
+
+    transport.set_repeat_available(false);
+    drain_main_context();
+    uint updated_revision;
+    Variant updated_layout = get_root_layout(menu, out updated_revision);
+    assert_true(updated_revision > initial_revision);
+    assert_false(layout_contains_id(updated_layout, REPEAT_ID));
+}
+
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
@@ -464,6 +529,14 @@ public int main(string[] args) {
     Test.add_func(
         "/status-menu/stale-queue-menu-id",
         test_stale_queue_menu_id_is_not_reused
+    );
+    Test.add_func(
+        "/status-menu/large-queue-layout-is-bounded",
+        test_large_queue_layout_is_bounded
+    );
+    Test.add_func(
+        "/status-menu/repeat-availability-updates-layout",
+        test_repeat_availability_updates_layout
     );
     Test.add_func("/status-item/symbolic-icon", test_status_item_uses_symbolic_icon);
     return Test.run();

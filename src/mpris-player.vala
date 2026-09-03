@@ -442,10 +442,14 @@ namespace MprisMiniPlayer {
                     track_ids[index] = tracks.get_child_value(index).get_string();
                 }
 
-                queue = yield load_track_metadata(track_ids, generation);
+                MprisTrack[] loaded_queue = yield load_track_metadata(
+                    track_ids,
+                    generation
+                );
                 if (generation != queue_refresh_generation || !has_track_list) {
                     return;
                 }
+                queue = loaded_queue;
                 changed();
             } catch (Error error) {
                 if (generation != queue_refresh_generation) {
