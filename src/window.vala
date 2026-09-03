@@ -1,5 +1,6 @@
 namespace MprisMiniPlayer {
     private class QueueItemView : Gtk.Box {
+        public ulong current_track_handler_id = 0;
         private Gtk.Label title_label;
         private Gtk.Label artist_label;
         private Gtk.Image current_icon;
@@ -116,6 +117,8 @@ namespace MprisMiniPlayer {
         private uint position_timeout_id = 0;
         private bool updating_progress = false;
         private bool updating_volume = false;
+
+        private signal void queue_current_track_changed();
 
         public Window(
             Gtk.Application app,
@@ -411,18 +414,38 @@ namespace MprisMiniPlayer {
             queue_factory.setup.connect((object) => {
                 var list_item = object as Gtk.ListItem;
                 if (list_item != null) {
-                    list_item.child = new QueueItemView();
-                    list_item.notify["selected"].connect(() => {
-                        var track = list_item.item as MprisTrack;
-                        var item_view = list_item.child as QueueItemView;
-                        if (track != null && item_view != null) {
-                            item_view.bind_track(
-                                track,
-                                queue_track_label(track),
-                                is_current_queue_track(track, list_item.position)
-                            );
-                        }
-                    });
+                    var item_view = new QueueItemView();
+                    list_item.child = item_view;
+                    item_view.current_track_handler_id =
+                        queue_current_track_changed.connect(() => {
+                            var track = list_item.item as MprisTrack;
+                            if (track != null && item_view != null) {
+                                item_view.bind_track(
+                                    track,
+                                    queue_track_label(track),
+                                    is_current_queue_track(
+                                        track,
+                                        list_item.position
+                                    )
+                                );
+                            }
+                        });
+                }
+            });
+            queue_factory.teardown.connect((object) => {
+                var list_item = object as Gtk.ListItem;
+                var item_view = list_item != null
+                    ? list_item.child as QueueItemView
+                    : null;
+                if (
+                    item_view != null
+                    && item_view.current_track_handler_id != 0
+                ) {
+                    SignalHandler.disconnect(
+                        this,
+                        item_view.current_track_handler_id
+                    );
+                    item_view.current_track_handler_id = 0;
                 }
             });
             queue_factory.bind.connect((object) => {
@@ -681,10 +704,16 @@ namespace MprisMiniPlayer {
 
             if (current_queue_index < 0) {
                 queue_selection.selected = Gtk.INVALID_LIST_POSITION;
+                if (current_queue_index != previous_index) {
+                    queue_current_track_changed();
+                }
                 return;
             }
 
             queue_selection.selected = (uint) current_queue_index;
+            if (current_queue_index != previous_index) {
+                queue_current_track_changed();
+            }
             if (
                 queue_popover.visible
                 && current_queue_index != previous_index
