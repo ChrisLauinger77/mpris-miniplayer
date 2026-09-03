@@ -178,7 +178,7 @@ namespace MprisMiniPlayer {
 
             foreach (var bus_name in bus_names) {
                 try {
-                    var candidate = new MprisPlayer(bus_name);
+                    var candidate = new MprisPlayer(bus_name, false);
                     if (candidate.playback_status == "Playing") {
                         return bus_name;
                     }

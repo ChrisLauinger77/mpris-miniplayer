@@ -1,9 +1,11 @@
 # MPRIS MiniPlayer
 
-[![Github Latest Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/latest/total)]()
-[![Version](https://img.shields.io/github/v/release/ChrisLauinger77/mpris-miniplayer)]()
-[![Github All Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/total.svg)]()
-[![license](https://img.shields.io/github/license/ChrisLauinger77/mpris-miniplayer)]()
+[![Github Latest Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/latest/total)](<>)
+[![Version](https://img.shields.io/github/v/release/ChrisLauinger77/mpris-miniplayer)](<>)
+[![Github All Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/total.svg)](<>)
+[![license](https://img.shields.io/github/license/ChrisLauinger77/mpris-miniplayer)](<>)
+
+<img src="https://raw.githubusercontent.com/ChrisLauinger77/mpris-miniplayer/main/data/icons/io.github.ChrisLauinger.MprisMiniPlayer.svg" alt="App icon" width="128">
 
 MPRIS MiniPlayer is a small GTK4/libadwaita mini player for Linux media players that expose the MPRIS interface on the session D-Bus.
 
@@ -58,6 +60,8 @@ When it starts without a player, it can stay hidden in the background and show t
 - Selects the first available player automatically
 - Shows track title, artist, album, and album art, with a fallback player icon when artwork is unavailable
 - Provides previous, play/pause, and next controls
+- Supports synchronized shuffle and repeat modes when exposed by the player
+- Shows an adaptive, scrollable queue for players with MPRIS TrackList support
 - Shows playback progress and time
 - Lets you seek when the selected player supports it
 - Lets you adjust volume when the selected player exposes MPRIS volume control
@@ -118,49 +122,3 @@ The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`, `mpris-mi
 ## License
 
 MPRIS MiniPlayer is licensed under the GNU General Public License v3.0 or later.
-
-## Roadmap
-
-v0.1:
-
-- Detect active MPRIS players on the session bus
-- Select first usable player automatically
-- Display track title, artist, album, and album art when available
-- Provide previous, play/pause, and next controls
-- Update UI when metadata changes
-- Provide a small libadwaita window
-- Provide a basic Meson build and working desktop file
-- Add CI build workflow
-
-v0.2:
-
-- Run in the background when no MPRIS player is available
-- Show and hide the window automatically when players appear or disappear
-- Show an optional background notification with an Open action
-- Add preferences for notifications, automatic visibility, status indicators, and start on login
-- Hide the window on close and quit only through an explicit Quit action
-
-v0.3:
-
-- Add player volume control
-- Add compact mode
-
-v1.0:
-
-- Polish AppStream metadata for clean validation
-- Add icon package integration
-- Add Debian packaging and amd64 release packages
-
-v1.1–v1.3:
-
-- Improve the About dialog and build-tree development workflow
-- Add a native status indicator with compact mode and reliable window controls
-- Add album artwork color tinting
-- Add RPM packaging and update the Flatpak runtime
-
-v1.4:
-
-- Show track information, media controls, and volume presets in the status indicator menu
-- Adjust volume by scrolling over the status indicator with temporary icon feedback
-- Notify users when a newer stable release is available
-- Show a fallback player icon when album artwork is unavailable

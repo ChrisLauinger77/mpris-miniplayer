@@ -31,5 +31,10 @@
       <summary>Show a status indicator</summary>
       <description>Whether MPRIS MiniPlayer should show a status indicator when the desktop supports StatusNotifierItem indicators.</description>
     </key>
+    <key name="keep-queue-open" type="b">
+      <default>true</default>
+      <summary>Keep the player queue open</summary>
+      <description>Whether the queue in the player window should remain open after selecting a track.</description>
+    </key>
   </schema>
 </schemalist>

@@ -48,6 +48,19 @@ status_menu_test = executable(
 
 test('status menu window actions', status_menu_test)
 
+mpris_player_test = executable(
+  'mpris-player-test',
+  [
+    'src/mpris-player.vala',
+    'tests/mpris-player-test.vala',
+  ],
+  dependencies: dependency('gio-2.0'),
+  vala_args: ['--target-glib=2.66'],
+  c_args: ['-DGETTEXT_PACKAGE="@0@"'.format(gettext_package)],
+)
+
+test('MPRIS player state and queue', mpris_player_test)
+
 gnome.post_install(
   glib_compile_schemas: true,
   gtk_update_icon_cache: true,

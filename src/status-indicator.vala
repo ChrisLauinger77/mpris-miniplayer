@@ -141,6 +141,29 @@ namespace MprisMiniPlayer {
         }
     }
 
+    private class StatusQueueItem : Object {
+        public int menu_id;
+        public MprisTrack track;
+
+        public StatusQueueItem(int menu_id, MprisTrack track) {
+            this.menu_id = menu_id;
+            this.track = track;
+        }
+    }
+
+    private class StatusQueueGroup : Object {
+        public int menu_id;
+        public int start_index;
+        public int end_index;
+        public StatusQueueGroup[] children = {};
+
+        public StatusQueueGroup(int menu_id, int start_index, int end_index) {
+            this.menu_id = menu_id;
+            this.start_index = start_index;
+            this.end_index = end_index;
+        }
+    }
+
     [DBus (name = "com.canonical.dbusmenu")]
     public class StatusNotifierMenu : Object {
         private const int ROOT_ID = 0;
@@ -161,12 +184,21 @@ namespace MprisMiniPlayer {
         private const int PREVIOUS_ID = 20;
         private const int PLAY_PAUSE_ID = 21;
         private const int NEXT_ID = 22;
+        private const int SHUFFLE_ID = 23;
+        private const int REPEAT_ID = 24;
+        private const int REPEAT_NONE_ID = 25;
+        private const int REPEAT_TRACK_ID = 26;
+        private const int REPEAT_PLAYLIST_ID = 27;
         private const int VOLUME_ID = 30;
         private const int MUTE_ID = 31;
         private const int VOLUME_25_ID = 32;
         private const int VOLUME_50_ID = 33;
         private const int VOLUME_75_ID = 34;
         private const int VOLUME_100_ID = 35;
+        private const int QUEUE_ID = 40;
+        private const int QUEUE_EMPTY_ID = 41;
+        private const int QUEUE_TRACK_BASE_ID = 1000;
+        private const int MAX_QUEUE_LAYOUT_CHILDREN = 64;
 
         private uint revision = 1;
         private bool compact_mode = false;
@@ -174,7 +206,17 @@ namespace MprisMiniPlayer {
         private MprisPlayer? player;
         private ulong player_changed_handler_id = 0;
         private string player_state_signature = "none";
+        private uint64 synced_queue_revision = uint64.MAX;
         private string update_version = "";
+        private StatusQueueItem[] queue_items = {};
+        private StatusQueueGroup[] queue_groups = {};
+        private HashTable<int, StatusQueueItem> queue_items_by_id =
+            new HashTable<int, StatusQueueItem>(direct_hash, direct_equal);
+        private HashTable<int, StatusQueueGroup> queue_groups_by_id =
+            new HashTable<int, StatusQueueGroup>(direct_hash, direct_equal);
+        private string indexed_current_track_id = "";
+        private int current_queue_menu_id = -1;
+        private int next_queue_menu_id = QUEUE_TRACK_BASE_ID;
 
         public signal void action_requested(string action);
 
@@ -247,9 +289,18 @@ namespace MprisMiniPlayer {
             }
 
             player = selected_player;
+            queue_items = {};
+            queue_groups = {};
+            queue_items_by_id.remove_all();
+            queue_groups_by_id.remove_all();
+            indexed_current_track_id = "";
+            current_queue_menu_id = -1;
+            synced_queue_revision = uint64.MAX;
             if (player != null) {
                 player_changed_handler_id = player.changed.connect(on_player_changed);
             }
+            sync_queue_items();
+            synced_queue_revision = player != null ? player.queue_revision : 0;
             player_state_signature = build_player_state_signature();
             notify_layout_changed();
         }
@@ -276,17 +327,26 @@ namespace MprisMiniPlayer {
             revision = this.revision;
             if (parent_id == VOLUME_ID) {
                 layout = build_volume_item(recursion_depth);
+            } else if (parent_id == REPEAT_ID) {
+                layout = build_repeat_item(recursion_depth);
+            } else if (parent_id == QUEUE_ID) {
+                layout = build_queue_item(recursion_depth);
             } else if (parent_id == ROOT_ID) {
                 layout = build_layout(recursion_depth);
             } else {
-                layout = build_item(parent_id);
+                StatusQueueGroup? queue_group = find_queue_group(parent_id);
+                layout = queue_group != null
+                    ? build_queue_group_item(queue_group, recursion_depth)
+                    : build_item(parent_id);
             }
         }
 
         [DBus (name = "GetGroupProperties", signature = "a(ia{sv})")]
         public Variant get_group_properties(int[] ids, string[] property_names) throws DBusError, IOError {
             var items = new VariantBuilder(new VariantType("a(ia{sv})"));
-            int[] requested_ids = ids.length == 0 ? all_ids() : ids;
+            int[] requested_ids = ids.length == 0
+                ? default_group_property_ids()
+                : ids;
 
             foreach (int id in requested_ids) {
                 if (is_known_id(id)) {
@@ -319,7 +379,7 @@ namespace MprisMiniPlayer {
 
         [DBus (name = "AboutToShow")]
         public bool about_to_show(int id) throws DBusError, IOError {
-            return false;
+            return is_queue_group(id);
         }
 
         [DBus (name = "AboutToShowGroup")]
@@ -328,8 +388,17 @@ namespace MprisMiniPlayer {
             out int[] updates_needed,
             out int[] id_errors
         ) throws DBusError, IOError {
-            updates_needed = {};
-            id_errors = {};
+            int[] needed = {};
+            int[] errors = {};
+            foreach (int id in ids) {
+                if (is_queue_group(id)) {
+                    needed += id;
+                } else if (!is_known_id(id)) {
+                    errors += id;
+                }
+            }
+            updates_needed = needed;
+            id_errors = errors;
         }
 
         private Variant build_layout(int recursion_depth = -1) {
@@ -349,11 +418,26 @@ namespace MprisMiniPlayer {
                         children.add_value(new Variant.variant(build_item(ALBUM_ID)));
                     }
                     children.add_value(new Variant.variant(build_item(CONTROLS_SEPARATOR_ID)));
+                    if (player.has_track_list) {
+                        children.add_value(new Variant.variant(
+                            build_queue_item(recursion_depth - 1)
+                        ));
+                    }
+                    if (player.has_volume) {
+                        children.add_value(new Variant.variant(
+                            build_volume_item(recursion_depth - 1)
+                        ));
+                    }
+                    if (player.has_shuffle) {
+                        children.add_value(new Variant.variant(build_item(SHUFFLE_ID)));
+                    }
                     children.add_value(new Variant.variant(build_item(PREVIOUS_ID)));
                     children.add_value(new Variant.variant(build_item(PLAY_PAUSE_ID)));
                     children.add_value(new Variant.variant(build_item(NEXT_ID)));
-                    if (player.has_volume) {
-                        children.add_value(new Variant.variant(build_volume_item(recursion_depth - 1)));
+                    if (player.has_loop_status) {
+                        children.add_value(new Variant.variant(
+                            build_repeat_item(recursion_depth - 1)
+                        ));
                     }
                 }
 
@@ -403,6 +487,76 @@ namespace MprisMiniPlayer {
             });
         }
 
+        private Variant build_repeat_item(int recursion_depth = -1) {
+            var children = new VariantBuilder(new VariantType("av"));
+            if (recursion_depth != 0) {
+                children.add_value(new Variant.variant(build_item(REPEAT_NONE_ID)));
+                children.add_value(new Variant.variant(build_item(REPEAT_TRACK_ID)));
+                children.add_value(new Variant.variant(build_item(REPEAT_PLAYLIST_ID)));
+            }
+
+            return new Variant.tuple({
+                new Variant.int32(REPEAT_ID),
+                build_properties(REPEAT_ID),
+                children.end()
+            });
+        }
+
+        private Variant build_queue_item(int recursion_depth = -1) {
+            var children = new VariantBuilder(new VariantType("av"));
+            if (recursion_depth != 0 && player != null) {
+                if (queue_items.length == 0) {
+                    children.add_value(new Variant.variant(build_item(QUEUE_EMPTY_ID)));
+                } else if (queue_groups.length > 0) {
+                    foreach (StatusQueueGroup group in queue_groups) {
+                        children.add_value(new Variant.variant(
+                            build_queue_group_item(group, 0)
+                        ));
+                    }
+                } else {
+                    foreach (StatusQueueItem item in queue_items) {
+                        children.add_value(new Variant.variant(
+                            build_item(item.menu_id)
+                        ));
+                    }
+                }
+            }
+
+            return new Variant.tuple({
+                new Variant.int32(QUEUE_ID),
+                build_properties(QUEUE_ID),
+                children.end()
+            });
+        }
+
+        private Variant build_queue_group_item(
+            StatusQueueGroup group,
+            int recursion_depth = -1
+        ) {
+            var children = new VariantBuilder(new VariantType("av"));
+            if (recursion_depth != 0) {
+                if (group.children.length > 0) {
+                    foreach (StatusQueueGroup child in group.children) {
+                        children.add_value(new Variant.variant(
+                            build_queue_group_item(child, 0)
+                        ));
+                    }
+                } else {
+                    for (int index = group.start_index; index < group.end_index; index++) {
+                        children.add_value(new Variant.variant(
+                            build_item(queue_items[index].menu_id)
+                        ));
+                    }
+                }
+            }
+
+            return new Variant.tuple({
+                new Variant.int32(group.menu_id),
+                build_properties(group.menu_id),
+                children.end()
+            });
+        }
+
         private Variant build_properties(int id) {
             var properties = new VariantBuilder(new VariantType("a{sv}"));
             if (is_separator(id)) {
@@ -423,19 +577,27 @@ namespace MprisMiniPlayer {
             if (icon_name != "") {
                 properties.add("{sv}", "icon-name", new Variant.string(icon_name));
             }
-            if (id == COMPACT_MODE_ID) {
+            if (id == COMPACT_MODE_ID || id == SHUFFLE_ID) {
                 properties.add("{sv}", "toggle-type", new Variant.string("checkmark"));
-                properties.add("{sv}", "toggle-state", new Variant.int32(compact_mode ? 1 : 0));
+                bool toggled = id == COMPACT_MODE_ID
+                    ? compact_mode
+                    : player != null && player.shuffle;
+                properties.add("{sv}", "toggle-state", new Variant.int32(toggled ? 1 : 0));
             }
-            if (is_volume_preset(id)) {
+            if (is_volume_preset(id) || is_repeat_mode(id) || is_queue_track(id)) {
                 properties.add("{sv}", "toggle-type", new Variant.string("radio"));
                 properties.add(
                     "{sv}",
                     "toggle-state",
-                    new Variant.int32(volume_matches_preset(id) ? 1 : 0)
+                    new Variant.int32(item_is_selected(id) ? 1 : 0)
                 );
             }
-            if (id == VOLUME_ID) {
+            if (
+                id == VOLUME_ID
+                || id == REPEAT_ID
+                || id == QUEUE_ID
+                || is_queue_group(id)
+            ) {
                 properties.add("{sv}", "children-display", new Variant.string("submenu"));
             }
             return properties.end();
@@ -465,6 +627,20 @@ namespace MprisMiniPlayer {
                         : _("Play");
                 case NEXT_ID:
                     return _("Next");
+                case SHUFFLE_ID:
+                    return _("Shuffle");
+                case REPEAT_ID:
+                    return repeat_label();
+                case REPEAT_NONE_ID:
+                    return _("Off");
+                case REPEAT_TRACK_ID:
+                    return _("Current Track");
+                case REPEAT_PLAYLIST_ID:
+                    return _("Queue");
+                case QUEUE_ID:
+                    return _("Queue");
+                case QUEUE_EMPTY_ID:
+                    return _("Queue is empty");
                 case VOLUME_ID:
                     return _("Volume: %d%%").printf(current_volume_percent());
                 case MUTE_ID:
@@ -488,11 +664,25 @@ namespace MprisMiniPlayer {
                 case QUIT_ID:
                     return _("Quit");
                 default:
-                    return "";
+                    if (is_queue_track(id)) {
+                        return queue_track_label(id);
+                    }
+                    StatusQueueGroup? group = find_queue_group(id);
+                    return group != null
+                        ? "%d–%d".printf(group.start_index + 1, group.end_index)
+                        : "";
             }
         }
 
         private void activate_item(int id) {
+            StatusQueueItem? queue_item = find_queue_item(id);
+            if (queue_item != null) {
+                if (player != null) {
+                    player.go_to(queue_item.track.id);
+                }
+                return;
+            }
+
             switch (id) {
                 case SHOW_ID:
                     action_requested("show");
@@ -511,6 +701,18 @@ namespace MprisMiniPlayer {
                     break;
                 case NEXT_ID:
                     action_requested("next");
+                    break;
+                case SHUFFLE_ID:
+                    action_requested("shuffle");
+                    break;
+                case REPEAT_NONE_ID:
+                    action_requested("repeat-none");
+                    break;
+                case REPEAT_TRACK_ID:
+                    action_requested("repeat-track");
+                    break;
+                case REPEAT_PLAYLIST_ID:
+                    action_requested("repeat-playlist");
                     break;
                 case MUTE_ID:
                     action_requested("mute");
@@ -550,8 +752,18 @@ namespace MprisMiniPlayer {
         }
 
         private void on_player_changed() {
+            bool queue_layout_changed = false;
+            uint64 queue_revision = player != null ? player.queue_revision : 0;
+            if (queue_revision != synced_queue_revision) {
+                queue_layout_changed = sync_queue_items();
+                synced_queue_revision = queue_revision;
+            }
+            sync_current_queue_menu_id();
             string new_signature = build_player_state_signature();
-            if (new_signature == player_state_signature) {
+            if (
+                new_signature == player_state_signature
+                && !queue_layout_changed
+            ) {
                 return;
             }
 
@@ -564,7 +776,9 @@ namespace MprisMiniPlayer {
                 return "none";
             }
 
-            return "%s\x1f%s\x1f%s\x1f%s\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d".printf(
+            var signature = new StringBuilder();
+            signature.append_printf(
+                "%s\x1f%s\x1f%s\x1f%s\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%s\x1f%d\x1f%s",
                 player.title,
                 player.artist,
                 player.album,
@@ -575,12 +789,19 @@ namespace MprisMiniPlayer {
                 player.can_pause ? 1 : 0,
                 player.can_control ? 1 : 0,
                 player.has_volume ? 1 : 0,
-                current_volume_percent()
+                current_volume_percent(),
+                player.has_shuffle ? 1 : 0,
+                player.shuffle ? 1 : 0,
+                player.has_loop_status ? 1 : 0,
+                player.loop_status,
+                player.has_track_list ? 1 : 0,
+                player.track_id
             );
+            return signature.str;
         }
 
-        private int[] all_ids() {
-            return {
+        private int[] base_ids() {
+            int[] ids = {
                 ROOT_ID,
                 SHOW_ID,
                 HIDE_ID,
@@ -599,20 +820,48 @@ namespace MprisMiniPlayer {
                 PREVIOUS_ID,
                 PLAY_PAUSE_ID,
                 NEXT_ID,
+                SHUFFLE_ID,
+                REPEAT_ID,
+                REPEAT_NONE_ID,
+                REPEAT_TRACK_ID,
+                REPEAT_PLAYLIST_ID,
                 VOLUME_ID,
                 MUTE_ID,
                 VOLUME_25_ID,
                 VOLUME_50_ID,
                 VOLUME_75_ID,
-                VOLUME_100_ID
+                VOLUME_100_ID,
+                QUEUE_ID,
+                QUEUE_EMPTY_ID
             };
+            return ids;
+        }
+
+        private int[] default_group_property_ids() {
+            int[] ids = base_ids();
+            if (player != null && player.has_track_list) {
+                if (queue_groups.length > 0) {
+                    foreach (StatusQueueGroup group in queue_groups) {
+                        ids += group.menu_id;
+                    }
+                } else {
+                    foreach (StatusQueueItem item in queue_items) {
+                        ids += item.menu_id;
+                    }
+                }
+            }
+            return ids;
         }
 
         private bool is_known_id(int id) {
-            foreach (int known_id in all_ids()) {
+            foreach (int known_id in base_ids()) {
                 if (id == known_id) {
                     return true;
                 }
+            }
+            if (player != null && player.has_track_list) {
+                return queue_items_by_id.contains(id)
+                    || queue_groups_by_id.contains(id);
             }
             return false;
         }
@@ -652,6 +901,24 @@ namespace MprisMiniPlayer {
             if (id == NEXT_ID) {
                 return player != null && player.can_go_next;
             }
+            if (id == SHUFFLE_ID) {
+                return player != null && player.has_shuffle && player.can_control;
+            }
+            if (id == REPEAT_ID || is_repeat_mode(id)) {
+                return player != null && player.has_loop_status && player.can_control;
+            }
+            if (id == QUEUE_ID) {
+                return player != null && player.has_track_list;
+            }
+            if (id == QUEUE_EMPTY_ID) {
+                return false;
+            }
+            if (is_queue_group(id)) {
+                return true;
+            }
+            if (is_queue_track(id)) {
+                return player != null && player.has_track_list;
+            }
             if (id == VOLUME_ID || id == MUTE_ID || is_volume_preset(id)) {
                 return player != null && player.has_volume && player.can_control;
             }
@@ -678,6 +945,16 @@ namespace MprisMiniPlayer {
                         : "media-playback-start-symbolic";
                 case NEXT_ID:
                     return "media-skip-forward-symbolic";
+                case SHUFFLE_ID:
+                    return "media-playlist-shuffle-symbolic";
+                case REPEAT_ID:
+                case REPEAT_NONE_ID:
+                case REPEAT_PLAYLIST_ID:
+                    return "media-playlist-repeat-symbolic";
+                case REPEAT_TRACK_ID:
+                    return "media-playlist-repeat-song-symbolic";
+                case QUEUE_ID:
+                    return "view-list-symbolic";
                 case VOLUME_ID:
                     return current_volume_percent() == 0
                         ? "audio-volume-muted-symbolic"
@@ -702,6 +979,170 @@ namespace MprisMiniPlayer {
 
             int preset = (id - VOLUME_25_ID + 1) * 25;
             return current_volume_percent() == preset;
+        }
+
+        private bool is_repeat_mode(int id) {
+            return id >= REPEAT_NONE_ID && id <= REPEAT_PLAYLIST_ID;
+        }
+
+        private string repeat_label() {
+            if (player == null || player.loop_status == "None") {
+                return _("Repeat: Off");
+            }
+            if (player.loop_status == "Track") {
+                return _("Repeat: Current Track");
+            }
+            return _("Repeat: Queue");
+        }
+
+        private bool is_queue_track(int id) {
+            return find_queue_item(id) != null;
+        }
+
+        private bool is_queue_group(int id) {
+            return find_queue_group(id) != null;
+        }
+
+        private string queue_track_label(int id) {
+            StatusQueueItem? queue_item = find_queue_item(id);
+            if (queue_item == null) {
+                return "";
+            }
+
+            MprisTrack track = queue_item.track;
+            string label = track.artist == ""
+                ? track.title
+                : _("%s — %s").printf(track.title, track.artist);
+            return truncate_label(label, 40);
+        }
+
+        private bool item_is_selected(int id) {
+            if (is_volume_preset(id)) {
+                return volume_matches_preset(id);
+            }
+            if (player == null) {
+                return false;
+            }
+            if (is_repeat_mode(id)) {
+                switch (id) {
+                    case REPEAT_NONE_ID:
+                        return player.loop_status == "None";
+                    case REPEAT_TRACK_ID:
+                        return player.loop_status == "Track";
+                    case REPEAT_PLAYLIST_ID:
+                        return player.loop_status == "Playlist";
+                }
+            }
+            if (is_queue_track(id)) {
+                return id == current_queue_menu_id;
+            }
+            return false;
+        }
+
+        private StatusQueueItem? find_queue_item(int menu_id) {
+            return queue_items_by_id.lookup(menu_id);
+        }
+
+        private StatusQueueGroup? find_queue_group(int menu_id) {
+            return queue_groups_by_id.lookup(menu_id);
+        }
+
+        private bool sync_queue_items() {
+            if (player == null || !player.has_track_list) {
+                bool had_queue_items = queue_items.length > 0
+                    || queue_groups.length > 0;
+                queue_items = {};
+                queue_groups = {};
+                queue_items_by_id.remove_all();
+                queue_groups_by_id.remove_all();
+                sync_current_queue_menu_id(true);
+                return had_queue_items;
+            }
+
+            bool same_visible_state = queue_items.length == player.queue.length;
+            if (same_visible_state) {
+                for (int index = 0; index < player.queue.length; index++) {
+                    MprisTrack previous = queue_items[index].track;
+                    MprisTrack current = player.queue[index];
+                    if (
+                        previous.id != current.id
+                        || previous.title != current.title
+                        || previous.artist != current.artist
+                        || previous.album != current.album
+                    ) {
+                        same_visible_state = false;
+                        break;
+                    }
+                }
+            }
+            if (same_visible_state) {
+                for (int index = 0; index < player.queue.length; index++) {
+                    queue_items[index].track = player.queue[index];
+                }
+                sync_current_queue_menu_id(true);
+                return false;
+            }
+
+            queue_items_by_id.remove_all();
+            StatusQueueItem[] updated_items = new StatusQueueItem[player.queue.length];
+            for (int index = 0; index < player.queue.length; index++) {
+                updated_items[index] = new StatusQueueItem(
+                    next_queue_menu_id++,
+                    player.queue[index]
+                );
+                queue_items_by_id.insert(
+                    updated_items[index].menu_id,
+                    updated_items[index]
+                );
+            }
+            queue_items = updated_items;
+            queue_groups_by_id.remove_all();
+            queue_groups = build_queue_groups(0, queue_items.length);
+            sync_current_queue_menu_id(true);
+            return true;
+        }
+
+        private void sync_current_queue_menu_id(bool force = false) {
+            string track_id = player != null ? player.track_id : "";
+            if (!force && track_id == indexed_current_track_id) {
+                return;
+            }
+
+            indexed_current_track_id = track_id;
+            current_queue_menu_id = -1;
+            if (track_id == "") {
+                return;
+            }
+            foreach (StatusQueueItem item in queue_items) {
+                if (item.track.id == track_id) {
+                    current_queue_menu_id = item.menu_id;
+                    return;
+                }
+            }
+        }
+
+        private StatusQueueGroup[] build_queue_groups(int start_index, int end_index) {
+            int length = end_index - start_index;
+            if (length <= MAX_QUEUE_LAYOUT_CHILDREN) {
+                return {};
+            }
+
+            int group_span = 1;
+            while (
+                ((length - 1) / group_span) + 1 > MAX_QUEUE_LAYOUT_CHILDREN
+            ) {
+                group_span *= MAX_QUEUE_LAYOUT_CHILDREN;
+            }
+
+            StatusQueueGroup[] groups = {};
+            for (int start = start_index; start < end_index; start += group_span) {
+                int end = int.min(start + group_span, end_index);
+                var group = new StatusQueueGroup(next_queue_menu_id++, start, end);
+                group.children = build_queue_groups(start, end);
+                groups += group;
+                queue_groups_by_id.insert(group.menu_id, group);
+            }
+            return groups;
         }
 
         private int current_volume_percent() {
