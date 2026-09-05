@@ -1,3 +1,14 @@
+mpris-miniplayer (2.1.0-1) unstable; urgency=medium
+
+  * Keep MPRIS discovery, state, and controls reliable across player owner
+    changes and asynchronous operations.
+  * Improve artwork loading, volume feedback, status indicator registration,
+    and portal-based start-on-login behavior.
+  * Add private D-Bus lifecycle regressions and gate package releases on tests
+    and version agreement.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Sat, 05 Sep 2026 17:36:51 +0200
+
 mpris-miniplayer (2.0.0-1) unstable; urgency=medium
 
   * Add synchronized shuffle and repeat controls to the player window and

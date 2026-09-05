@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 2.0.0}
+%{!?pkg_version:%global pkg_version 2.1.0}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -51,6 +51,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Sat Sep 05 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.1.0-1
+- Keep MPRIS discovery, state, and controls reliable across player lifecycle changes
+- Improve artwork, volume feedback, status indicator, and start-on-login reliability
+- Add lifecycle regressions and release validation
+
 * Thu Sep 03 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.0.0-1
 - Add synchronized shuffle and repeat controls
 - Add adaptive MPRIS TrackList queues to the player and status indicator

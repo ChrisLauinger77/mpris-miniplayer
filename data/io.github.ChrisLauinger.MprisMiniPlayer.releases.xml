@@ -1,4 +1,11 @@
   <releases>
+    <release version="2.1.0" date="2026-09-05">
+      <description>
+        <p>Keep MPRIS state and controls reliable when players restart, disappear, or change ownership.</p>
+        <p>Improve artwork loading, volume feedback, status indicator registration, and start-on-login behavior.</p>
+        <p>Add broader lifecycle regression coverage and release validation.</p>
+      </description>
+    </release>
     <release version="2.0.0" date="2026-09-03">
       <description>
         <p>Add synchronized shuffle and repeat controls to the player window and status indicator menu.</p>
