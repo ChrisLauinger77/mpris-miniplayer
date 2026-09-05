@@ -10,6 +10,7 @@ URL:            https://github.com/ChrisLauinger77/mpris-miniplayer
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  dbus-daemon
+BuildRequires:  python3
 BuildRequires:  desktop-file-utils
 BuildRequires:  gettext
 BuildRequires:  meson
@@ -36,6 +37,7 @@ players that expose the MPRIS interface on the session D-Bus.
 %find_lang %{name}
 
 %check
+%meson_test
 desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauinger.MprisMiniPlayer.desktop
 
 %files -f %{name}.lang

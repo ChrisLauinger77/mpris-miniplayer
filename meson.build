@@ -89,6 +89,9 @@ artwork_test = executable(
 )
 test('Artwork ownership and source changes', artwork_test)
 
+python = find_program('python3')
+test('Release version agreement', python, args: files('tools/check-release.py'))
+
 desktop_state_test = executable(
   'desktop-state-test',
   [config_vala, 'src/app-settings.vala', 'src/background-portal.vala', 'tests/desktop-state-test.vala'],
