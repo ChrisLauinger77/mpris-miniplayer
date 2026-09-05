@@ -37,7 +37,7 @@ namespace MprisMiniPlayer {
                 warning("GSettings schema %s is unavailable; using defaults", SCHEMA_ID);
             }
 
-            sync_start_on_login_from_autostart();
+            if (!Autostart.is_flatpak()) sync_start_on_login_from_autostart();
         }
 
         public bool show_background_notification {
@@ -183,8 +183,8 @@ namespace MprisMiniPlayer {
         }
 
         private void apply_start_on_login(bool enabled) {
-            bool success = Autostart.set_enabled(enabled);
-            bool actual = Autostart.is_enabled();
+            bool success = Autostart.is_flatpak() || Autostart.set_enabled(enabled);
+            bool actual = Autostart.is_flatpak() ? start_on_login : Autostart.is_enabled();
             bool final_value = success ? enabled : actual;
 
             if (!success) {
@@ -216,8 +216,37 @@ namespace MprisMiniPlayer {
     public class Autostart : Object {
         private const string DESKTOP_FILENAME = "io.github.ChrisLauinger.MprisMiniPlayer.desktop";
 
+        public static void remove_legacy_flatpak_entry() {
+            if (!is_flatpak()) return;
+            try {
+                string contents;
+                if (FileUtils.get_contents(get_autostart_path(), out contents)
+                    && contents.contains("\nExec=flatpak run io.github.ChrisLauinger.MprisMiniPlayer\n")) {
+                    File.new_for_path(get_autostart_path()).delete();
+                }
+            } catch (Error error) {
+                if (!(error is IOError.NOT_FOUND) && !(error is FileError.NOENT)) {
+                    warning("Unable to remove legacy Flatpak autostart: %s", error.message);
+                }
+            }
+        }
+
         public static bool is_enabled() {
-            return FileUtils.test(get_autostart_path(), FileTest.EXISTS);
+            return read_enabled(get_autostart_path());
+        }
+
+        internal static bool read_enabled(string path) {
+            try {
+                var desktop = new KeyFile();
+                desktop.load_from_file(path, KeyFileFlags.NONE);
+                if (desktop.has_key("Desktop Entry", "Hidden") && desktop.get_boolean("Desktop Entry", "Hidden")) return false;
+                if (desktop.has_key("Desktop Entry", "X-GNOME-Autostart-enabled")
+                    && !desktop.get_boolean("Desktop Entry", "X-GNOME-Autostart-enabled")) return false;
+                return desktop.get_string("Desktop Entry", "Type") == "Application"
+                    && desktop.get_string("Desktop Entry", "Exec") != "";
+            } catch (Error error) {
+                return false;
+            }
         }
 
         public static bool set_enabled(bool enabled) {
@@ -243,7 +272,7 @@ Exec=%s
 Icon=io.github.ChrisLauinger.MprisMiniPlayer
 Terminal=false
 Categories=AudioVideo;Audio;Player;GTK;
-""".printf(get_exec_command());
+""".printf(quote_desktop_exec_arg(Config.EXEC_PATH));
 
             if (FileUtils.test(path, FileTest.EXISTS)) {
                 string current_contents;
@@ -264,12 +293,15 @@ Categories=AudioVideo;Audio;Player;GTK;
         }
 
         private static bool remove_desktop_file() throws Error {
-            string path = get_autostart_path();
-            if (!FileUtils.test(path, FileTest.EXISTS)) {
+            return remove_entry(get_autostart_path());
+        }
+
+        internal static bool remove_entry(string path) throws Error {
+            try {
+                File.new_for_path(path).delete();
+            } catch (IOError.NOT_FOUND error) {
                 return true;
             }
-
-            FileUtils.remove(path);
             return true;
         }
 
@@ -285,14 +317,6 @@ Categories=AudioVideo;Audio;Player;GTK;
             return Path.build_filename(get_autostart_dir(), DESKTOP_FILENAME);
         }
 
-        private static string get_exec_command() {
-            if (is_flatpak()) {
-                return "flatpak run io.github.ChrisLauinger.MprisMiniPlayer";
-            }
-
-            return quote_desktop_exec_arg(Config.EXEC_PATH);
-        }
-
         private static string quote_desktop_exec_arg(string arg) {
             string escaped = arg
                 .replace("\\", "\\\\")
@@ -302,7 +326,7 @@ Categories=AudioVideo;Audio;Player;GTK;
             return "\"%s\"".printf(escaped);
         }
 
-        private static bool is_flatpak() {
+        public static bool is_flatpak() {
             return FileUtils.test("/.flatpak-info", FileTest.EXISTS);
         }
     }

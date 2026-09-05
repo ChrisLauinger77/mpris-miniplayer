@@ -77,3 +77,12 @@ artwork_test = executable(
   link_args: ['-Wl,--wrap=gdk_pixbuf_loader_new', '-Wl,--wrap=gdk_pixbuf_loader_write_bytes'],
 )
 test('Artwork ownership and source changes', artwork_test)
+
+desktop_state_test = executable(
+  'desktop-state-test',
+  [config_vala, 'src/app-settings.vala', 'src/background-portal.vala', 'tests/desktop-state-test.vala'],
+  dependencies: dependency('gio-2.0'),
+  vala_args: ['--target-glib=2.66'],
+  c_args: ['-DGETTEXT_PACKAGE="@0@"'.format(gettext_package)],
+)
+test('Autostart and portal state', desktop_state_test)

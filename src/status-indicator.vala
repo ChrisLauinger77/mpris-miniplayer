@@ -1,9 +1,4 @@
 namespace MprisMiniPlayer {
-    [DBus (name = "org.kde.StatusNotifierWatcher")]
-    private interface StatusNotifierWatcher : Object {
-        public abstract void RegisterStatusNotifierItem(string service) throws DBusError, IOError;
-    }
-
     [DBus (name = "org.kde.StatusNotifierItem")]
     public class StatusNotifierItem : Object {
         private const string APP_ID = "io.github.ChrisLauinger.MprisMiniPlayer";
@@ -1153,9 +1148,6 @@ namespace MprisMiniPlayer {
         private const string WATCHER_BUS_NAME = "org.kde.StatusNotifierWatcher";
         private const string WATCHER_OBJECT_PATH = "/StatusNotifierWatcher";
         private const string WATCHER_IFACE = "org.kde.StatusNotifierWatcher";
-        private const string DBUS_BUS_NAME = "org.freedesktop.DBus";
-        private const string DBUS_OBJECT_PATH = "/org/freedesktop/DBus";
-        private const string DBUS_IFACE = "org.freedesktop.DBus";
         private const string ITEM_OBJECT_PATH = "/StatusNotifierItem";
         private const string MENU_OBJECT_PATH = "/StatusNotifierMenu";
 
@@ -1164,8 +1156,18 @@ namespace MprisMiniPlayer {
         private StatusNotifierMenu? menu;
         private uint item_registration_id = 0;
         private uint menu_registration_id = 0;
-        private uint name_owner_subscription_id = 0;
+        private uint watcher_id = 0;
+        private uint item_name_id = 0;
+        private string item_bus_name = "";
+        private string item_name_prefix = "";
+        private uint item_generation;
+        private string watcher_owner = "";
+        private bool stopped = false;
+        private Cancellable lifetime = new Cancellable();
+        private Cancellable? registration_request;
         private uint volume_icon_timeout_id = 0;
+        private uint registration_retry;
+        private uint registration_attempts;
         private bool enabled = false;
         private bool compact_mode = false;
         private bool window_shown = false;
@@ -1179,19 +1181,35 @@ namespace MprisMiniPlayer {
         public signal void action_requested(string action);
 
         public StatusIndicator() {
-            if (is_flatpak()) {
-                return;
-            }
+            if (!is_flatpak()) initialize.begin();
+        }
 
+        internal StatusIndicator.with_connection(DBusConnection connection) {
+            initialize.begin(connection);
+        }
+
+        private async void initialize(DBusConnection? connection = null) {
             try {
-                bus = Bus.get_sync(BusType.SESSION);
+                bus = connection ?? (yield Bus.get(BusType.SESSION, lifetime));
+                if (stopped) return;
+                item_name_prefix = "org.kde.StatusNotifierItem.MprisMiniPlayer%s".printf(
+                    bus.get_unique_name().replace(":", "_").replace(".", "_"));
+                watcher_id = Bus.watch_name_on_connection(bus, WATCHER_BUS_NAME, BusNameWatcherFlags.NONE,
+                    (connection, name, owner) => {
+                        watcher_owner = owner;
+                        supported = true;
+                        support_changed();
+                        update_registration();
+                    },
+                    () => {
+                        watcher_owner = "";
+                        supported = false;
+                        support_changed();
+                        update_registration();
+                    });
             } catch (Error error) {
-                warning("Unable to connect to the session bus for the status indicator: %s", error.message);
-                return;
+                if (!stopped) debug("Unable to connect status indicator: %s", error.message);
             }
-
-            subscribe_name_owner_changes();
-            refresh_supported();
         }
 
         public void set_enabled(bool enabled) {
@@ -1232,74 +1250,16 @@ namespace MprisMiniPlayer {
         }
 
         public void shutdown() {
-            clear_volume_icon_timeout();
-            if (bus != null && name_owner_subscription_id != 0) {
-                bus.signal_unsubscribe(name_owner_subscription_id);
-                name_owner_subscription_id = 0;
-            }
-
+            if (stopped) return;
+            stopped = true;
+            lifetime.cancel();
+            if (watcher_id != 0) { Bus.unwatch_name(watcher_id); watcher_id = 0; }
             unregister_item();
-        }
-
-        private void subscribe_name_owner_changes() {
-            name_owner_subscription_id = bus.signal_subscribe(
-                DBUS_BUS_NAME,
-                DBUS_IFACE,
-                "NameOwnerChanged",
-                DBUS_OBJECT_PATH,
-                WATCHER_BUS_NAME,
-                DBusSignalFlags.NONE,
-                on_name_owner_changed
-            );
-        }
-
-        private void on_name_owner_changed(
-            DBusConnection connection,
-            string? sender_name,
-            string object_path,
-            string interface_name,
-            string signal_name,
-            Variant parameters
-        ) {
-            refresh_supported();
-        }
-
-        private void refresh_supported() {
-            bool old_supported = supported;
-            supported = name_has_owner(WATCHER_BUS_NAME);
-
-            if (old_supported != supported) {
-                support_changed();
-            }
-
-            update_registration();
-        }
-
-        private bool name_has_owner(string name) {
-            if (bus == null) {
-                return false;
-            }
-
-            try {
-                Variant result = bus.call_sync(
-                    DBUS_BUS_NAME,
-                    DBUS_OBJECT_PATH,
-                    DBUS_IFACE,
-                    "NameHasOwner",
-                    new Variant("(s)", name),
-                    new VariantType("(b)"),
-                    DBusCallFlags.NONE,
-                    -1
-                );
-                return result.get_child_value(0).get_boolean();
-            } catch (Error error) {
-                debug("Unable to check status indicator support: %s", error.message);
-                return false;
-            }
+            player = null;
         }
 
         private void update_registration() {
-            if (!enabled || !supported || bus == null) {
+            if (stopped || !enabled || !supported || bus == null) {
                 unregister_item();
                 return;
             }
@@ -1309,10 +1269,10 @@ namespace MprisMiniPlayer {
 
         private void register_item() {
             if (item_registration_id != 0) {
-                register_with_watcher();
                 return;
             }
 
+            registration_attempts = 0;
             item = new StatusNotifierItem();
             item.activated.connect(() => activated());
             item.scroll_requested.connect((delta, orientation) => {
@@ -1345,28 +1305,55 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            register_with_watcher();
+            // Watchers remove items when this dedicated name disappears, even
+            // though the application's shared session-bus connection stays alive.
+            uint version = ++item_generation;
+            item_bus_name = "%s.i%u".printf(item_name_prefix, version);
+            item_name_id = Bus.own_name_on_connection(bus, item_bus_name, BusNameOwnerFlags.NONE,
+                () => {
+                    if (!stopped && version == item_generation && item_registration_id != 0) register_with_watcher.begin();
+                },
+                () => { if (!stopped && version == item_generation) unregister_item(); });
         }
 
-        private void register_with_watcher() {
+        private async void register_with_watcher() {
+            if (registration_request != null) registration_request.cancel();
+            registration_request = new Cancellable();
+            var request = registration_request;
+            string owner = watcher_owner;
+            registration_attempts++;
             try {
-                bus.call_sync(
-                    WATCHER_BUS_NAME,
+                yield bus.call(
+                    owner,
                     WATCHER_OBJECT_PATH,
                     WATCHER_IFACE,
                     "RegisterStatusNotifierItem",
-                    new Variant("(s)", bus.get_unique_name()),
-                    null,
-                    DBusCallFlags.NONE,
-                    -1
+                    new Variant("(s)", item_bus_name),
+                    new VariantType("()"),
+                    DBusCallFlags.NO_AUTO_START,
+                    3000,
+                    request
                 );
             } catch (Error error) {
+                if (stopped || request.is_cancelled() || owner != watcher_owner) return;
                 debug("Unable to register status indicator with watcher: %s", error.message);
+                if (registration_attempts < 3 && item_registration_id != 0) {
+                    registration_retry = Timeout.add_seconds(registration_attempts, () => {
+                        registration_retry = 0;
+                        register_with_watcher.begin();
+                        return Source.REMOVE;
+                    });
+                }
             }
         }
 
         private void unregister_item() {
+            item_generation++;
             clear_volume_icon_timeout();
+            if (registration_retry != 0) { Source.remove(registration_retry); registration_retry = 0; }
+            if (registration_request != null) { registration_request.cancel(); registration_request = null; }
+            if (item_name_id != 0) { Bus.unown_name(item_name_id); item_name_id = 0; }
+            if (menu != null) menu.set_player(null);
             if (bus != null && item_registration_id != 0) {
                 bus.unregister_object(item_registration_id);
                 item_registration_id = 0;

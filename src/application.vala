@@ -42,7 +42,7 @@ namespace MprisMiniPlayer {
 
             app_settings = new AppSettings();
             app_settings.changed.connect(on_app_settings_changed);
-            background_portal = new BackgroundPortal();
+            background_portal = new BackgroundPortal(app_settings.start_on_login);
             background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
             status_indicator = new StatusIndicator();
@@ -425,7 +425,8 @@ namespace MprisMiniPlayer {
             status_indicator.set_compact_mode(compact_mode);
         }
 
-        private void on_portal_autostart_changed(bool enabled) {
+        private void on_portal_autostart_changed(bool enabled, bool portal_answered) {
+            if (portal_answered) Autostart.remove_legacy_flatpak_entry();
             if (app_settings.start_on_login != enabled) {
                 suppress_next_start_on_login_portal_update = true;
                 app_settings.start_on_login = enabled;
@@ -588,7 +589,7 @@ namespace MprisMiniPlayer {
             if (preferences_window != null) { preferences_window.destroy(); preferences_window = null; }
             if (about_dialog != null) { about_dialog.close(); about_dialog = null; }
             if (status_indicator != null) status_indicator.shutdown();
-            if (background_portal != null) background_portal.leave_background();
+            if (background_portal != null) background_portal.shutdown();
             if (update_checker != null) update_checker.shutdown();
             if (manager != null) { manager.shutdown(); manager = null; }
             base.shutdown();
