@@ -8,6 +8,9 @@ namespace MprisMiniPlayer {
         private uint name_owner_subscription_id;
         private ulong closed_handler_id;
         private uint reconcile_source;
+        private uint discovery_retry_source;
+        private uint discovery_retry_seconds = 1;
+        private bool listing_names = false;
         private bool stopped = false;
         private bool listed_names = false;
         private string manual_selection = "";
@@ -47,10 +50,33 @@ namespace MprisMiniPlayer {
                     DBUS_NAME, DBUS_NAME, "NameOwnerChanged", DBUS_PATH, null,
                     DBusSignalFlags.NONE, on_name_owner_changed
                 );
+                yield list_names();
+            } catch (Error error) {
+                if (!stopped) {
+                    listed_names = true;
+                    discovery_failed = true;
+                    operation_failed("Discover players", error);
+                    finish_discovery();
+                }
+            }
+        }
+
+        // Retry the snapshot on the existing connection and subscription. A
+        // failed first attempt still releases the startup visibility decision.
+        private async void list_names() {
+            if (stopped || !connected || listing_names) return;
+            listing_names = true;
+            bool failed = false;
+            try {
                 Variant result = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "ListNames",
                     null, new VariantType("(as)"), DBusCallFlags.NONE, 3000, lifetime);
-                if (stopped) return;
+                if (stopped) {
+                    listing_names = false;
+                    return;
+                }
                 listed_names = true;
+                discovery_failed = false;
+                discovery_retry_seconds = 1;
                 string[] snapshot_names = result.get_child_value(0).dup_strv();
                 foreach (var name in snapshot_names) {
                     if (name.has_prefix(MPRIS_PREFIX)) {
@@ -63,10 +89,25 @@ namespace MprisMiniPlayer {
                 if (!stopped) {
                     listed_names = true;
                     discovery_failed = true;
+                    failed = true;
                     operation_failed("Discover players", error);
                 }
             }
-            if (!stopped && discovering.size() == 0) finish_discovery();
+            listing_names = false;
+            if (stopped) return;
+            if (failed) schedule_discovery_retry();
+            finish_discovery();
+            schedule_reconcile();
+        }
+
+        private void schedule_discovery_retry() {
+            if (stopped || !connected || discovery_retry_source != 0) return;
+            discovery_retry_source = Timeout.add_seconds(discovery_retry_seconds, () => {
+                discovery_retry_source = 0;
+                list_names.begin();
+                return Source.REMOVE;
+            });
+            discovery_retry_seconds = uint.min(discovery_retry_seconds * 2, 30);
         }
 
         private async void discover(string name) {
@@ -87,7 +128,7 @@ namespace MprisMiniPlayer {
         }
 
         private void finish_discovery() {
-            if (ready || !listed_names || discovering.size() != 0) return;
+            if (stopped || ready || !listed_names || discovering.size() != 0) return;
             foreach (var player in players.get_values()) if (!player.initialized) return;
             ready = true;
             discovery_finished();
@@ -99,6 +140,10 @@ namespace MprisMiniPlayer {
             stopped = true;
             connected = false;
             lifetime.cancel();
+            if (discovery_retry_source != 0) {
+                Source.remove(discovery_retry_source);
+                discovery_retry_source = 0;
+            }
             if (reconcile_source != 0) {
                 Source.remove(reconcile_source);
                 reconcile_source = 0;
@@ -208,6 +253,8 @@ namespace MprisMiniPlayer {
                 }
             }
             if (best != null) discovery_failed = false;
+            // Recovery from an empty snapshot must refresh the error view too.
+            signature.append(discovery_failed ? "1" : "0");
             var pinned = players.lookup(manual_selection);
             if (pinned != null && !pinned.available) best = null;
             switch_active_player(best);

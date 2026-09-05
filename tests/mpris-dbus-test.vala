@@ -43,9 +43,9 @@ private class MockPlayer : Object {
 }
 
 private delegate bool Condition();
-private void wait_until(Condition condition) {
+private void wait_until(Condition condition, uint timeout_ms = 5000) {
     bool expired = false;
-    uint timer = Timeout.add(5000, () => { expired = true; return Source.REMOVE; });
+    uint timer = Timeout.add(timeout_ms, () => { expired = true; return Source.REMOVE; });
     while (!condition() && !expired) MainContext.default().iteration(true);
     if (!expired) Source.remove(timer);
     assert_false(expired);
@@ -80,6 +80,148 @@ private void emit_state(DBusConnection bus, MockPlayer mock) throws Error {
     props.add("{sv}", "Metadata", metadata.end());
     bus.emit_signal(null, PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged",
         new Variant("(s@a{sv}@as)", PLAYER_IFACE, props.end(), new Variant.strv({})));
+}
+
+// Filters run on GDBus's worker thread. Only the atomic count is shared with
+// the main loop; copying the message preserves its serial and reply routing.
+private class ListNamesFault : Object {
+    private int attempts = 0;
+    private int failures;
+    public int calls { get { return AtomicInt.get(ref attempts); } }
+
+    public ListNamesFault(int failures) {
+        this.failures = failures;
+    }
+
+    public DBusMessage? filter(DBusConnection connection, owned DBusMessage message, bool incoming) {
+        if (!incoming && message.get_destination() == "org.freedesktop.DBus"
+            && message.get_member() == "ListNames") {
+            int attempt = AtomicInt.add(ref attempts, 1);
+            if (attempt < failures) {
+                try {
+                    var failed = message.copy();
+                    failed.set_member("InjectedListNamesFailure");
+                    return failed;
+                } catch (Error error) {
+                    assert_not_reached();
+                }
+            }
+        }
+        return (owned) message;
+    }
+}
+
+private void test_list_names_retry_finds_stable_players() {
+    try {
+        var client = connection();
+        var server = connection();
+        var later_server = connection();
+        var root = new MockRoot();
+        var stable = new MockPlayer();
+        var later = new MockPlayer();
+        later.state = "Paused";
+        uint stable_root = server.register_object(PATH, root);
+        uint stable_player = server.register_object(PATH, stable);
+        uint later_root = later_server.register_object(PATH, root);
+        uint later_player = later_server.register_object(PATH, later);
+        own(server, NAME_A); // This owner never changes while discovery retries.
+        var fault = new ListNamesFault(2);
+        uint filter = client.add_filter(fault.filter);
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+        int errors = 0;
+        int completions = 0;
+        manager.operation_failed.connect((operation, error) => {
+            assert_cmpstr(operation, CompareOperator.EQ, "Discover players");
+            assert_true(error is DBusError.UNKNOWN_METHOD);
+            assert_true(error.message.contains("InjectedListNamesFailure"));
+            errors++;
+        });
+        manager.discovery_finished.connect(() => completions++);
+        wait_until(() => manager.ready && manager.discovery_failed);
+        assert_true(manager.connected);
+        assert_null(manager.get_player(NAME_A));
+        own(later_server, NAME_B); // The subscription stays live during backoff.
+        wait_until(() => manager.get_player(NAME_B) != null && manager.get_player(NAME_B).available);
+        var known = manager.get_player(NAME_B);
+        manager.select_player(NAME_B);
+        wait_until(() => manager.get_player(NAME_A) != null && manager.get_player(NAME_A).available, 10000);
+        assert_cmpint(errors, CompareOperator.EQ, 2);
+        assert_cmpint(fault.calls, CompareOperator.EQ, 3);
+        assert_cmpint(completions, CompareOperator.EQ, 1);
+        assert_true(manager.get_player(NAME_B) == known);
+        assert_true(manager.active_player == known);
+        assert_false(manager.discovery_failed);
+        manager.shutdown();
+        client.remove_filter(filter);
+        release(server, NAME_A);
+        release(later_server, NAME_B);
+        server.unregister_object(stable_player);
+        server.unregister_object(stable_root);
+        later_server.unregister_object(later_player);
+        later_server.unregister_object(later_root);
+        server.close_sync(); later_server.close_sync(); client.close_sync();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Discovery retry test: %s", error.message);
+    }
+}
+
+private void test_list_names_retry_clears_empty_error() {
+    try {
+        var client = connection();
+        var fault = new ListNamesFault(1);
+        uint filter = client.add_filter(fault.filter);
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+        wait_until(() => manager.ready && manager.discovery_failed);
+        bool view_failed = true;
+        ulong changed_handler = manager.players_updated.connect(() => view_failed = manager.discovery_failed);
+        wait_until(() => !manager.discovery_failed && !view_failed);
+        assert_true(manager.connected);
+        assert_true(manager.ready);
+        assert_cmpint(manager.list_players().length, CompareOperator.EQ, 0);
+        assert_cmpint(fault.calls, CompareOperator.EQ, 2);
+        SignalHandler.disconnect(manager, changed_handler);
+        manager.shutdown();
+        client.remove_filter(filter);
+        client.close_sync();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Empty discovery recovery test: %s", error.message);
+    }
+}
+
+private void test_list_names_retry_shutdown() {
+    try {
+        for (int reentrant = 0; reentrant < 2; reentrant++) {
+            var client = connection();
+            var fault = new ListNamesFault(100);
+            uint filter = client.add_filter(fault.filter);
+            var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+            int errors = 0;
+            ulong error_handler = manager.operation_failed.connect(() => {
+                errors++;
+                if (reentrant != 0) manager.shutdown();
+            });
+            wait_until(() => errors == 1);
+            if (reentrant == 0) {
+                assert_true(manager.ready);
+                manager.shutdown(); // A retry is already scheduled.
+            } else {
+                assert_false(manager.ready); // No startup publication after shutdown.
+            }
+            SignalHandler.disconnect(manager, error_handler);
+            var weak_manager = WeakRef(manager);
+            manager = null;
+            wait_until(() => weak_manager.get() == null);
+            assert_cmpint(fault.calls, CompareOperator.EQ, 1);
+            assert_false(client.is_closed());
+            client.remove_filter(filter);
+            client.close_sync();
+            drain();
+        }
+    } catch (Error error) {
+        Test.fail_printf("Discovery retry shutdown test: %s", error.message);
+    }
 }
 
 private void test_owner_replacement_and_shutdown() {
@@ -325,6 +467,9 @@ private void test_indicator_name_lifetime() {
 
 public int main(string[] args) {
     Test.init(ref args);
+    Test.add_func("/mpris-dbus/list-names-retry", test_list_names_retry_finds_stable_players);
+    Test.add_func("/mpris-dbus/list-names-empty-recovery", test_list_names_retry_clears_empty_error);
+    Test.add_func("/mpris-dbus/list-names-retry-shutdown", test_list_names_retry_shutdown);
     Test.add_func("/desktop-dbus/portal-restart-close", test_portal_response_restart_and_close);
     Test.add_func("/desktop-dbus/indicator-name-lifetime", test_indicator_name_lifetime);
     Test.add_func("/mpris-dbus/owner-replacement-shutdown", test_owner_replacement_and_shutdown);
