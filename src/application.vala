@@ -20,9 +20,12 @@ namespace MprisMiniPlayer {
         private ulong action_player_changed_handler_id = 0;
         private bool suppress_next_start_on_login_portal_update = false;
         private bool startup_activation_handled = false;
+        private bool startup_visibility_pending = false;
         private bool update_check_started = false;
         private string latest_release_url = "";
         private bool held = false;
+        private bool shutting_down = false;
+        private Cancellable lifetime = new Cancellable();
 
         public Application() {
             Object(
@@ -39,7 +42,7 @@ namespace MprisMiniPlayer {
 
             app_settings = new AppSettings();
             app_settings.changed.connect(on_app_settings_changed);
-            background_portal = new BackgroundPortal();
+            background_portal = new BackgroundPortal(app_settings.start_on_login);
             background_portal.autostart_changed.connect(on_portal_autostart_changed);
             setup_actions();
             status_indicator = new StatusIndicator();
@@ -50,16 +53,20 @@ namespace MprisMiniPlayer {
             status_indicator.set_enabled(app_settings.show_status_indicator);
             maybe_start_update_check();
 
-            try {
-                manager = new MprisManager();
-                manager.players_changed.connect(on_players_changed);
-                manager.player_priority_changed.connect(on_player_priority_changed);
-                manager.active_player_changed.connect(on_active_player_changed);
-                status_indicator.set_player(manager.active_player);
-                bind_player_actions(manager.active_player);
-            } catch (Error error) {
-                warning("Unable to monitor MPRIS players: %s", error.message);
-            }
+            manager = new MprisManager();
+            manager.players_changed.connect(on_players_changed);
+            manager.players_updated.connect(() => {
+                if (!shutting_down && main_window != null) main_window.refresh_players();
+            });
+            manager.active_player_changed.connect(on_active_player_changed);
+            manager.operation_failed.connect((operation, error) => {
+                warning("%s: %s", operation, error.message);
+            });
+            manager.discovery_finished.connect(() => {
+                if (startup_visibility_pending) handle_startup_visibility();
+            });
+            status_indicator.set_player(manager.active_player);
+            bind_player_actions(manager.active_player);
         }
 
         protected override void activate() {
@@ -69,6 +76,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
+            startup_visibility_pending = false;
             present_window();
         }
 
@@ -142,6 +150,11 @@ namespace MprisMiniPlayer {
         }
 
         private void handle_startup_visibility() {
+            if (manager != null && !manager.ready) {
+                startup_visibility_pending = true;
+                return;
+            }
+            startup_visibility_pending = false;
             if (has_players()) {
                 present_window();
                 return;
@@ -152,13 +165,14 @@ namespace MprisMiniPlayer {
         }
 
         private void on_players_changed() {
+            if (shutting_down) return;
             bool players_available = has_players();
 
             if (main_window != null) {
                 main_window.refresh_players();
             }
 
-            if (!app_settings.automatic_window_visibility) {
+            if (!app_settings.automatic_window_visibility || (manager != null && !manager.ready)) {
                 return;
             }
 
@@ -169,13 +183,8 @@ namespace MprisMiniPlayer {
             }
         }
 
-        private void on_player_priority_changed() {
-            if (main_window != null) {
-                main_window.refresh_players();
-            }
-        }
-
         private void on_active_player_changed() {
+            if (shutting_down) return;
             status_indicator.set_player(manager != null ? manager.active_player : null);
             bind_player_actions(manager != null ? manager.active_player : null);
             if (main_window != null) {
@@ -220,6 +229,7 @@ namespace MprisMiniPlayer {
         }
 
         private void present_window() {
+            startup_visibility_pending = false;
             show_window(true);
         }
 
@@ -228,6 +238,7 @@ namespace MprisMiniPlayer {
         }
 
         private void show_window_from_indicator() {
+            startup_visibility_pending = false;
             show_window(false, true);
         }
 
@@ -414,7 +425,8 @@ namespace MprisMiniPlayer {
             status_indicator.set_compact_mode(compact_mode);
         }
 
-        private void on_portal_autostart_changed(bool enabled) {
+        private void on_portal_autostart_changed(bool enabled, bool portal_answered) {
+            if (portal_answered) Autostart.remove_legacy_flatpak_entry();
             if (app_settings.start_on_login != enabled) {
                 suppress_next_start_on_login_portal_update = true;
                 app_settings.start_on_login = enabled;
@@ -529,7 +541,7 @@ namespace MprisMiniPlayer {
             }
 
             try {
-                yield AppInfo.launch_default_for_uri_async(latest_release_url, null);
+                yield AppInfo.launch_default_for_uri_async(latest_release_url, null, lifetime);
             } catch (Error error) {
                 warning("Unable to open release page: %s", error.message);
             }
@@ -567,12 +579,25 @@ namespace MprisMiniPlayer {
             background_portal.enter_background(app_settings.start_on_login);
         }
 
+        protected override void shutdown() {
+            shutting_down = true;
+            lifetime.cancel();
+            clear_restore_minimized_source();
+            clear_main_toplevel();
+            bind_player_actions(null);
+            if (main_window != null) { main_window.shutdown(); main_window.destroy(); main_window = null; }
+            if (preferences_window != null) { preferences_window.destroy(); preferences_window = null; }
+            if (about_dialog != null) { about_dialog.close(); about_dialog = null; }
+            if (status_indicator != null) status_indicator.shutdown();
+            if (background_portal != null) background_portal.shutdown();
+            if (update_checker != null) update_checker.shutdown();
+            if (manager != null) { manager.shutdown(); manager = null; }
+            base.shutdown();
+        }
+
         private void quit_app() {
             clear_restore_minimized_source();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
-            background_portal.leave_background();
-            status_indicator.shutdown();
-
             if (held) {
                 release();
                 held = false;

@@ -11,6 +11,26 @@ private void drain_main_context() {
 
 private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     public bool shuffle = false;
+    public bool fail_root = false;
+    public bool fail_player = false;
+    public bool fail_calls = false;
+    public bool expose_volume = false;
+    public double volume = 0.5;
+    public bool hold_player_snapshot = false;
+    public bool hold_position = false;
+    public bool hold_write = false;
+    public bool hold_volume_read = false;
+    public bool fail_write = false;
+    public bool fail_volume_read = false;
+    public double volume_limit = double.MAX;
+    public int writes = 0;
+    public int calls = 0;
+    public int player_reads = 0;
+    public int shutdowns = 0;
+    private SourceFunc? snapshot_callback;
+    private SourceFunc? position_callback;
+    private SourceFunc? write_callback;
+    private SourceFunc? volume_read_callback;
     public string loop_status = "None";
     public bool has_track_list = true;
     public string[] track_ids = {
@@ -19,13 +39,22 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         "/org/mpris/MediaPlayer2/track/three"
     };
     public string last_property = "";
+    public string last_method = "";
+    public bool reverse_metadata = false;
     public string last_go_to = "";
     public int queue_reads = 0;
     public int[] metadata_batch_sizes = {};
     public bool hold_next_metadata_call = false;
     private SourceFunc? held_metadata_callback;
 
-    public Variant get_all(string interface_name) throws Error {
+    public void shutdown() { shutdowns++; }
+
+    public async Variant get_all(string interface_name, Cancellable? cancellable = null) throws Error {
+        if (interface_name == ROOT_IFACE && fail_root) throw new IOError.NOT_SUPPORTED("Root unavailable");
+        if (interface_name == PLAYER_IFACE) {
+            player_reads++;
+            if (fail_player) throw new IOError.TIMED_OUT("Player timed out");
+        }
         var properties = new VariantBuilder(new VariantType("a{sv}"));
         if (interface_name == ROOT_IFACE) {
             properties.add("{sv}", "Identity", new Variant.string("Test Player"));
@@ -38,8 +67,15 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
             properties.add("{sv}", "Shuffle", new Variant.boolean(shuffle));
             properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
             properties.add("{sv}", "Metadata", current_metadata());
+            if (expose_volume) properties.add("{sv}", "Volume", new Variant.double(volume));
         }
-        return properties.end();
+        Variant result = properties.end();
+        if (interface_name == PLAYER_IFACE && hold_player_snapshot) {
+            hold_player_snapshot = false;
+            snapshot_callback = get_all.callback;
+            yield;
+        }
+        return result;
     }
 
     public Variant read_property(string interface_name, string property_name) throws Error {
@@ -50,23 +86,52 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         if (interface_name == PLAYER_IFACE && property_name == "Position") {
             return new Variant.int64(0);
         }
+        if (interface_name == PLAYER_IFACE) {
+            if (property_name == "Volume") return new Variant.double(volume);
+            if (property_name == "Shuffle") return new Variant.boolean(shuffle);
+            if (property_name == "LoopStatus") return new Variant.string(loop_status);
+        }
         throw new IOError.NOT_SUPPORTED("Unsupported test property");
     }
 
     public async Variant read_property_async(
         string interface_name,
-        string property_name
+        string property_name, Cancellable? cancellable = null
     ) throws Error {
-        return read_property(interface_name, property_name);
+        Variant result = read_property(interface_name, property_name);
+        if (property_name == "Position" && hold_position) {
+            hold_position = false;
+            position_callback = read_property_async.callback;
+            yield;
+        }
+        if (property_name == "Volume") {
+            if (hold_volume_read) {
+                hold_volume_read = false;
+                volume_read_callback = read_property_async.callback;
+                yield;
+            }
+            if (cancellable != null) cancellable.set_error_if_cancelled();
+            if (fail_volume_read) throw new IOError.TIMED_OUT("Volume read timed out");
+        }
+        return result;
     }
 
-    public void write_property(
+    public async void write_property(
         string interface_name,
         string property_name,
-        Variant value
+        Variant value, Cancellable? cancellable = null
     ) throws Error {
         assert_cmpstr(interface_name, CompareOperator.EQ, PLAYER_IFACE);
         last_property = property_name;
+        writes++;
+        if (hold_write) {
+            hold_write = false;
+            write_callback = write_property.callback;
+            yield;
+        }
+        if (cancellable != null) cancellable.set_error_if_cancelled();
+        if (fail_write) throw new DBusError.ACCESS_DENIED("Volume write denied");
+        if (property_name == "Volume") volume = double.min(volume_limit, value.get_double());
         if (property_name == "Shuffle") {
             shuffle = value.get_boolean();
         } else if (property_name == "LoopStatus") {
@@ -80,13 +145,17 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         Variant? parameters,
         VariantType? reply_type = null
     ) throws Error {
+        calls++;
+        if (fail_calls) throw new DBusError.FAILED("Player disappeared during operation");
+        last_method = method_name;
         if (interface_name == TRACKLIST_IFACE && method_name == "GetTracksMetadata") {
             assert_nonnull(parameters);
             Variant requested_ids = parameters.get_child_value(0);
             metadata_batch_sizes += (int) requested_ids.n_children();
             var metadata = new VariantBuilder(new VariantType("aa{sv}"));
             for (size_t index = 0; index < requested_ids.n_children(); index++) {
-                string id = requested_ids.get_child_value(index).get_string();
+                size_t response_index = reverse_metadata ? requested_ids.n_children() - index - 1 : index;
+                string id = requested_ids.get_child_value(response_index).get_string();
                 metadata.add_value(metadata_for_track(id));
             }
             return new Variant.tuple({ metadata.end() });
@@ -102,7 +171,7 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
         string interface_name,
         string method_name,
         Variant? parameters,
-        VariantType? reply_type = null
+        VariantType? reply_type = null, Cancellable? cancellable = null
     ) throws Error {
         if (
             interface_name == TRACKLIST_IFACE
@@ -113,7 +182,21 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
             held_metadata_callback = call_async.callback;
             yield;
         }
+        if (cancellable != null) cancellable.set_error_if_cancelled();
         return call(interface_name, method_name, parameters, reply_type);
+    }
+
+    public void release_snapshot() {
+        if (snapshot_callback != null) Idle.add((owned) snapshot_callback);
+    }
+    public void release_position() {
+        if (position_callback != null) Idle.add((owned) position_callback);
+    }
+    public void release_write() {
+        if (write_callback != null) Idle.add((owned) write_callback);
+    }
+    public void release_volume_read() {
+        if (volume_read_callback != null) Idle.add((owned) volume_read_callback);
     }
 
     public void release_metadata_call() {
@@ -188,14 +271,18 @@ private void test_shuffle_and_repeat_updates() {
     drain_main_context();
 
     player.toggle_shuffle();
+    drain_main_context();
     assert_true(player.shuffle);
     assert_cmpstr(transport.last_property, CompareOperator.EQ, "Shuffle");
 
     player.cycle_loop_status();
+    drain_main_context();
     assert_cmpstr(player.loop_status, CompareOperator.EQ, "Track");
     player.cycle_loop_status();
+    drain_main_context();
     assert_cmpstr(player.loop_status, CompareOperator.EQ, "Playlist");
     player.cycle_loop_status();
+    drain_main_context();
     assert_cmpstr(player.loop_status, CompareOperator.EQ, "None");
 
     transport.emit_player_state(false, "Track");
@@ -210,12 +297,14 @@ private void test_queue_signals_and_go_to() {
     int initial_reads = transport.queue_reads;
 
     assert_true(player.go_to("/org/mpris/MediaPlayer2/track/three"));
+    drain_main_context();
     assert_cmpstr(
         transport.last_go_to,
         CompareOperator.EQ,
         "/org/mpris/MediaPlayer2/track/three"
     );
     assert_false(player.go_to("/org/mpris/MediaPlayer2/track/stale"));
+    drain_main_context();
     assert_true(transport.queue_reads > initial_reads);
 
     transport.replace_queue({ "/org/mpris/MediaPlayer2/track/three" });
@@ -277,6 +366,7 @@ private void test_obsolete_queue_result_is_not_published() {
 
     transport.track_ids = { "/org/mpris/MediaPlayer2/track/three" };
     player.refresh_queue();
+    transport.release_metadata_call();
     drain_main_context();
     assert_cmpint(player.queue.length, CompareOperator.EQ, 1);
     assert_cmpstr(
@@ -295,8 +385,362 @@ private void test_obsolete_queue_result_is_not_published() {
     );
 }
 
+private void test_malformed_metadata_is_safe() {
+    var transport = new FakeTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var metadata = new VariantBuilder(new VariantType("a{sv}"));
+    metadata.add("{sv}", "xesam:title", new Variant.int32(42));
+    metadata.add("{sv}", "xesam:artist", new Variant.string("wrong type"));
+    metadata.add("{sv}", "mpris:trackid", new Variant.string("invalid-track-id"));
+    metadata.add("{sv}", "mpris:length", new Variant.int64(-1));
+    var properties = new VariantBuilder(new VariantType("a{sv}"));
+    properties.add("{sv}", "Metadata", metadata.end());
+    properties.add("{sv}", "CanSeek", new Variant.boolean(true));
+    properties.add("{sv}", "Volume", new Variant.double(double.NAN));
+    properties.add("{sv}", "Shuffle", new Variant.string("wrong type"));
+    transport.properties_changed(PLAYER_IFACE, properties.end(), new Variant.strv({}));
+    assert_cmpstr(player.title, CompareOperator.EQ, "Unknown track");
+    assert_cmpstr(player.artist, CompareOperator.EQ, "Unknown artist");
+    assert_cmpstr(player.track_id, CompareOperator.EQ, "");
+    assert_true(player.duration_us == 0);
+    assert_false(player.has_volume);
+    player.seek_to_position(1000000);
+    drain_main_context();
+    assert_cmpstr(transport.last_method, CompareOperator.EQ, "Seek");
+
+    properties = new VariantBuilder(new VariantType("a{sv}"));
+    properties.add("{sv}", "Metadata", new Variant.string("not a dictionary"));
+    properties.add("{sv}", "Position", new Variant.string("not an integer"));
+    transport.properties_changed(PLAYER_IFACE, properties.end(), new Variant.strv({}));
+    assert_cmpstr(player.title, CompareOperator.EQ, "Unknown track");
+}
+
+private void test_queue_metadata_uses_track_identity() {
+    var transport = new FakeTransport();
+    transport.reverse_metadata = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    assert_cmpstr(player.queue[0].title, CompareOperator.EQ, "Same title");
+    assert_cmpstr(player.queue[2].title, CompareOperator.EQ, "Third");
+}
+
+private void emit_properties(FakeTransport transport, Variant properties, string[] invalidated = {}) {
+    transport.properties_changed(PLAYER_IFACE, properties, new Variant.strv(invalidated));
+}
+
+private void test_snapshot_omissions_and_invalidations() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    assert_true(player.has_volume);
+    transport.expose_volume = false;
+    emit_properties(transport, new VariantBuilder(new VariantType("a{sv}")).end(), { "Volume", "Metadata", "CanSeek" });
+    drain_main_context();
+    assert_false(player.has_volume);
+    assert_true(player.volume == 1.0);
+    player.shutdown();
+}
+
+private void test_signals_win_over_pending_snapshot() {
+    var transport = new FakeTransport();
+    transport.hold_player_snapshot = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    var metadata = new VariantBuilder(new VariantType("a{sv}"));
+    metadata.add("{sv}", "xesam:title", new Variant.string("Newer title"));
+    var properties = new VariantBuilder(new VariantType("a{sv}"));
+    properties.add("{sv}", "Metadata", metadata.end());
+    properties.add("{sv}", "PlaybackStatus", new Variant.string("Paused"));
+    emit_properties(transport, properties.end());
+    transport.release_snapshot();
+    drain_main_context();
+    assert_true(player.available);
+    assert_cmpstr(player.title, CompareOperator.EQ, "Newer title");
+    assert_cmpstr(player.playback_status, CompareOperator.EQ, "Paused");
+    assert_cmpint(transport.player_reads, CompareOperator.EQ, 1);
+    player.shutdown();
+}
+
+private void test_initialization_failure_and_recovery() {
+    var transport = new FakeTransport();
+    transport.fail_player = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    assert_true(player.initialized);
+    assert_false(player.available);
+    transport.fail_player = false;
+    transport.fail_root = true;
+    player.refresh();
+    drain_main_context();
+    assert_true(player.available);
+    assert_true(player.can_play_pause);
+    transport.fail_player = true;
+    player.refresh();
+    drain_main_context();
+    assert_false(player.available);
+    assert_false(player.can_control);
+    transport.fail_player = false;
+    transport.fail_root = false;
+    player.refresh();
+    drain_main_context();
+    assert_true(player.available);
+    player.shutdown();
+    assert_cmpint(transport.shutdowns, CompareOperator.EQ, 1);
+}
+
+private void test_controls_and_error_information() {
+    var transport = new FakeTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var props = new VariantBuilder(new VariantType("a{sv}"));
+    props.add("{sv}", "CanPause", new Variant.boolean(false));
+    emit_properties(transport, props.end());
+    assert_false(player.can_play_pause);
+    int calls = transport.calls;
+    player.play_pause();
+    assert_cmpint(transport.calls, CompareOperator.EQ, calls);
+    props = new VariantBuilder(new VariantType("a{sv}"));
+    props.add("{sv}", "PlaybackStatus", new Variant.string("Paused"));
+    emit_properties(transport, props.end());
+    assert_true(player.can_play_pause);
+    player.play_pause();
+    drain_main_context();
+    assert_cmpstr(transport.last_method, CompareOperator.EQ, "Play");
+    bool failed = false;
+    player.operation_failed.connect((operation, error) => {
+        assert_true(error is DBusError.FAILED);
+        assert_cmpstr(error.message, CompareOperator.EQ, "Player disappeared during operation");
+        failed = true;
+    });
+    transport.fail_calls = true;
+    player.play_pause();
+    drain_main_context();
+    assert_true(failed);
+    player.shutdown();
+    calls = transport.calls;
+    player.play_pause();
+    assert_cmpint(transport.calls, CompareOperator.EQ, calls);
+}
+
+private void test_queue_refresh_is_single_flight() {
+    var transport = new FakeTransport();
+    transport.hold_next_metadata_call = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    for (int i = 0; i < 100; i++) transport.track_list_changed();
+    assert_cmpint(transport.queue_reads, CompareOperator.EQ, 1);
+    transport.release_metadata_call();
+    drain_main_context();
+    assert_cmpint(transport.queue_reads, CompareOperator.EQ, 2);
+    player.set_queue_monitoring(false);
+    int reads = transport.queue_reads;
+    transport.track_list_changed();
+    transport.properties_changed(TRACKLIST_IFACE, new VariantBuilder(new VariantType("a{sv}")).end(), new Variant.strv({ "Tracks" }));
+    drain_main_context();
+    assert_cmpint(transport.queue_reads, CompareOperator.EQ, reads);
+    assert_cmpint(player.queue.length, CompareOperator.EQ, 0);
+    player.shutdown();
+}
+
+private void test_seeked_wins_over_pending_position() {
+    var transport = new FakeTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var props = new VariantBuilder(new VariantType("a{sv}"));
+    props.add("{sv}", "PlaybackStatus", new Variant.string("Paused"));
+    emit_properties(transport, props.end());
+    drain_main_context();
+    transport.hold_position = true;
+    player.refresh_position();
+    transport.seeked(42000000);
+    transport.release_position();
+    drain_main_context();
+    assert_true(player.position_us == 42000000);
+    player.shutdown();
+}
+
+private void test_volume_writes_are_coalesced() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    transport.hold_write = true;
+    player.set_player_volume(0.1);
+    for (int i = 2; i <= 10; i++) player.set_player_volume(i / 10.0);
+    assert_cmpint(transport.writes, CompareOperator.EQ, 1);
+    transport.release_write();
+    drain_main_context();
+    assert_cmpint(transport.writes, CompareOperator.EQ, 2);
+    assert_true(player.volume == 1.0);
+    player.shutdown();
+}
+
+private void test_pending_volume_steps_accumulate() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    transport.hold_write = true;
+    for (int i = 0; i < 5; i++) player.adjust_volume(0.05);
+    assert_true(player.volume == 0.5);
+    assert_true((player.display_volume - 0.75).abs() < 0.00001);
+    transport.release_write();
+    drain_main_context();
+    assert_true((player.volume - 0.75).abs() < 0.00001);
+    assert_cmpint(transport.writes, CompareOperator.EQ, 2);
+    player.shutdown();
+}
+
+private void test_pending_volume_survives_until_readback() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    transport.volume_limit = 0.7;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    double observed = player.display_volume;
+    ulong handler = player.changed.connect(() => observed = player.display_volume);
+    transport.hold_write = true;
+    transport.hold_volume_read = true;
+    player.set_player_volume(0.8);
+    assert_true(observed == 0.8);
+    assert_true(player.volume == 0.5);
+    player.set_player_volume(0.9);
+    assert_true(observed == 0.9);
+
+    transport.release_write();
+    drain_main_context();
+    assert_cmpint(transport.writes, CompareOperator.EQ, 2);
+    assert_true(player.volume == 0.5);
+    assert_true(player.display_volume == 0.9);
+    assert_true(observed == 0.9);
+    transport.release_volume_read();
+    drain_main_context();
+    assert_true(player.volume == 0.7); // The player clamps the requested value.
+    assert_true(player.display_volume == 0.7);
+    assert_true(observed == 0.7);
+    SignalHandler.disconnect(player, handler);
+    player.shutdown();
+}
+
+private void test_pending_volume_rolls_back_on_failure() {
+    for (int read_failure = 0; read_failure < 2; read_failure++) {
+        var transport = new FakeTransport();
+        transport.expose_volume = true;
+        transport.volume_limit = 0.6;
+        var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+        drain_main_context();
+        double observed = player.display_volume;
+        ulong handler = player.changed.connect(() => observed = player.display_volume);
+        int errors = 0;
+        player.operation_failed.connect((operation, error) => {
+            assert_true(operation.contains("Set/Get(Volume)"));
+            if (read_failure != 0) {
+                assert_true(error is IOError.TIMED_OUT);
+                assert_cmpstr(error.message, CompareOperator.EQ, "Volume read timed out");
+            } else {
+                assert_true(error is DBusError.ACCESS_DENIED);
+                assert_cmpstr(error.message, CompareOperator.EQ, "Volume write denied");
+            }
+            errors++;
+        });
+        transport.fail_write = read_failure == 0;
+        transport.fail_volume_read = read_failure != 0;
+        transport.hold_write = true;
+        transport.hold_player_snapshot = true;
+        player.set_player_volume(0.9);
+        assert_true(observed == 0.9);
+        transport.release_write();
+        drain_main_context();
+        assert_cmpint(errors, CompareOperator.EQ, 1);
+        assert_true(player.display_volume == 0.5);
+        assert_true(observed == 0.5); // Roll back even while recovery is pending.
+        transport.release_snapshot();
+        drain_main_context();
+        double actual = read_failure != 0 ? 0.6 : 0.5;
+        assert_true(player.volume == actual);
+        assert_true(observed == actual);
+        SignalHandler.disconnect(player, handler);
+        player.shutdown();
+    }
+}
+
+private void test_pending_volume_settles_to_newer_signal() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    transport.hold_volume_read = true;
+    player.set_player_volume(0.9);
+    drain_main_context();
+    transport.volume = 0.4;
+    var props = new VariantBuilder(new VariantType("a{sv}"));
+    props.add("{sv}", "Volume", new Variant.double(0.4));
+    emit_properties(transport, props.end());
+    assert_true(player.volume == 0.4);
+    assert_true(player.display_volume == 0.9);
+    transport.release_volume_read();
+    drain_main_context();
+    assert_true(player.volume == 0.4);
+    assert_true(player.display_volume == 0.4);
+    player.shutdown();
+}
+
+private void test_pending_volume_notification_can_shutdown() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    int changes = 0;
+    ulong handler = player.changed.connect(() => { changes++; player.shutdown(); });
+    transport.hold_write = true;
+    player.set_player_volume(0.9);
+    assert_false(player.available);
+    assert_true(player.display_volume == 0.5);
+    SignalHandler.disconnect(player, handler);
+    var weak_player = WeakRef(player);
+    player = null;
+    transport.release_write();
+    drain_main_context();
+    assert_cmpint(changes, CompareOperator.EQ, 1);
+    assert_null(weak_player.get());
+}
+
+private void test_shutdown_discards_pending_results() {
+    var transport = new FakeTransport();
+    transport.hold_player_snapshot = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    int changes = 0;
+    player.changed.connect(() => changes++);
+    player.shutdown();
+    player.shutdown();
+    transport.release_snapshot();
+    drain_main_context();
+    assert_cmpint(changes, CompareOperator.EQ, 0);
+    assert_cmpint(transport.shutdowns, CompareOperator.EQ, 1);
+    assert_false(player.available);
+    var weak_player = WeakRef(player);
+    player = null;
+    assert_null(weak_player.get());
+}
+
 public int main(string[] args) {
     Test.init(ref args);
+    Test.add_func("/mpris-player/pending-volume-readback", test_pending_volume_survives_until_readback);
+    Test.add_func("/mpris-player/pending-volume-failure", test_pending_volume_rolls_back_on_failure);
+    Test.add_func("/mpris-player/pending-volume-newer-signal", test_pending_volume_settles_to_newer_signal);
+    Test.add_func("/mpris-player/pending-volume-shutdown", test_pending_volume_notification_can_shutdown);
+    Test.add_func("/mpris-player/pending-volume-steps", test_pending_volume_steps_accumulate);
+    Test.add_func("/mpris-player/snapshot-omission", test_snapshot_omissions_and_invalidations);
+    Test.add_func("/mpris-player/snapshot-signal-race", test_signals_win_over_pending_snapshot);
+    Test.add_func("/mpris-player/initialization-recovery", test_initialization_failure_and_recovery);
+    Test.add_func("/mpris-player/control-failure", test_controls_and_error_information);
+    Test.add_func("/mpris-player/queue-single-flight", test_queue_refresh_is_single_flight);
+    Test.add_func("/mpris-player/seeked-race", test_seeked_wins_over_pending_position);
+    Test.add_func("/mpris-player/volume-coalescing", test_volume_writes_are_coalesced);
+    Test.add_func("/mpris-player/shutdown-pending", test_shutdown_discards_pending_results);
+    Test.add_func("/mpris-player/malformed-metadata", test_malformed_metadata_is_safe);
+    Test.add_func("/mpris-player/queue-metadata-identity", test_queue_metadata_uses_track_identity);
     Test.add_func("/mpris-player/initial-state-and-queue", test_initial_state_and_queue);
     Test.add_func("/mpris-player/shuffle-repeat-updates", test_shuffle_and_repeat_updates);
     Test.add_func("/mpris-player/queue-signals-and-go-to", test_queue_signals_and_go_to);
