@@ -35,7 +35,9 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         "/org/mpris/MediaPlayer2/track/two"
     };
 
-    public Variant get_all(string interface_name) throws Error {
+    public void shutdown() {}
+
+    public async Variant get_all(string interface_name, Cancellable? cancellable = null) throws Error {
         var properties = new VariantBuilder(new VariantType("a{sv}"));
         if (interface_name == ROOT_IFACE) {
             properties.add("{sv}", "HasTrackList", new Variant.boolean(true));
@@ -61,20 +63,25 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         if (interface_name == PLAYER_IFACE && property_name == "Position") {
             return new Variant.int64(0);
         }
+        if (interface_name == PLAYER_IFACE) {
+            if (property_name == "Volume") return new Variant.double(0.55);
+            if (property_name == "Shuffle") return new Variant.boolean(shuffle);
+            if (property_name == "LoopStatus") return new Variant.string(loop_status);
+        }
         throw new IOError.NOT_SUPPORTED("Unsupported test property");
     }
 
     public async Variant read_property_async(
         string interface_name,
-        string property_name
+        string property_name, Cancellable? cancellable = null
     ) throws Error {
         return read_property(interface_name, property_name);
     }
 
-    public void write_property(
+    public async void write_property(
         string interface_name,
         string property_name,
-        Variant value
+        Variant value, Cancellable? cancellable = null
     ) throws Error {
         if (property_name == "Shuffle") {
             shuffle = value.get_boolean();
@@ -108,7 +115,7 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         string interface_name,
         string method_name,
         Variant? parameters,
-        VariantType? reply_type = null
+        VariantType? reply_type = null, Cancellable? cancellable = null
     ) throws Error {
         return call(interface_name, method_name, parameters, reply_type);
     }
@@ -588,8 +595,35 @@ private void test_repeat_availability_updates_layout() {
     assert_false(layout_contains_id(updated_layout, REPEAT_ID));
 }
 
+private void test_metadata_separator_collision() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+    string[] titles = { "Title\x1f" + "Artist", "Title" };
+    string[] artists = { "Suffix", "Artist\x1fSuffix" };
+    uint before = 0;
+    for (int i = 0; i < 2; i++) {
+        var metadata = new VariantBuilder(new VariantType("a{sv}"));
+        metadata.add("{sv}", "xesam:title", new Variant.string(titles[i]));
+        metadata.add("{sv}", "xesam:artist", new Variant.strv({ artists[i] }));
+        var props = new VariantBuilder(new VariantType("a{sv}"));
+        props.add("{sv}", "Metadata", metadata.end());
+        transport.properties_changed(PLAYER_IFACE, props.end(), new Variant.strv({}));
+        drain_main_context();
+        uint revision;
+        get_root_layout(menu, out revision);
+        if (i == 0) before = revision;
+        else assert_true(revision > before);
+    }
+    menu.set_player(null);
+    player.shutdown();
+}
+
 public int main(string[] args) {
     Test.init(ref args);
+    Test.add_func("/status-menu/metadata-separator-collision", test_metadata_separator_collision);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
     Test.add_func("/status-menu/shown-layout", test_shown_layout);
     Test.add_func("/status-menu/shown-state-revision", test_shown_state_revision);

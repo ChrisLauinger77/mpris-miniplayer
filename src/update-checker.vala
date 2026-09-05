@@ -6,6 +6,7 @@ namespace MprisMiniPlayer {
             "/ChrisLauinger77/mpris-miniplayer/releases/tag/";
 
         private Soup.Session session;
+        private Cancellable lifetime = new Cancellable();
 
         public signal void update_available(string version, string release_url);
 
@@ -15,16 +16,23 @@ namespace MprisMiniPlayer {
             session.user_agent = "MPRIS-MiniPlayer/%s".printf(Config.VERSION);
         }
 
+        public void shutdown() {
+            lifetime.cancel();
+            session.abort();
+        }
+
         public async void check() {
+            if (lifetime.is_cancelled()) return;
             var message = new Soup.Message("HEAD", LATEST_RELEASE_URL);
 
             try {
-                yield session.send_and_read_async(message, Priority.DEFAULT, null);
+                yield session.send_and_read_async(message, Priority.DEFAULT, lifetime);
             } catch (Error error) {
                 debug("Unable to check for updates: %s", error.message);
                 return;
             }
 
+            if (lifetime.is_cancelled()) return;
             if (message.get_status() != Soup.Status.OK) {
                 debug("Update check returned HTTP status %u", message.get_status());
                 return;

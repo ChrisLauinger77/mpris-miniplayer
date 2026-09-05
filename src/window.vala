@@ -74,6 +74,18 @@ namespace MprisMiniPlayer {
         private uint artwork_request_id = 0;
         private Soup.Session artwork_session;
         private Cancellable? artwork_cancellable;
+        private bool stopped = false;
+        private ulong manager_changed_handler_id;
+        private uint queue_scroll_source;
+        private Gtk.EventControllerLegacy seek_events;
+        private uint seek_release_source;
+        private Gtk.EventControllerLegacy volume_events;
+        private uint volume_release_source;
+        private MprisPlayer? seek_player;
+        private MprisPlayer? volume_player;
+        private uint64 seek_track_revision;
+        private bool dragging_seek = false;
+        private bool dragging_volume = false;
         private Gdk.Pixbuf? current_artwork_pixbuf;
         private Gtk.CssProvider tint_provider;
 
@@ -150,11 +162,54 @@ namespace MprisMiniPlayer {
 
             build_ui();
             if (manager != null) {
-                manager.active_player_changed.connect(sync_active_player);
+                manager_changed_handler_id = manager.active_player_changed.connect(sync_active_player);
             }
             set_compact_mode(compact_mode);
-            start_position_timer();
+            map.connect(() => {
+                if (player != null) player.refresh_position();
+                start_position_timer();
+            });
+            unmap.connect(() => { stop_position_timer(); clear_interactions(); });
             refresh_players();
+        }
+
+        public void shutdown() {
+            if (stopped) return;
+            stopped = true;
+            stop_position_timer();
+            clear_interactions();
+            if (queue_scroll_source != 0) { Source.remove(queue_scroll_source); queue_scroll_source = 0; }
+            if (manager != null && manager_changed_handler_id != 0) {
+                SignalHandler.disconnect(manager, manager_changed_handler_id);
+                manager_changed_handler_id = 0;
+            }
+            if (player != null && player_changed_handler_id != 0) {
+                SignalHandler.disconnect(player, player_changed_handler_id);
+                player_changed_handler_id = 0;
+            }
+            player = null;
+            seek_player = null;
+            volume_player = null;
+            artwork_request_id++;
+            cancel_artwork_request();
+            artwork_session.abort();
+            queue_store.remove_all();
+            cover.paintable = null;
+            current_artwork_pixbuf = null;
+            Gtk.StyleContext.remove_provider_for_display(get_display(), tint_provider);
+        }
+
+        private void clear_interactions() {
+            if (seek_release_source != 0) { Source.remove(seek_release_source); seek_release_source = 0; }
+            if (volume_release_source != 0) { Source.remove(volume_release_source); volume_release_source = 0; }
+            dragging_seek = dragging_volume = false;
+            seek_player = volume_player = null;
+        }
+
+        private void stop_position_timer() {
+            if (position_timeout_id == 0) return;
+            Source.remove(position_timeout_id);
+            position_timeout_id = 0;
         }
 
         public void set_album_tint_enabled(bool enabled) {
@@ -171,9 +226,6 @@ namespace MprisMiniPlayer {
         }
 
         public void refresh_players() {
-            if (manager != null) {
-                manager.refresh_active_player();
-            }
             sync_active_player();
         }
 
@@ -302,6 +354,32 @@ namespace MprisMiniPlayer {
             );
             progress_scale.hexpand = true;
             progress_scale.value_changed.connect(on_progress_value_changed);
+            seek_events = new Gtk.EventControllerLegacy();
+            seek_events.propagation_phase = Gtk.PropagationPhase.CAPTURE;
+            seek_events.event.connect((event) => {
+                switch (event.get_event_type()) {
+                    case Gdk.EventType.BUTTON_PRESS:
+                    case Gdk.EventType.TOUCH_BEGIN:
+                        if (seek_release_source != 0) { Source.remove(seek_release_source); seek_release_source = 0; }
+                        dragging_seek = true;
+                        seek_player = player;
+                        seek_track_revision = player != null ? player.track_revision : 0;
+                        break;
+                    case Gdk.EventType.BUTTON_RELEASE:
+                    case Gdk.EventType.TOUCH_END:
+                    case Gdk.EventType.TOUCH_CANCEL:
+                        if (seek_release_source == 0) seek_release_source = Idle.add(() => {
+                            seek_release_source = 0;
+                            dragging_seek = false;
+                            seek_player = null;
+                            update_progress();
+                            return Source.REMOVE;
+                        });
+                        break;
+                }
+                return false;
+            });
+            progress_scale.add_controller(seek_events);
             progress_row.append(progress_scale);
 
             time_label = new Gtk.Label("0:00 / 0:00");
@@ -338,6 +416,31 @@ namespace MprisMiniPlayer {
             volume_scale.update_property(Gtk.AccessibleProperty.LABEL, _("Volume"));
             volume_scale.set_size_request(90, -1);
             volume_scale.value_changed.connect(on_volume_value_changed);
+            volume_events = new Gtk.EventControllerLegacy();
+            volume_events.propagation_phase = Gtk.PropagationPhase.CAPTURE;
+            volume_events.event.connect((event) => {
+                switch (event.get_event_type()) {
+                    case Gdk.EventType.BUTTON_PRESS:
+                    case Gdk.EventType.TOUCH_BEGIN:
+                        if (volume_release_source != 0) { Source.remove(volume_release_source); volume_release_source = 0; }
+                        dragging_volume = true;
+                        volume_player = player;
+                        break;
+                    case Gdk.EventType.BUTTON_RELEASE:
+                    case Gdk.EventType.TOUCH_END:
+                    case Gdk.EventType.TOUCH_CANCEL:
+                        if (volume_release_source == 0) volume_release_source = Idle.add(() => {
+                            volume_release_source = 0;
+                            dragging_volume = false;
+                            volume_player = null;
+                            update_volume();
+                            return Source.REMOVE;
+                        });
+                        break;
+                }
+                return false;
+            });
+            volume_scale.add_controller(volume_events);
             volume_box.append(volume_scale);
 
             shuffle_button = new Gtk.ToggleButton();
@@ -488,7 +591,8 @@ namespace MprisMiniPlayer {
         }
 
         private void sync_active_player() {
-            if (manager == null) {
+            if (stopped) return;
+            if (manager == null || (manager.ready && (!manager.connected || manager.discovery_failed))) {
                 set_player(null);
                 show_empty_state(_("Session D-Bus unavailable"), _("Unable to monitor MPRIS players"));
                 return;
@@ -525,7 +629,12 @@ namespace MprisMiniPlayer {
                 player_changed_handler_id = 0;
             }
 
+            stop_position_timer();
             player = selected_player;
+            // A drag started on the old model must never control its replacement.
+            seek_player = null;
+            volume_player = null;
+            queue_store.remove_all();
             displayed_queue_revision = uint64.MAX;
             displayed_queue_track_id = "";
             queue_view_dirty = true;
@@ -536,7 +645,7 @@ namespace MprisMiniPlayer {
         }
 
         private void update_player_state() {
-            if (player == null) {
+            if (stopped || player == null) {
                 return;
             }
 
@@ -550,6 +659,7 @@ namespace MprisMiniPlayer {
             update_progress();
             update_volume();
             update_controls(true);
+            start_position_timer();
             update_secondary_controls();
             sync_queue_views();
 
@@ -742,7 +852,10 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            Idle.add(() => {
+            if (queue_scroll_source != 0) Source.remove(queue_scroll_source);
+            queue_scroll_source = Idle.add(() => {
+                queue_scroll_source = 0;
+                if (stopped) return Source.REMOVE;
                 if (current_queue_index < 0 || !queue_popover.visible) {
                     return Source.REMOVE;
                 }
@@ -1270,10 +1383,11 @@ namespace MprisMiniPlayer {
         }
 
         private void update_controls(bool has_player) {
+            has_player = has_player && player.available && player.can_control;
             previous_button.sensitive = has_player && player.can_go_previous;
-            play_pause_button.sensitive = has_player && (player.can_play || player.can_pause);
+            play_pause_button.sensitive = has_player && player.can_play_pause;
             next_button.sensitive = has_player && player.can_go_next;
-            player_button.sensitive = has_player;
+            player_button.sensitive = manager != null && manager.list_players().length > 0;
             progress_scale.sensitive = has_player && player.can_seek && player.duration_us > 0;
             volume_button.sensitive = has_player && player.has_volume && player.can_control;
             volume_scale.sensitive = has_player && player.has_volume && player.can_control;
@@ -1288,24 +1402,20 @@ namespace MprisMiniPlayer {
             }
 
             foreach (var bus_name in bus_names) {
-                try {
-                    var listed_player = new MprisPlayer(bus_name, false);
-                    player_list.append(create_player_row(listed_player));
-                } catch (Error error) {
-                    warning("Unable to list player %s: %s", bus_name, error.message);
-                }
+                var listed_player = manager.get_player(bus_name);
+                if (listed_player != null) player_list.append(create_player_row(listed_player));
             }
         }
 
         private Gtk.Widget create_player_row(MprisPlayer listed_player) {
             var button = new Gtk.Button();
+            button.sensitive = listed_player.available;
             button.has_frame = false;
             button.hexpand = true;
             button.clicked.connect(() => {
                 player_popover.popdown();
                 if (
                     manager != null
-                    && (player == null || player.bus_name != listed_player.bus_name)
                 ) {
                     manager.select_player(listed_player.bus_name);
                 }
@@ -1338,15 +1448,16 @@ namespace MprisMiniPlayer {
         }
 
         private void start_position_timer() {
+            if (stopped || !get_mapped() || player == null || player.playback_status != "Playing") {
+                stop_position_timer();
+                return;
+            }
             if (position_timeout_id != 0) {
                 return;
             }
 
             position_timeout_id = Timeout.add_seconds(1, () => {
                 if (player != null) {
-                    if (player.playback_status == "Playing") {
-                        player.refresh_position();
-                    }
                     update_progress();
                 }
 
@@ -1355,6 +1466,7 @@ namespace MprisMiniPlayer {
         }
 
         private void update_progress() {
+            if (dragging_seek && player != null && seek_player == player && seek_track_revision == player.track_revision) return;
             if (player == null || player.duration_us <= 0) {
                 updating_progress = true;
                 progress_scale.set_range(0, 1);
@@ -1384,15 +1496,18 @@ namespace MprisMiniPlayer {
         }
 
         private void on_progress_value_changed() {
-            if (updating_progress || player == null || !player.can_seek || player.duration_us <= 0) {
+            if (updating_progress || player == null || !player.can_seek || player.duration_us <= 0
+                || (dragging_seek && (seek_player != player || seek_track_revision != player.track_revision))) {
                 return;
             }
 
-            int64 position_us = (int64) (progress_scale.get_value() * 1000000.0);
+            double target = progress_scale.get_value() * 1000000.0;
+            int64 position_us = target >= int64.MAX ? int64.MAX : (int64) target;
             player.seek_to_position(position_us);
         }
 
         private void update_volume() {
+            if (dragging_volume && player != null && volume_player == player) return;
             bool has_volume = player != null && player.has_volume;
             volume_box.visible = has_volume;
 
@@ -1404,7 +1519,8 @@ namespace MprisMiniPlayer {
         }
 
         private void on_volume_value_changed() {
-            if (updating_volume || player == null || !player.has_volume || !player.can_control) {
+            if (updating_volume || player == null || !player.has_volume || !player.can_control
+                || (dragging_volume && volume_player != player)) {
                 return;
             }
 
@@ -1450,10 +1566,10 @@ namespace MprisMiniPlayer {
 
         private string format_time(int64 microseconds) {
             int64 total_seconds = microseconds / 1000000;
-            int minutes = (int) (total_seconds / 60);
+            int64 minutes = total_seconds / 60;
             int seconds = (int) (total_seconds % 60);
 
-            return "%d:%02d".printf(minutes, seconds);
+            return ("%" + int64.FORMAT + ":%02d").printf(minutes, seconds);
         }
 
     }

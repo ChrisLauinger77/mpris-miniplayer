@@ -777,26 +777,17 @@ namespace MprisMiniPlayer {
             }
 
             var signature = new StringBuilder();
-            signature.append_printf(
-                "%s\x1f%s\x1f%s\x1f%s\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%d\x1f%s\x1f%d\x1f%s",
-                player.title,
-                player.artist,
-                player.album,
-                player.playback_status,
-                player.can_go_previous ? 1 : 0,
-                player.can_go_next ? 1 : 0,
-                player.can_play ? 1 : 0,
-                player.can_pause ? 1 : 0,
-                player.can_control ? 1 : 0,
-                player.has_volume ? 1 : 0,
-                current_volume_percent(),
-                player.has_shuffle ? 1 : 0,
-                player.shuffle ? 1 : 0,
-                player.has_loop_status ? 1 : 0,
-                player.loop_status,
-                player.has_track_list ? 1 : 0,
-                player.track_id
-            );
+            signature.append(new Variant.strv({ player.title, player.artist, player.album,
+                player.playback_status, player.loop_status, player.track_id }).print(true));
+            int[] values = {
+                player.can_go_previous ? 1 : 0, player.can_go_next ? 1 : 0,
+                player.can_play ? 1 : 0, player.can_pause ? 1 : 0,
+                player.can_control ? 1 : 0, player.has_volume ? 1 : 0,
+                current_volume_percent(), player.has_shuffle ? 1 : 0,
+                player.shuffle ? 1 : 0, player.has_loop_status ? 1 : 0,
+                player.has_track_list ? 1 : 0
+            };
+            foreach (int value in values) signature.append_printf(";%d", value);
             return signature.str;
         }
 
@@ -888,18 +879,13 @@ namespace MprisMiniPlayer {
                 return false;
             }
             if (id == PREVIOUS_ID) {
-                return player != null && player.can_go_previous;
+                return player != null && player.available && player.can_control && player.can_go_previous;
             }
             if (id == PLAY_PAUSE_ID) {
-                return player != null
-                    && (
-                        player.playback_status == "Playing"
-                            ? player.can_pause
-                            : player.can_play
-                    );
+                return player != null && player.can_play_pause;
             }
             if (id == NEXT_ID) {
-                return player != null && player.can_go_next;
+                return player != null && player.available && player.can_control && player.can_go_next;
             }
             if (id == SHUFFLE_ID) {
                 return player != null && player.has_shuffle && player.can_control;
@@ -1146,7 +1132,7 @@ namespace MprisMiniPlayer {
         }
 
         private int current_volume_percent() {
-            return player == null ? 0 : (int) (player.volume * 100.0 + 0.5);
+            return player == null ? 0 : (int) double.min(int.MAX, player.volume * 100.0 + 0.5);
         }
 
         private string escape_label(string label) {

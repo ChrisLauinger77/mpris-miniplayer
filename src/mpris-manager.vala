@@ -1,233 +1,232 @@
 namespace MprisMiniPlayer {
-    [DBus (name = "org.freedesktop.DBus")]
-    private interface FreedesktopDBus : Object {
-        public abstract string[] list_names() throws Error;
-    }
-
     public class MprisManager : Object {
         private const string MPRIS_PREFIX = "org.mpris.MediaPlayer2.";
-
-        private DBusConnection bus;
-        private FreedesktopDBus dbus_proxy;
+        private const string DBUS_NAME = "org.freedesktop.DBus";
+        private const string DBUS_PATH = "/org/freedesktop/DBus";
+        private DBusConnection? bus;
+        private Cancellable lifetime = new Cancellable();
         private uint name_owner_subscription_id;
-        private uint player_properties_subscription_id;
-        private bool manual_selection = false;
+        private ulong closed_handler_id;
+        private uint reconcile_source;
+        private bool stopped = false;
+        private bool listed_names = false;
+        private string manual_selection = "";
+        private string[] names = {};
+        private HashTable<string, MprisPlayer> players = new HashTable<string, MprisPlayer>(str_hash, str_equal);
+        // Only outstanding discovery calls need revisions. Owner events update
+        // the registry immediately and invalidate their older lookup replies.
+        private HashTable<string, uint> discovering = new HashTable<string, uint>(str_hash, str_equal);
+        private string published_players = "";
+        private string published_details = "";
 
+        public bool connected { get; private set; default = false; }
+        public bool discovery_failed { get; private set; default = false; }
+        public bool ready { get; private set; default = false; }
         public MprisPlayer? active_player { get; private set; default = null; }
-
         public signal void players_changed();
-        public signal void player_priority_changed();
+        public signal void players_updated();
         public signal void active_player_changed();
+        public signal void discovery_finished();
+        public signal void operation_failed(string operation, Error error);
 
-        public MprisManager() throws Error {
-            bus = Bus.get_sync(BusType.SESSION);
-            dbus_proxy = Bus.get_proxy_sync(
-                BusType.SESSION,
-                "org.freedesktop.DBus",
-                "/org/freedesktop/DBus"
-            );
-            name_owner_subscription_id = bus.signal_subscribe(
-                "org.freedesktop.DBus",
-                "org.freedesktop.DBus",
-                "NameOwnerChanged",
-                "/org/freedesktop/DBus",
-                null,
-                DBusSignalFlags.NONE,
-                on_name_owner_changed
-            );
-            player_properties_subscription_id = bus.signal_subscribe(
-                null,
-                "org.freedesktop.DBus.Properties",
-                "PropertiesChanged",
-                "/org/mpris/MediaPlayer2",
-                "org.mpris.MediaPlayer2.Player",
-                DBusSignalFlags.NONE,
-                on_player_properties_changed
-            );
-            refresh_active_player();
+        public MprisManager() {
+            start.begin();
         }
 
-        ~MprisManager() {
-            if (name_owner_subscription_id != 0) {
-                bus.signal_unsubscribe(name_owner_subscription_id);
+        internal MprisManager.with_connection(DBusConnection connection) {
+            start.begin(connection);
+        }
+
+        private async void start(DBusConnection? connection = null) {
+            try {
+                bus = connection ?? (yield Bus.get(BusType.SESSION, lifetime));
+                if (stopped) return;
+                connected = true;
+                closed_handler_id = bus.on_closed.connect(() => shutdown());
+                name_owner_subscription_id = bus.signal_subscribe(
+                    DBUS_NAME, DBUS_NAME, "NameOwnerChanged", DBUS_PATH, null,
+                    DBusSignalFlags.NONE, on_name_owner_changed
+                );
+                Variant result = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "ListNames",
+                    null, new VariantType("(as)"), DBusCallFlags.NONE, 3000, lifetime);
+                if (stopped) return;
+                listed_names = true;
+                string[] snapshot_names = result.get_child_value(0).dup_strv();
+                foreach (var name in snapshot_names) {
+                    if (name.has_prefix(MPRIS_PREFIX)) {
+                        // Start independently: one unresponsive player must not
+                        // delay discovery of the others.
+                        discover.begin(name);
+                    }
+                }
+            } catch (Error error) {
+                if (!stopped) {
+                    listed_names = true;
+                    discovery_failed = true;
+                    operation_failed("Discover players", error);
+                }
             }
-            if (player_properties_subscription_id != 0) {
-                bus.signal_unsubscribe(player_properties_subscription_id);
+            if (!stopped && discovering.size() == 0) finish_discovery();
+        }
+
+        private async void discover(string name) {
+            discovering.insert(name, 1);
+            try {
+                Variant result = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "GetNameOwner",
+                    new Variant("(s)", name), new VariantType("(s)"), DBusCallFlags.NONE, 3000, lifetime);
+                if (!stopped && discovering.lookup(name) == 1) {
+                    replace_owner(name, result.get_child_value(0).get_string());
+                }
+            } catch (Error error) {
+                if (!stopped && !(error is DBusError.NAME_HAS_NO_OWNER)) {
+                    operation_failed("GetNameOwner(%s)".printf(name), error);
+                }
             }
+            discovering.remove(name);
+            if (!stopped && discovering.size() == 0) finish_discovery();
+        }
+
+        private void finish_discovery() {
+            if (ready || !listed_names || discovering.size() != 0) return;
+            foreach (var player in players.get_values()) if (!player.initialized) return;
+            ready = true;
+            discovery_finished();
+            schedule_reconcile();
+        }
+
+        public void shutdown() {
+            if (stopped) return;
+            stopped = true;
+            connected = false;
+            lifetime.cancel();
+            if (reconcile_source != 0) {
+                Source.remove(reconcile_source);
+                reconcile_source = 0;
+            }
+            if (bus != null) {
+                if (name_owner_subscription_id != 0) bus.signal_unsubscribe(name_owner_subscription_id);
+                if (closed_handler_id != 0) SignalHandler.disconnect(bus, closed_handler_id);
+            }
+            name_owner_subscription_id = 0;
+            closed_handler_id = 0;
+            foreach (var player in players.get_values()) player.shutdown();
+            players.remove_all();
+            names = {};
+            active_player = null;
+            active_player_changed();
+            players_changed();
         }
 
         public string[] list_players() {
-            try {
-                string[] names = dbus_proxy.list_names();
-                string[] players = {};
-                foreach (var name in names) {
-                    if (name.has_prefix(MPRIS_PREFIX)) {
-                        players += name;
-                    }
-                }
-
-                return players;
-            } catch (Error error) {
-                warning("Unable to list MPRIS players: %s", error.message);
-                return {};
+            string[] result = {};
+            foreach (var name in names) {
+                if (players.contains(name)) result += name;
             }
+            return result;
         }
 
-        public void select_player(string bus_name) {
-            string[] players = list_players();
-            if (!has_player(players, bus_name)) {
-                return;
-            }
-
-            manual_selection = true;
-            switch_active_player(bus_name);
+        public MprisPlayer? get_player(string name) {
+            return players.lookup(name);
         }
 
-        public void refresh_active_player() {
-            string[] players = list_players();
-            if (players.length == 0) {
-                manual_selection = false;
-                clear_active_player();
-                return;
-            }
-
-            if (
-                manual_selection
-                && active_player != null
-                && has_player(players, active_player.bus_name)
-            ) {
-                return;
-            }
-
-            manual_selection = false;
-            switch_active_player(choose_best_player(players));
+        public void select_player(string name) {
+            var player = players.lookup(name);
+            if (stopped || player == null || !player.available) return;
+            manual_selection = name; // Selecting the current row also pins it.
+            switch_active_player(player);
         }
 
-        private void on_name_owner_changed(
-            DBusConnection connection,
-            string? sender_name,
-            string object_path,
-            string interface_name,
-            string signal_name,
-            Variant parameters
-        ) {
+        private void on_name_owner_changed(DBusConnection connection, string? sender,
+            string path, string iface, string signal_name, Variant parameters) {
+            if (stopped || !parameters.is_of_type(new VariantType("(sss)"))) return;
             string name;
             string old_owner;
             string new_owner;
             parameters.get("(sss)", out name, out old_owner, out new_owner);
+            if (!name.has_prefix(MPRIS_PREFIX)) return;
+            if (discovering.contains(name)) discovering.replace(name, 2);
+            replace_owner(name, new_owner);
+        }
 
-            if (name.has_prefix(MPRIS_PREFIX)) {
-                refresh_active_player();
+        private void replace_owner(string name, string owner) {
+            var old = players.lookup(name);
+            if (old != null && old.owner == owner) return;
+            if (old != null) {
+                old.shutdown();
+                players.remove(name);
+                if (active_player == old) switch_active_player(null);
+            }
+            if (owner == "") {
+                string[] remaining = {};
+                foreach (var item in names) if (item != name) remaining += item;
+                names = remaining;
+                if (manual_selection == name) manual_selection = "";
+            } else {
+                if (old == null) names += name;
+                var player = new MprisPlayer(name, owner, bus);
+                players.insert(name, player);
+                player.changed.connect(schedule_reconcile);
+                player.operation_failed.connect(on_player_operation_failed);
+            }
+            schedule_reconcile();
+        }
+
+        private void on_player_operation_failed(string operation, Error error) {
+            operation_failed(operation, error);
+        }
+
+        private void schedule_reconcile() {
+            if (stopped || reconcile_source != 0) return;
+            reconcile_source = Idle.add(() => {
+                reconcile_source = 0;
+                reconcile();
+                return Source.REMOVE;
+            });
+        }
+
+        private void reconcile() {
+            finish_discovery();
+            MprisPlayer? best = null;
+            int best_priority = -1;
+            var signature = new StringBuilder();
+            var membership = new StringBuilder();
+            foreach (var name in names) {
+                var player = players.lookup(name);
+                membership.append_printf("%u:%s%u:%s", name.length, name, player.owner.length, player.owner);
+                // Length-delimited fields avoid collisions from unusual identities.
+                foreach (var field in new string[] { name, player.owner, player.identity,
+                    player.desktop_entry, player.playback_status }) {
+                    signature.append_printf("%u:%s", field.length, field);
+                }
+                signature.append(player.available ? "1" : "0");
+                if (!player.available) continue;
+                int priority = player.playback_status == "Playing" ? 2 : player.playback_status == "Paused" ? 1 : 0;
+                if (name == manual_selection) priority = 3;
+                if (priority > best_priority) {
+                    best = player;
+                    best_priority = priority;
+                }
+            }
+            if (best != null) discovery_failed = false;
+            var pinned = players.lookup(manual_selection);
+            if (pinned != null && !pinned.available) best = null;
+            switch_active_player(best);
+            if (published_players != membership.str) {
+                published_players = membership.str;
                 players_changed();
             }
-        }
-
-        private void on_player_properties_changed(
-            DBusConnection connection,
-            string? sender_name,
-            string object_path,
-            string interface_name,
-            string signal_name,
-            Variant parameters
-        ) {
-            string changed_interface;
-            Variant changed_properties;
-            Variant invalidated;
-            parameters.get("(s@a{sv}@as)", out changed_interface, out changed_properties, out invalidated);
-
-            if (
-                changed_interface == "org.mpris.MediaPlayer2.Player"
-                && (
-                    has_property(changed_properties, "PlaybackStatus")
-                    || has_string(invalidated, "PlaybackStatus")
-                )
-            ) {
-                if (!manual_selection) {
-                    refresh_active_player();
-                }
-                player_priority_changed();
+            if (published_details != signature.str) {
+                published_details = signature.str;
+                players_updated();
             }
         }
 
-        private void switch_active_player(string bus_name) {
-            if (active_player != null && active_player.bus_name == bus_name) {
-                return;
-            }
-
-            try {
-                active_player = new MprisPlayer(bus_name);
-                active_player_changed();
-            } catch (Error error) {
-                warning("Unable to select player %s: %s", bus_name, error.message);
-                clear_active_player();
-            }
-        }
-
-        private void clear_active_player() {
-            if (active_player == null) {
-                return;
-            }
-
-            active_player = null;
+        private void switch_active_player(MprisPlayer? player) {
+            if (active_player == player) return;
+            if (active_player != null) active_player.set_queue_monitoring(false);
+            active_player = player;
+            if (active_player != null) active_player.set_queue_monitoring(true);
             active_player_changed();
-        }
-
-        private string choose_best_player(string[] bus_names) {
-            string first_bus_name = bus_names[0];
-            string paused_bus_name = "";
-
-            foreach (var bus_name in bus_names) {
-                try {
-                    var candidate = new MprisPlayer(bus_name, false);
-                    if (candidate.playback_status == "Playing") {
-                        return bus_name;
-                    }
-                    if (paused_bus_name == "" && candidate.playback_status == "Paused") {
-                        paused_bus_name = bus_name;
-                    }
-                } catch (Error error) {
-                    warning("Unable to inspect player %s: %s", bus_name, error.message);
-                }
-            }
-
-            return paused_bus_name != "" ? paused_bus_name : first_bus_name;
-        }
-
-        private bool has_player(string[] bus_names, string bus_name) {
-            foreach (var candidate in bus_names) {
-                if (candidate == bus_name) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool has_property(Variant dictionary, string key) {
-            VariantIter iter = dictionary.iterator();
-            string entry_key;
-            Variant entry_value;
-
-            while (iter.next("{sv}", out entry_key, out entry_value)) {
-                if (entry_key == key) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool has_string(Variant array, string needle) {
-            VariantIter iter = array.iterator();
-            string value;
-
-            while (iter.next("s", out value)) {
-                if (value == needle) {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

@@ -38,6 +38,7 @@ status_menu_test = executable(
   'status-menu-test',
   [
     'src/status-indicator.vala',
+    'src/mpris-transport.vala',
     'src/mpris-player.vala',
     'tests/status-menu-test.vala',
   ],
@@ -51,6 +52,7 @@ test('status menu window actions', status_menu_test)
 mpris_player_test = executable(
   'mpris-player-test',
   [
+    'src/mpris-transport.vala',
     'src/mpris-player.vala',
     'tests/mpris-player-test.vala',
   ],

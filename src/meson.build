@@ -23,6 +23,7 @@ executable(
     'preferences-window.vala',
     'window.vala',
     'mpris-manager.vala',
+    'mpris-transport.vala',
     'mpris-player.vala',
   ],
   dependencies: [
