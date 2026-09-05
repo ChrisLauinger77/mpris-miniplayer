@@ -122,3 +122,24 @@ The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`, `mpris-mi
 ## License
 
 MPRIS MiniPlayer is licensed under the GNU General Public License v3.0 or later.
+
+## Reliability checks
+
+Run the complete test suite after building:
+
+```bash
+meson test -C build --print-errorlogs
+python3 tools/check-release.py
+```
+
+Tests require `dbus-run-session` (the `dbus-daemon` package) and Python 3 in
+addition to the build dependencies. D-Bus integration tests start an isolated
+bus and do not control desktop media players. Restricted environments that
+cannot create local sockets can run the unit tests with
+`meson test -C build --no-suite dbus --print-errorlogs`; the complete suite still
+needs to pass in CI.
+
+Pull requests and releases run validation. Release builds reject inconsistent
+Meson, AppStream, Debian, RPM, manpage, and Git tag versions. See
+[the reliability report](docs/reliability-report.md) for changes and remaining
+platform validation.
