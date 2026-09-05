@@ -68,3 +68,12 @@ gnome.post_install(
   gtk_update_icon_cache: true,
   update_desktop_database: true,
 )
+
+artwork_test = executable(
+  'artwork-test',
+  ['src/artwork-loader.vala', 'tests/artwork-test.vala', 'tests/artwork-decoder-fault.c'],
+  dependencies: [dependency('gio-2.0'), dependency('gdk-pixbuf-2.0'), dependency('libsoup-3.0')],
+  vala_args: ['--target-glib=2.66'],
+  link_args: ['-Wl,--wrap=gdk_pixbuf_loader_new', '-Wl,--wrap=gdk_pixbuf_loader_write_bytes'],
+)
+test('Artwork ownership and source changes', artwork_test)

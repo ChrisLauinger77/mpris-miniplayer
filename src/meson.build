@@ -22,6 +22,7 @@ executable(
     'application.vala',
     'preferences-window.vala',
     'window.vala',
+    'artwork-loader.vala',
     'mpris-manager.vala',
     'mpris-transport.vala',
     'mpris-player.vala',
