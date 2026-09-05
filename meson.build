@@ -69,6 +69,17 @@ gnome.post_install(
   update_desktop_database: true,
 )
 
+# Always use a private bus: these tests must never discover or control real players.
+dbus_run_session = find_program('dbus-run-session')
+mpris_dbus_test = executable(
+  'mpris-dbus-test',
+  ['src/mpris-transport.vala', 'src/mpris-player.vala', 'src/mpris-manager.vala', 'src/background-portal.vala', 'src/status-indicator.vala', 'tests/mpris-dbus-test.vala'],
+  dependencies: dependency('gio-2.0'),
+  vala_args: ['--target-glib=2.66'],
+  c_args: ['-DGETTEXT_PACKAGE="@0@"'.format(gettext_package)],
+)
+test('MPRIS D-Bus lifecycle', dbus_run_session, args: ['--', mpris_dbus_test], suite: 'dbus', timeout: 60)
+
 artwork_test = executable(
   'artwork-test',
   ['src/artwork-loader.vala', 'tests/artwork-test.vala', 'tests/artwork-decoder-fault.c'],

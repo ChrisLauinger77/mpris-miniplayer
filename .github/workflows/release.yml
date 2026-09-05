@@ -52,6 +52,7 @@ jobs:
             build-essential \
             debhelper \
             desktop-file-utils \
+            dbus-daemon \
             devscripts \
             gettext \
             libadwaita-1-dev \
@@ -87,6 +88,7 @@ jobs:
         run: |
           dnf install -y \
             desktop-file-utils \
+            dbus-daemon \
             gcc \
             gettext \
             git \

@@ -9,6 +9,7 @@ License:        GPL-3.0-or-later
 URL:            https://github.com/ChrisLauinger77/mpris-miniplayer
 Source0:        %{name}-%{version}.tar.gz
 
+BuildRequires:  dbus-daemon
 BuildRequires:  desktop-file-utils
 BuildRequires:  gettext
 BuildRequires:  meson
