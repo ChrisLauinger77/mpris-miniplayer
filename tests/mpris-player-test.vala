@@ -19,6 +19,10 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     public bool hold_player_snapshot = false;
     public bool hold_position = false;
     public bool hold_write = false;
+    public bool hold_volume_read = false;
+    public bool fail_write = false;
+    public bool fail_volume_read = false;
+    public double volume_limit = double.MAX;
     public int writes = 0;
     public int calls = 0;
     public int player_reads = 0;
@@ -26,6 +30,7 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     private SourceFunc? snapshot_callback;
     private SourceFunc? position_callback;
     private SourceFunc? write_callback;
+    private SourceFunc? volume_read_callback;
     public string loop_status = "None";
     public bool has_track_list = true;
     public string[] track_ids = {
@@ -99,6 +104,15 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
             position_callback = read_property_async.callback;
             yield;
         }
+        if (property_name == "Volume") {
+            if (hold_volume_read) {
+                hold_volume_read = false;
+                volume_read_callback = read_property_async.callback;
+                yield;
+            }
+            if (cancellable != null) cancellable.set_error_if_cancelled();
+            if (fail_volume_read) throw new IOError.TIMED_OUT("Volume read timed out");
+        }
         return result;
     }
 
@@ -116,7 +130,8 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
             yield;
         }
         if (cancellable != null) cancellable.set_error_if_cancelled();
-        if (property_name == "Volume") volume = value.get_double();
+        if (fail_write) throw new DBusError.ACCESS_DENIED("Volume write denied");
+        if (property_name == "Volume") volume = double.min(volume_limit, value.get_double());
         if (property_name == "Shuffle") {
             shuffle = value.get_boolean();
         } else if (property_name == "LoopStatus") {
@@ -179,6 +194,9 @@ private class FakeTransport : Object, MprisMiniPlayer.MprisTransport {
     }
     public void release_write() {
         if (write_callback != null) Idle.add((owned) write_callback);
+    }
+    public void release_volume_read() {
+        if (volume_read_callback != null) Idle.add((owned) volume_read_callback);
     }
 
     public void release_metadata_call() {
@@ -565,11 +583,127 @@ private void test_pending_volume_steps_accumulate() {
     drain_main_context();
     transport.hold_write = true;
     for (int i = 0; i < 5; i++) player.adjust_volume(0.05);
+    assert_true(player.volume == 0.5);
+    assert_true((player.display_volume - 0.75).abs() < 0.00001);
     transport.release_write();
     drain_main_context();
     assert_true((player.volume - 0.75).abs() < 0.00001);
     assert_cmpint(transport.writes, CompareOperator.EQ, 2);
     player.shutdown();
+}
+
+private void test_pending_volume_survives_until_readback() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    transport.volume_limit = 0.7;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    double observed = player.display_volume;
+    ulong handler = player.changed.connect(() => observed = player.display_volume);
+    transport.hold_write = true;
+    transport.hold_volume_read = true;
+    player.set_player_volume(0.8);
+    assert_true(observed == 0.8);
+    assert_true(player.volume == 0.5);
+    player.set_player_volume(0.9);
+    assert_true(observed == 0.9);
+
+    transport.release_write();
+    drain_main_context();
+    assert_cmpint(transport.writes, CompareOperator.EQ, 2);
+    assert_true(player.volume == 0.5);
+    assert_true(player.display_volume == 0.9);
+    assert_true(observed == 0.9);
+    transport.release_volume_read();
+    drain_main_context();
+    assert_true(player.volume == 0.7); // The player clamps the requested value.
+    assert_true(player.display_volume == 0.7);
+    assert_true(observed == 0.7);
+    SignalHandler.disconnect(player, handler);
+    player.shutdown();
+}
+
+private void test_pending_volume_rolls_back_on_failure() {
+    for (int read_failure = 0; read_failure < 2; read_failure++) {
+        var transport = new FakeTransport();
+        transport.expose_volume = true;
+        transport.volume_limit = 0.6;
+        var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+        drain_main_context();
+        double observed = player.display_volume;
+        ulong handler = player.changed.connect(() => observed = player.display_volume);
+        int errors = 0;
+        player.operation_failed.connect((operation, error) => {
+            assert_true(operation.contains("Set/Get(Volume)"));
+            if (read_failure != 0) {
+                assert_true(error is IOError.TIMED_OUT);
+                assert_cmpstr(error.message, CompareOperator.EQ, "Volume read timed out");
+            } else {
+                assert_true(error is DBusError.ACCESS_DENIED);
+                assert_cmpstr(error.message, CompareOperator.EQ, "Volume write denied");
+            }
+            errors++;
+        });
+        transport.fail_write = read_failure == 0;
+        transport.fail_volume_read = read_failure != 0;
+        transport.hold_write = true;
+        transport.hold_player_snapshot = true;
+        player.set_player_volume(0.9);
+        assert_true(observed == 0.9);
+        transport.release_write();
+        drain_main_context();
+        assert_cmpint(errors, CompareOperator.EQ, 1);
+        assert_true(player.display_volume == 0.5);
+        assert_true(observed == 0.5); // Roll back even while recovery is pending.
+        transport.release_snapshot();
+        drain_main_context();
+        double actual = read_failure != 0 ? 0.6 : 0.5;
+        assert_true(player.volume == actual);
+        assert_true(observed == actual);
+        SignalHandler.disconnect(player, handler);
+        player.shutdown();
+    }
+}
+
+private void test_pending_volume_settles_to_newer_signal() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    transport.hold_volume_read = true;
+    player.set_player_volume(0.9);
+    drain_main_context();
+    transport.volume = 0.4;
+    var props = new VariantBuilder(new VariantType("a{sv}"));
+    props.add("{sv}", "Volume", new Variant.double(0.4));
+    emit_properties(transport, props.end());
+    assert_true(player.volume == 0.4);
+    assert_true(player.display_volume == 0.9);
+    transport.release_volume_read();
+    drain_main_context();
+    assert_true(player.volume == 0.4);
+    assert_true(player.display_volume == 0.4);
+    player.shutdown();
+}
+
+private void test_pending_volume_notification_can_shutdown() {
+    var transport = new FakeTransport();
+    transport.expose_volume = true;
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    int changes = 0;
+    ulong handler = player.changed.connect(() => { changes++; player.shutdown(); });
+    transport.hold_write = true;
+    player.set_player_volume(0.9);
+    assert_false(player.available);
+    assert_true(player.display_volume == 0.5);
+    SignalHandler.disconnect(player, handler);
+    var weak_player = WeakRef(player);
+    player = null;
+    transport.release_write();
+    drain_main_context();
+    assert_cmpint(changes, CompareOperator.EQ, 1);
+    assert_null(weak_player.get());
 }
 
 private void test_shutdown_discards_pending_results() {
@@ -592,6 +726,10 @@ private void test_shutdown_discards_pending_results() {
 
 public int main(string[] args) {
     Test.init(ref args);
+    Test.add_func("/mpris-player/pending-volume-readback", test_pending_volume_survives_until_readback);
+    Test.add_func("/mpris-player/pending-volume-failure", test_pending_volume_rolls_back_on_failure);
+    Test.add_func("/mpris-player/pending-volume-newer-signal", test_pending_volume_settles_to_newer_signal);
+    Test.add_func("/mpris-player/pending-volume-shutdown", test_pending_volume_notification_can_shutdown);
     Test.add_func("/mpris-player/pending-volume-steps", test_pending_volume_steps_accumulate);
     Test.add_func("/mpris-player/snapshot-omission", test_snapshot_omissions_and_invalidations);
     Test.add_func("/mpris-player/snapshot-signal-race", test_signals_win_over_pending_snapshot);

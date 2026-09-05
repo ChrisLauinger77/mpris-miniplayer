@@ -79,6 +79,14 @@ namespace MprisMiniPlayer {
         }
         public int64 duration_us { get; private set; default = 0; }
         public double volume { get; private set; default = 1.0; }
+        // Keep volume authoritative; views retain the latest intent until its
+        // write/readback settles. Pending and settled values emit changed.
+        public double display_volume {
+            get {
+                Variant? requested = requested_value("Volume");
+                return requested != null ? requested.get_double() : volume;
+            }
+        }
         public bool can_go_next { get; private set; default = false; }
         public bool can_go_previous { get; private set; default = false; }
         public bool can_play { get; private set; default = false; }
@@ -134,6 +142,7 @@ namespace MprisMiniPlayer {
             if (SignalHandler.is_connected(transport, seeked_handler_id)) SignalHandler.disconnect(transport, seeked_handler_id);
             transport.shutdown();
             pending_writes.remove_all();
+            writing.remove_all();
             queue = {};
             queue_revision++;
         }
@@ -440,7 +449,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            double target = requested_volume();
+            double target = display_volume;
             if (target > 0.0) {
                 restore_volume = target;
                 set_player_volume(0.0);
@@ -454,7 +463,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            double target = requested_volume();
+            double target = display_volume;
             if (delta > 0.0 && target >= 1.0) {
                 return;
             }
@@ -829,17 +838,13 @@ namespace MprisMiniPlayer {
             return pending_writes.lookup(name) ?? writing.lookup(name);
         }
 
-        private double requested_volume() {
-            Variant? value = requested_value("Volume");
-            return value != null ? value.get_double() : volume;
-        }
-
         // At most one write per property is in flight. Slider bursts retain only
         // the latest requested value; state comes from signals or a fresh snapshot.
         private void set_player_property(string name, Variant value) {
             if (stopped) return;
             pending_writes.replace(name, value);
             if (!writing.contains(name)) write_player_property.begin(name);
+            if (!stopped && name == "Volume") changed();
         }
 
         private async void write_player_property(string name) {
@@ -871,6 +876,7 @@ namespace MprisMiniPlayer {
             }
             pending_writes.remove(name);
             writing.remove(name);
+            if (!stopped && name == "Volume") changed();
         }
 
         private static bool is_loop_status(string status) {

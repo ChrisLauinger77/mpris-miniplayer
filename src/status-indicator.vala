@@ -639,7 +639,7 @@ namespace MprisMiniPlayer {
                 case VOLUME_ID:
                     return _("Volume: %d%%").printf(current_volume_percent());
                 case MUTE_ID:
-                    return player != null && player.volume > 0.0
+                    return player != null && player.display_volume > 0.0
                         ? _("Mute")
                         : _("Restore volume");
                 case VOLUME_25_ID:
@@ -1127,7 +1127,7 @@ namespace MprisMiniPlayer {
         }
 
         private int current_volume_percent() {
-            return player == null ? 0 : (int) double.min(int.MAX, player.volume * 100.0 + 0.5);
+            return player == null ? 0 : (int) double.min(int.MAX, player.display_volume * 100.0 + 0.5);
         }
 
         private string escape_label(string label) {
@@ -1172,6 +1172,7 @@ namespace MprisMiniPlayer {
         private bool compact_mode = false;
         private bool window_shown = false;
         private MprisPlayer? player;
+        private ulong player_changed_handler_id = 0;
         private string update_version = "";
 
         public bool supported { get; private set; default = false; }
@@ -1234,7 +1235,17 @@ namespace MprisMiniPlayer {
         }
 
         public void set_player(MprisPlayer? selected_player) {
+            if (player == selected_player) return;
+            if (player != null && player_changed_handler_id != 0) {
+                SignalHandler.disconnect(player, player_changed_handler_id);
+                player_changed_handler_id = 0;
+            }
+            clear_volume_icon_timeout();
+            if (item != null) item.restore_app_icon();
             player = selected_player;
+            if (player != null) {
+                player_changed_handler_id = player.changed.connect(update_volume_icon_feedback);
+            }
 
             if (menu != null) {
                 menu.set_player(selected_player);
@@ -1255,7 +1266,7 @@ namespace MprisMiniPlayer {
             lifetime.cancel();
             if (watcher_id != 0) { Bus.unwatch_name(watcher_id); watcher_id = 0; }
             unregister_item();
-            player = null;
+            set_player(null);
         }
 
         private void update_registration() {
@@ -1372,7 +1383,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            item.show_volume_icon(player.volume);
+            item.show_volume_icon(player.display_volume);
             clear_volume_icon_timeout();
             volume_icon_timeout_id = Timeout.add(1500, () => {
                 volume_icon_timeout_id = 0;
@@ -1381,6 +1392,12 @@ namespace MprisMiniPlayer {
                 }
                 return Source.REMOVE;
             });
+        }
+
+        private void update_volume_icon_feedback() {
+            if (volume_icon_timeout_id != 0 && item != null && player != null) {
+                item.show_volume_icon(player.display_volume);
+            }
         }
 
         private void clear_volume_icon_timeout() {

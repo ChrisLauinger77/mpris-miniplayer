@@ -10,6 +10,7 @@ private const int REPEAT_NONE_ID = 25;
 private const int REPEAT_TRACK_ID = 26;
 private const int REPEAT_PLAYLIST_ID = 27;
 private const int VOLUME_ID = 30;
+private const int MUTE_ID = 31;
 private const int QUEUE_ID = 40;
 private const int QUEUE_TRACK_BASE_ID = 1000;
 private const string SYMBOLIC_ICON_NAME =
@@ -27,6 +28,9 @@ private void drain_main_context() {
 
 private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
     public bool shuffle = false;
+    public double volume = 0.55;
+    public bool hold_volume_write = false;
+    private SourceFunc? volume_write_callback;
     public string loop_status = "None";
     public string last_go_to = "";
     public bool expose_loop_status = true;
@@ -50,7 +54,7 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
             if (expose_loop_status) {
                 properties.add("{sv}", "LoopStatus", new Variant.string(loop_status));
             }
-            properties.add("{sv}", "Volume", new Variant.double(0.55));
+            properties.add("{sv}", "Volume", new Variant.double(volume));
             properties.add("{sv}", "Metadata", current_metadata());
         }
         return properties.end();
@@ -64,7 +68,7 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
             return new Variant.int64(0);
         }
         if (interface_name == PLAYER_IFACE) {
-            if (property_name == "Volume") return new Variant.double(0.55);
+            if (property_name == "Volume") return new Variant.double(volume);
             if (property_name == "Shuffle") return new Variant.boolean(shuffle);
             if (property_name == "LoopStatus") return new Variant.string(loop_status);
         }
@@ -83,11 +87,24 @@ private class StatusMenuTransport : Object, MprisMiniPlayer.MprisTransport {
         string property_name,
         Variant value, Cancellable? cancellable = null
     ) throws Error {
+        if (property_name == "Volume") {
+            if (hold_volume_write) {
+                hold_volume_write = false;
+                volume_write_callback = write_property.callback;
+                yield;
+            }
+            if (cancellable != null) cancellable.set_error_if_cancelled();
+            volume = value.get_double();
+        }
         if (property_name == "Shuffle") {
             shuffle = value.get_boolean();
         } else if (property_name == "LoopStatus") {
             loop_status = value.get_string();
         }
+    }
+
+    public void release_volume_write() {
+        if (volume_write_callback != null) Idle.add((owned) volume_write_callback);
     }
 
     public Variant call(
@@ -595,6 +612,34 @@ private void test_repeat_availability_updates_layout() {
     assert_false(layout_contains_id(updated_layout, REPEAT_ID));
 }
 
+private void test_pending_volume_updates_menu() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+    uint before;
+    get_root_layout(menu, out before);
+
+    transport.hold_volume_write = true;
+    player.set_player_volume(0.75);
+    assert_true(player.volume == 0.55);
+    assert_cmpstr(get_string_property(menu, VOLUME_ID, "label"), CompareOperator.EQ, "Volume: 75%");
+    uint pending;
+    get_root_layout(menu, out pending);
+    assert_true(pending > before);
+
+    player.toggle_mute();
+    assert_cmpstr(get_string_property(menu, VOLUME_ID, "label"), CompareOperator.EQ, "Volume: 0%");
+    assert_cmpstr(get_string_property(menu, MUTE_ID, "label"), CompareOperator.EQ, "Restore volume");
+    transport.release_volume_write();
+    drain_main_context();
+    assert_true(player.volume == 0.0);
+    assert_cmpstr(get_string_property(menu, VOLUME_ID, "label"), CompareOperator.EQ, "Volume: 0%");
+    menu.set_player(null);
+    player.shutdown();
+}
+
 private void test_metadata_separator_collision() {
     var transport = new StatusMenuTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
@@ -623,6 +668,7 @@ private void test_metadata_separator_collision() {
 
 public int main(string[] args) {
     Test.init(ref args);
+    Test.add_func("/status-menu/pending-volume", test_pending_volume_updates_menu);
     Test.add_func("/status-menu/metadata-separator-collision", test_metadata_separator_collision);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
     Test.add_func("/status-menu/shown-layout", test_shown_layout);

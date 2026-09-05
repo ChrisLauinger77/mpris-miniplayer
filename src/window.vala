@@ -1096,7 +1096,7 @@ namespace MprisMiniPlayer {
             volume_box.visible = has_volume;
 
             updating_volume = true;
-            volume_scale.set_value(has_volume ? slider_volume(player.volume) : 0);
+            volume_scale.set_value(has_volume ? slider_volume(player.display_volume) : 0);
             updating_volume = false;
 
             update_volume_button();
@@ -1132,16 +1132,16 @@ namespace MprisMiniPlayer {
         }
 
         private void update_volume_button() {
-            if (player == null || !player.has_volume || player.volume <= 0.0) {
+            if (player == null || !player.has_volume || player.display_volume <= 0.0) {
                 volume_icon.icon_name = "audio-volume-muted-symbolic";
                 set_control_label(volume_button, _("Restore volume"));
                 return;
             }
 
             set_control_label(volume_button, _("Mute"));
-            if (player.volume < 0.35) {
+            if (player.display_volume < 0.35) {
                 volume_icon.icon_name = "audio-volume-low-symbolic";
-            } else if (player.volume < 0.7) {
+            } else if (player.display_volume < 0.7) {
                 volume_icon.icon_name = "audio-volume-medium-symbolic";
             } else {
                 volume_icon.icon_name = "audio-volume-high-symbolic";
