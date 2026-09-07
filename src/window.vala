@@ -109,6 +109,7 @@ namespace MprisMiniPlayer {
         private Gtk.SingleSelection queue_selection;
         private int current_queue_index = -1;
         private Menu main_menu;
+        private string update_version = "";
         private uint64 displayed_queue_revision = uint64.MAX;
         private string displayed_queue_track_id = "";
         private bool queue_view_dirty = true;
@@ -752,9 +753,26 @@ namespace MprisMiniPlayer {
 
             var settings_menu = new Menu();
             settings_menu.append(_("Compact Mode"), "app.compact-mode");
+            if (update_version != "") {
+                var update_item = new MenuItem(
+                    _("Update available: %s").printf(update_version),
+                    "app.open-release"
+                );
+                update_item.set_icon(new ThemedIcon("software-update-available-symbolic"));
+                settings_menu.append_item(update_item);
+            }
             settings_menu.append(_("Preferences"), "app.preferences");
             settings_menu.append(_("Quit"), "app.quit");
             main_menu.append_section(null, settings_menu);
+        }
+
+        public void set_update_available(string version) {
+            if (update_version == version) {
+                return;
+            }
+
+            update_version = version;
+            rebuild_main_menu();
         }
 
         private void rebuild_queue_list() {

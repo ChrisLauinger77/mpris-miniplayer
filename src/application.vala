@@ -22,6 +22,7 @@ namespace MprisMiniPlayer {
         private bool startup_activation_handled = false;
         private bool startup_visibility_pending = false;
         private bool update_check_started = false;
+        private string latest_release_version = "";
         private string latest_release_url = "";
         private bool held = false;
         private bool shutting_down = false;
@@ -48,10 +49,9 @@ namespace MprisMiniPlayer {
             status_indicator = new StatusIndicator();
             status_indicator.activated.connect(() => show_window_from_indicator());
             status_indicator.action_requested.connect(on_status_indicator_action_requested);
-            status_indicator.support_changed.connect(maybe_start_update_check);
             status_indicator.set_compact_mode(app_settings.compact_mode);
             status_indicator.set_enabled(app_settings.show_status_indicator);
-            maybe_start_update_check();
+            start_update_check();
 
             manager = new MprisManager();
             manager.players_changed.connect(on_players_changed);
@@ -96,6 +96,11 @@ namespace MprisMiniPlayer {
             var about_action = new SimpleAction("about", null);
             about_action.activate.connect(() => present_about());
             add_action(about_action);
+
+            var open_release_action = new SimpleAction("open-release", null);
+            open_release_action.activate.connect(() => open_latest_release.begin());
+            open_release_action.set_enabled(false);
+            add_action(open_release_action);
 
             compact_mode_action = new SimpleAction.stateful(
                 "compact-mode",
@@ -255,6 +260,7 @@ namespace MprisMiniPlayer {
                     app_settings.tint_with_album_color,
                     app_settings.keep_queue_open
                 );
+                main_window.set_update_available(latest_release_version);
                 main_window.close_request.connect(() => {
                     hide_window();
                     return true;
@@ -410,7 +416,6 @@ namespace MprisMiniPlayer {
 
             if (key == "show-status-indicator") {
                 status_indicator.set_enabled(app_settings.show_status_indicator);
-                maybe_start_update_check();
             }
 
             bool compact_mode = app_settings.compact_mode;
@@ -517,20 +522,24 @@ namespace MprisMiniPlayer {
             }
         }
 
-        private void maybe_start_update_check() {
-            if (
-                update_check_started
-                || !app_settings.show_status_indicator
-                || !status_indicator.supported
-            ) {
+        private void start_update_check() {
+            if (update_check_started) {
                 return;
             }
 
             update_check_started = true;
             update_checker = new UpdateChecker();
             update_checker.update_available.connect((version, release_url) => {
+                latest_release_version = version;
                 latest_release_url = release_url;
                 status_indicator.set_update_available(version);
+                if (main_window != null) {
+                    main_window.set_update_available(version);
+                }
+                var open_release_action = lookup_action("open-release") as SimpleAction;
+                if (open_release_action != null) {
+                    open_release_action.set_enabled(true);
+                }
             });
             update_checker.check.begin();
         }
