@@ -1,4 +1,10 @@
   <releases>
+    <release version="2.1.1" date="2026-09-07">
+      <description>
+        <p>Check for updates even when the desktop does not support a status indicator.</p>
+        <p>Show available updates in the main menu with a link to the release page.</p>
+      </description>
+    </release>
     <release version="2.1.0" date="2026-09-05">
       <description>
         <p>Keep MPRIS state and controls reliable when players restart, disappear, or change ownership.</p>

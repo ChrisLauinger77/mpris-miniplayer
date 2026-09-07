@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 2.1.0}
+%{!?pkg_version:%global pkg_version 2.1.1}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -51,6 +51,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Mon Sep 07 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.1.1-1
+- Check for updates without requiring status indicator support
+- Show available updates in the main menu with a release-page link
+
 * Sat Sep 05 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.1.0-1
 - Keep MPRIS discovery, state, and controls reliable across player lifecycle changes
 - Improve artwork, volume feedback, status indicator, and start-on-login reliability

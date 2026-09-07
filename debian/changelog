@@ -1,3 +1,10 @@
+mpris-miniplayer (2.1.1-1) unstable; urgency=medium
+
+  * Check for updates without requiring status indicator support.
+  * Show available updates in the main menu with a link to the release page.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Mon, 07 Sep 2026 18:12:43 +0200
+
 mpris-miniplayer (2.1.0-1) unstable; urgency=medium
 
   * Keep MPRIS discovery, state, and controls reliable across player owner
