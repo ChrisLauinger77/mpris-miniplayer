@@ -89,7 +89,7 @@ jobs:
     name: Build RPM package
     runs-on: ubuntu-24.04
     container:
-      image: fedora:44
+      image: fedora:46
 
     steps:
       - name: Install build dependencies
