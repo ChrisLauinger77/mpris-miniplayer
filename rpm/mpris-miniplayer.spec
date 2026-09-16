@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 2.1.1}
+%{!?pkg_version:%global pkg_version 2.2.0}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -51,6 +51,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Wed Sep 16 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.2.0-1
+- Keep album artwork square and align it with the track title
+- Build release packages with the Fedora 46 container image
+
 * Mon Sep 07 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.1.1-1
 - Check for updates without requiring status indicator support
 - Show available updates in the main menu with a release-page link

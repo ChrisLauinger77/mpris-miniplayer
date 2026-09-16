@@ -1,4 +1,10 @@
   <releases>
+    <release version="2.2.0" date="2026-09-16">
+      <description>
+        <p>Keep album artwork square and align it with the track title.</p>
+        <p>Build release packages with the Fedora 46 container image.</p>
+      </description>
+    </release>
     <release version="2.1.1" date="2026-09-07">
       <description>
         <p>Check for updates even when the desktop does not support a status indicator.</p>

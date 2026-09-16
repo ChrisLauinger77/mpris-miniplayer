@@ -1,3 +1,10 @@
+mpris-miniplayer (2.2.0-1) unstable; urgency=medium
+
+  * Keep album artwork square and align it with the track title.
+  * Build release packages with the Fedora 46 container image.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Wed, 16 Sep 2026 17:50:26 +0200
+
 mpris-miniplayer (2.1.1-1) unstable; urgency=medium
 
   * Check for updates without requiring status indicator support.

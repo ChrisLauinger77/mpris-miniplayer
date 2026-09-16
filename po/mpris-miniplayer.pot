@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-07 17:49+0200\n"
+"POT-Creation-Date: 2026-09-16 17:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/status-indicator.vala:35 src/application.vala:391 src/window.vala:136
+#: src/status-indicator.vala:35 src/application.vala:391 src/window.vala:137
 msgid "MPRIS MiniPlayer"
 msgstr ""
 
@@ -54,32 +54,32 @@ msgstr ""
 msgid "Hide MPRIS MiniPlayer"
 msgstr ""
 
-#: src/status-indicator.vala:608 src/window.vala:758
+#: src/status-indicator.vala:608 src/window.vala:762
 #, c-format
 msgid "Update available: %s"
 msgstr ""
 
-#: src/status-indicator.vala:616 src/window.vala:597
+#: src/status-indicator.vala:616 src/window.vala:601
 msgid "No player detected"
 msgstr ""
 
-#: src/status-indicator.vala:618 src/window.vala:445
+#: src/status-indicator.vala:618 src/window.vala:449
 msgid "Previous"
 msgstr ""
 
-#: src/status-indicator.vala:621 src/window.vala:659
+#: src/status-indicator.vala:621 src/window.vala:663
 msgid "Pause"
 msgstr ""
 
-#: src/status-indicator.vala:622 src/window.vala:454 src/window.vala:662
+#: src/status-indicator.vala:622 src/window.vala:458 src/window.vala:666
 msgid "Play"
 msgstr ""
 
-#: src/status-indicator.vala:624 src/window.vala:464
+#: src/status-indicator.vala:624 src/window.vala:468
 msgid "Next"
 msgstr ""
 
-#: src/status-indicator.vala:626 src/window.vala:441
+#: src/status-indicator.vala:626 src/window.vala:445
 msgid "Shuffle"
 msgstr ""
 
@@ -92,11 +92,11 @@ msgid "Current Track"
 msgstr ""
 
 #: src/status-indicator.vala:634 src/status-indicator.vala:636
-#: src/window.vala:288 src/window.vala:489 src/window.vala:716
+#: src/window.vala:289 src/window.vala:493 src/window.vala:720
 msgid "Queue"
 msgstr ""
 
-#: src/status-indicator.vala:638 src/window.vala:564
+#: src/status-indicator.vala:638 src/window.vala:568
 msgid "Queue is empty"
 msgstr ""
 
@@ -105,20 +105,20 @@ msgstr ""
 msgid "Volume: %d%%"
 msgstr ""
 
-#: src/status-indicator.vala:643 src/window.vala:395 src/window.vala:1159
+#: src/status-indicator.vala:643 src/window.vala:399 src/window.vala:1163
 msgid "Mute"
 msgstr ""
 
-#: src/status-indicator.vala:644 src/window.vala:1155
+#: src/status-indicator.vala:644 src/window.vala:1159
 msgid "Restore volume"
 msgstr ""
 
-#: src/status-indicator.vala:654 src/window.vala:755
+#: src/status-indicator.vala:654 src/window.vala:759
 msgid "Compact Mode"
 msgstr ""
 
 #: src/status-indicator.vala:656 src/preferences-window.vala:16
-#: src/preferences-window.vala:33 src/window.vala:764
+#: src/preferences-window.vala:33 src/window.vala:768
 msgid "Preferences"
 msgstr ""
 
@@ -126,23 +126,23 @@ msgstr ""
 msgid "About"
 msgstr ""
 
-#: src/status-indicator.vala:660 src/window.vala:765
+#: src/status-indicator.vala:660 src/window.vala:769
 msgid "Quit"
 msgstr ""
 
-#: src/status-indicator.vala:971 src/window.vala:476 src/window.vala:704
+#: src/status-indicator.vala:971 src/window.vala:480 src/window.vala:708
 msgid "Repeat: Off"
 msgstr ""
 
-#: src/status-indicator.vala:974 src/window.vala:707
+#: src/status-indicator.vala:974 src/window.vala:711
 msgid "Repeat: Current Track"
 msgstr ""
 
-#: src/status-indicator.vala:976 src/window.vala:710
+#: src/status-indicator.vala:976 src/window.vala:714
 msgid "Repeat: Queue"
 msgstr ""
 
-#: src/status-indicator.vala:996 src/window.vala:836
+#: src/status-indicator.vala:996 src/window.vala:840
 #, c-format
 msgid "%s — %s"
 msgstr ""
@@ -233,63 +233,63 @@ msgstr ""
 msgid "Currently playing"
 msgstr ""
 
-#: src/window.vala:265
+#: src/window.vala:266
 msgid "Choose player"
 msgstr ""
 
-#: src/window.vala:277
+#: src/window.vala:278
 msgid "Main menu"
 msgstr ""
 
-#: src/window.vala:282
+#: src/window.vala:283
 msgid "About MPRIS MiniPlayer"
 msgstr ""
 
-#: src/window.vala:317
+#: src/window.vala:321
 msgid "No player running"
 msgstr ""
 
-#: src/window.vala:323
+#: src/window.vala:327
 msgid "Start an MPRIS-compatible media player"
 msgstr ""
 
-#: src/window.vala:341 src/window.vala:344
+#: src/window.vala:345 src/window.vala:348
 msgid "Playback position"
 msgstr ""
 
-#: src/window.vala:406 src/window.vala:407
+#: src/window.vala:410 src/window.vala:411
 msgid "Volume"
 msgstr ""
 
-#: src/window.vala:588
+#: src/window.vala:592
 msgid "Session D-Bus unavailable"
 msgstr ""
 
-#: src/window.vala:588 src/window.vala:603
+#: src/window.vala:592 src/window.vala:607
 msgid "Unable to monitor MPRIS players"
 msgstr ""
 
-#: src/window.vala:597
+#: src/window.vala:601
 msgid "Start any MPRIS-compatible player"
 msgstr ""
 
-#: src/window.vala:603
+#: src/window.vala:607
 msgid "Player unavailable"
 msgstr ""
 
-#: src/window.vala:697
+#: src/window.vala:701
 msgid "Shuffle: On"
 msgstr ""
 
-#: src/window.vala:697
+#: src/window.vala:701
 msgid "Shuffle: Off"
 msgstr ""
 
-#: src/window.vala:716
+#: src/window.vala:720
 msgid "Queue unavailable"
 msgstr ""
 
-#: src/window.vala:833 src/mpris-player.vala:655 src/mpris-player.vala:811
+#: src/window.vala:837 src/mpris-player.vala:655 src/mpris-player.vala:811
 msgid "Unknown artist"
 msgstr ""
 
