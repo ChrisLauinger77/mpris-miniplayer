@@ -80,6 +80,7 @@ namespace MprisMiniPlayer {
         private Gtk.CssProvider tint_provider;
 
         private Gtk.Box main_box;
+        private Gtk.AspectFrame cover_frame;
         private Gtk.Stack cover_stack;
         private Gtk.Picture cover;
         private Gtk.Image empty_icon;
@@ -227,7 +228,7 @@ namespace MprisMiniPlayer {
                 return;
             }
 
-            cover_stack.visible = !compact_mode;
+            cover_frame.visible = !compact_mode;
             album_label.visible = !compact_mode;
             main_box.spacing = compact_mode ? 10 : 14;
             main_box.margin_top = compact_mode ? 6 : 8;
@@ -296,10 +297,13 @@ namespace MprisMiniPlayer {
             main_box.margin_end = 14;
             toolbar_view.set_content(main_box);
 
+            cover_frame = new Gtk.AspectFrame(0.5f, 0.0f, 1.0f, false);
+            cover_frame.set_size_request(108, 108);
+            main_box.append(cover_frame);
+
             cover_stack = new Gtk.Stack();
-            cover_stack.set_size_request(108, 108);
             cover_stack.add_css_class("card");
-            main_box.append(cover_stack);
+            cover_frame.child = cover_stack;
 
             cover = new Gtk.Picture();
             cover.content_fit = Gtk.ContentFit.COVER;
