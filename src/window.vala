@@ -297,7 +297,7 @@ namespace MprisMiniPlayer {
             main_box.margin_end = 14;
             toolbar_view.set_content(main_box);
 
-            cover_frame = new Gtk.AspectFrame(0.5f, 0.5f, 1.0f, false);
+            cover_frame = new Gtk.AspectFrame(0.5f, 0.0f, 1.0f, false);
             cover_frame.set_size_request(108, 108);
             main_box.append(cover_frame);
 
