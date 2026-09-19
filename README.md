@@ -1,6 +1,6 @@
 # MPRIS MiniPlayer
 
-[Desktop checks](https://github.com/ChrisLauinger77/mpris-miniplayer/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisLauinger77/mpris-miniplayer/actions/workflows/ci.yml)
+[![Desktop checks](https://github.com/ChrisLauinger77/mpris-miniplayer/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisLauinger77/mpris-miniplayer/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/v/release/ChrisLauinger77/mpris-miniplayer)](<>)
 [![Github All Releases](https://img.shields.io/github/downloads/ChrisLauinger77/mpris-miniplayer/total.svg)](<>)
 [![license](https://img.shields.io/github/license/ChrisLauinger77/mpris-miniplayer)](<>)
