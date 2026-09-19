@@ -15,7 +15,7 @@ jobs:
   flatpak:
     needs: validation
     name: Build Flatpak
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       options: --privileged
@@ -44,7 +44,7 @@ jobs:
   debian:
     needs: validation
     name: Build Debian package
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout
@@ -87,7 +87,7 @@ jobs:
   rpm:
     needs: validation
     name: Build RPM package
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container:
       image: fedora:46
 
@@ -140,7 +140,7 @@ jobs:
     permissions:
       contents: write
     name: Create GitHub release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - flatpak
       - debian
