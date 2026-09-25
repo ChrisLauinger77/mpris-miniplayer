@@ -31,6 +31,14 @@ For Debian or Ubuntu on amd64, install the Debian package with:
 sudo apt install ./mpris-miniplayer_<version>_amd64.deb
 ```
 
+[deb-get](https://github.com/wimpysworld/deb-get) is a tool that makes it easy to install Debian packages from the command line.
+
+After [installing](https://github.com/wimpysworld/deb-get#install) `deb-get`, you can install MPRIS MiniPlayer with:
+
+```bash
+sudo deb-get install mpris-miniplayer
+```
+
 For Fedora on x86_64, install the RPM package with:
 
 ```bash
