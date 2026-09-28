@@ -9,6 +9,8 @@
 
 MPRIS MiniPlayer is a small GTK4/libadwaita mini player for Linux media players that expose the MPRIS interface on the session D-Bus.
 
+Visit the [project homepage](https://chrislauinger77.github.io/mpris-miniplayer/) for an overview and downloads.
+
 It is not tied to a specific player. It is intended to work with [Sidra](https://github.com/wimpysworld/sidra), [Slipmat](https://github.com/SoftARV/Slipmat), Cider, VLC, Spotify, Strawberry, Rhythmbox, Elisa, browsers exposing media sessions, Mopidy, spotifyd, [mpv with an MPRIS plugin](https://github.com/mpv-player/mpv), and similar clients.
 
 ## Screenshot
@@ -115,6 +117,18 @@ Uninstall the local build:
 ```bash
 sudo ninja -C build uninstall
 ```
+
+## Project Website
+
+The static website lives in [`docs/`](docs/index.html). To publish it at
+`https://chrislauinger77.github.io/mpris-miniplayer/`, open this repository's
+**Settings → Pages**, choose **Deploy from a branch**, select **main** and
+**/docs**, then save. GitHub Pages will publish subsequent changes to `docs/`
+when they are pushed to `main`.
+
+Preview it locally with `python3 -m http.server 8000 --directory docs` and open
+`http://localhost:8000/`. If the application icon or screenshot changes, copy
+the updated files from `data/` into `docs/assets/`.
 
 ## Maintainer Release
 
