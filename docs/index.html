@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f8f7fb">
+    <meta name="description" content="MPRIS MiniPlayer is a compact, open source music controller for Linux. Control any MPRIS-compatible player from one beautiful GTK4 window.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="MPRIS MiniPlayer — your music, within reach">
+    <meta property="og:description" content="A compact, open source music controller for your Linux desktop.">
+    <meta property="og:url" content="https://chrislauinger77.github.io/mpris-miniplayer/">
+    <meta property="og:image" content="https://chrislauinger77.github.io/mpris-miniplayer/assets/miniplayer.png">
+    <link rel="canonical" href="https://chrislauinger77.github.io/mpris-miniplayer/">
+    <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg">
+    <link rel="stylesheet" href="styles.css">
+    <title>MPRIS MiniPlayer — your music, within reach</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="#top" aria-label="MPRIS MiniPlayer home">
+          <img src="assets/app-icon.svg" width="42" height="42" alt="">
+          <span>MPRIS <strong>MiniPlayer</strong></span>
+        </a>
+        <nav aria-label="Main navigation">
+          <a href="#features">Features</a>
+          <a href="#players">Players</a>
+          <a href="#install">Install</a>
+          <a class="nav-github" href="https://github.com/ChrisLauinger77/mpris-miniplayer">GitHub <span aria-hidden="true">↗</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> OPEN SOURCE · MADE FOR LINUX</p>
+            <h1 id="hero-title">Your music,<br><em>within reach.</em></h1>
+            <p class="hero-description">A small, beautiful home for the music playing on your desktop. See what’s on, switch players, and stay in control without breaking your flow.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="https://github.com/ChrisLauinger77/mpris-miniplayer/releases/latest">
+                Download latest release
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v10m0 0 4-4m-4 4L6 9M4 16h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <a class="button button-quiet" href="#features">Explore features <span aria-hidden="true">↗</span></a>
+            </div>
+            <div class="hero-footnote">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.75 4 6v6.2c0 5.05 3.4 8.75 8 10.05 4.6-1.3 8-5 8-10.05V6l-8-3.25Z" stroke="currentColor" stroke-width="1.5"/><path d="m8.7 12.4 2.2 2.2 4.5-4.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Free and open source · GPL-3.0-or-later
+            </div>
+          </div>
+
+          <div class="hero-visual" aria-label="Application preview">
+            <div class="visual-orbit visual-orbit-one" aria-hidden="true"></div>
+            <div class="visual-orbit visual-orbit-two" aria-hidden="true"></div>
+            <span class="visual-spark visual-spark-one" aria-hidden="true">✦</span>
+            <span class="visual-spark visual-spark-two" aria-hidden="true">✧</span>
+            <div class="preview-window">
+              <div class="preview-bar"><span class="preview-bar-dot"></span><span>NOW PLAYING ON YOUR DESKTOP</span><span class="preview-bar-lines" aria-hidden="true"><i></i><i></i><i></i><i></i></span></div>
+              <img src="assets/miniplayer.png" width="534" height="272" alt="MPRIS MiniPlayer showing album art, track information, playback progress and media controls" fetchpriority="high">
+              <div class="preview-caption"><span class="caption-pulse" aria-hidden="true"></span> One window. Every MPRIS player.</div>
+            </div>
+            <div class="floating-note floating-note-left" aria-hidden="true">♫</div>
+            <div class="floating-note floating-note-right" aria-hidden="true">♪</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="players-band" id="players" aria-labelledby="players-title">
+        <div class="container players-inner">
+          <div class="players-heading">
+            <span class="section-kicker">WORKS WITH YOUR MUSIC</span>
+            <h2 id="players-title">One little player.<br>Plenty of company.</h2>
+          </div>
+          <div class="player-list" aria-label="Examples of compatible MPRIS players">
+            <span>Spotify</span><span>VLC</span><span>Rhythmbox</span><span>Strawberry</span><span>Elisa</span><span>mpv</span><span>Browsers</span><span>and more…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="features-section section-pad" id="features" aria-labelledby="features-title">
+        <div class="container">
+          <div class="section-heading">
+            <span class="section-kicker">THE GOOD STUFF</span>
+            <h2 id="features-title">Everything you need.<br><span>Nothing in your way.</span></h2>
+            <p>All the everyday controls you expect, thoughtfully tucked into a compact desktop companion.</p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card feature-card-primary">
+              <div class="feature-icon">
+                <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="4" y="6" width="24" height="20" rx="5" stroke="currentColor" stroke-width="1.8"/><rect x="8" y="10" width="8" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M20 12h4m-4 4h4m-4 4h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </div>
+              <h3>See the whole song</h3>
+              <p>Album art, title, artist, album, and progress are right where you need them, with artwork gracefully falling back when it’s missing.</p>
+              <span class="feature-index">01 / THE ESSENTIALS</span>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon feature-icon-blue">
+                <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M8 12V8a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3h-3M8 12H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2V14a2 2 0 0 0-2-2H8Z" stroke="currentColor" stroke-width="1.8"/><path d="m10 16 5 4-5 4v-8Z" fill="currentColor"/></svg>
+              </div>
+              <h3>Move between players</h3>
+              <p>Choose from available MPRIS players. The app follows along as players open, close, and change tracks.</p>
+              <span class="feature-index">02 / YOUR CHOICE</span>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon feature-icon-orange">
+                <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M8 24V8m8 16V4m8 20V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="17" r="3" fill="currentColor"/><circle cx="16" cy="12" r="3" fill="currentColor"/><circle cx="24" cy="20" r="3" fill="currentColor"/></svg>
+              </div>
+              <h3>Control the details</h3>
+              <p>Play, pause, skip, seek, and adjust volume. Shuffle, repeat, and a scrollable queue appear when your player supports them.</p>
+              <span class="feature-index">03 / FULL CONTROL</span>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon feature-icon-pink">
+                <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="4" y="5" width="24" height="22" rx="5" stroke="currentColor" stroke-width="1.8"/><path d="M4 11h24M13 17h7m-7 5h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </div>
+              <h3>Fits your desktop</h3>
+              <p>Switch to compact mode, keep it in the background, or use a status indicator when your desktop supports one.</p>
+              <span class="feature-index">04 / MADE FOR LINUX</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="desktop-section" aria-labelledby="desktop-title">
+        <div class="container desktop-inner">
+          <div class="desktop-mark" aria-hidden="true"><span>♫</span><span>✳</span><span>♪</span></div>
+          <div class="desktop-copy">
+            <span class="section-kicker">FEELS RIGHT AT HOME</span>
+            <h2 id="desktop-title">Made for the Linux desktop.</h2>
+            <p>Built with GTK4 and libadwaita, MPRIS MiniPlayer speaks the same MPRIS language as your favorite media apps. No account, no music library to import, no player lock-in.</p>
+          </div>
+          <div class="desktop-stack" aria-label="Technology used"><span>GTK4</span><span>libadwaita</span><span>MPRIS</span><span>D-Bus</span></div>
+        </div>
+      </section>
+
+      <section class="install-section section-pad" id="install" aria-labelledby="install-title">
+        <div class="container">
+          <div class="section-heading install-heading">
+            <span class="section-kicker">GET STARTED</span>
+            <h2 id="install-title">Ready when you are.</h2>
+            <p>Download the latest release, pick the package for your system, and press play.</p>
+            <a class="button button-primary" href="https://github.com/ChrisLauinger77/mpris-miniplayer/releases/latest">Browse release downloads <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="install-grid">
+            <article class="install-card">
+              <div class="install-card-top"><span class="package-symbol" aria-hidden="true">◆</span><span class="package-tag">X86_64</span></div>
+              <h3>Flatpak</h3>
+              <p>Install the downloaded Flatpak bundle for your user account.</p>
+              <code>flatpak install --user ./MPRIS-MiniPlayer-*.flatpak</code>
+            </article>
+            <article class="install-card">
+              <div class="install-card-top"><span class="package-symbol package-symbol-deb" aria-hidden="true">◈</span><span class="package-tag">AMD64</span></div>
+              <h3>Debian &amp; Ubuntu</h3>
+              <p>Install the downloaded Debian package with APT.</p>
+              <code>sudo apt install ./mpris-miniplayer_*_amd64.deb</code>
+            </article>
+            <article class="install-card">
+              <div class="install-card-top"><span class="package-symbol package-symbol-rpm" aria-hidden="true">⬡</span><span class="package-tag">X86_64</span></div>
+              <h3>Fedora</h3>
+              <p>Install the downloaded RPM package with DNF.</p>
+              <code>sudo dnf install ./mpris-miniplayer-*.x86_64.rpm</code>
+            </article>
+          </div>
+          <p class="install-hint">Start an MPRIS-compatible media player, then open MiniPlayer from your application launcher.</p>
+          <p class="install-note">Prefer building it yourself? <a href="https://github.com/ChrisLauinger77/mpris-miniplayer#build-from-source">Find the source and build instructions on GitHub <span aria-hidden="true">↗</span></a></p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div class="footer-brand"><img src="assets/app-icon.svg" width="40" height="40" alt=""><div><strong>MPRIS MiniPlayer</strong><span>A little window for a lot of music.</span></div></div>
+        <div class="footer-links"><a href="https://github.com/ChrisLauinger77/mpris-miniplayer">Source code ↗</a><a href="https://github.com/ChrisLauinger77/mpris-miniplayer/releases/latest">Releases ↗</a><a href="https://github.com/ChrisLauinger77/mpris-miniplayer/issues">Report an issue ↗</a></div>
+        <p>Made with care for Linux desktops. GPL-3.0-or-later.</p>
+      </div>
+    </footer>
+  </body>
+</html>
