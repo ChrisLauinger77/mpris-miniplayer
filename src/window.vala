@@ -303,6 +303,7 @@ namespace MprisMiniPlayer {
 
             cover_stack = new Gtk.Stack();
             cover_stack.add_css_class("card");
+            cover_stack.overflow = Gtk.Overflow.HIDDEN;
             cover_frame.child = cover_stack;
 
             cover = new Gtk.Picture();
