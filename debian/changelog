@@ -1,3 +1,11 @@
+mpris-miniplayer (2.3.0-1) unstable; urgency=medium
+
+  * Round the corners of album artwork to match the theme.
+  * Update the Flatpak runtime to GNOME 51.
+  * Build release packages on Ubuntu 26.04.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Tue, 13 Oct 2026 22:50:00 +0200
+
 mpris-miniplayer (2.2.0-1) unstable; urgency=medium
 
   * Keep album artwork square and align it with the track title.

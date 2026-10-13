@@ -1,4 +1,11 @@
   <releases>
+    <release version="2.3.0" date="2026-10-13">
+      <description>
+        <p>Round the corners of album artwork to match the theme.</p>
+        <p>Update the Flatpak runtime to GNOME 51.</p>
+        <p>Build release packages on Ubuntu 26.04.</p>
+      </description>
+    </release>
     <release version="2.2.0" date="2026-09-16">
       <description>
         <p>Keep album artwork square and align it with the track title.</p>
