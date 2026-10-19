@@ -152,7 +152,7 @@ Releases use two stages so the published files are exactly the ones that were te
    manual run of this workflow for the tagged commit, downloads its artifact, checks every
    file against the original `SHA256SUMS`, and publishes those bytes without rebuilding.
    If publishing fails, rerun that tag workflow; it replaces the draft release left by the
-   failed attempt.
+   failed attempt, or confirms a release that was already published with the same files.
 
 If the artifact expires or a new build is needed, start a new manual run; do not rerun an
 old candidate. The release contains `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`,

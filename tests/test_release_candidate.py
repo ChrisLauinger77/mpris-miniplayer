@@ -88,8 +88,9 @@ class FakeGitHub:
             return {}
         if endpoint == f"repos/{REPO}/releases/1":
             return None if args else self.release
-        if any(endpoint == f"repos/{REPO}/releases/{release['id']}" for release in self.releases):
-            return None
+        for release in self.releases:
+            if endpoint == f"repos/{REPO}/releases/{release['id']}":
+                return None if args else release
         raise subprocess.CalledProcessError(1, ["gh", "api", endpoint])
 
 
@@ -288,12 +289,15 @@ class PublishTests(CandidateDirectory):
             "id": 1,
             "tag_name": TAG,
             "draft": True,
-            "assets": [
-                {"name": name, "size": (self.dist / name).stat().st_size,
-                 "digest": "sha256:" + rc.sha256(self.dist / name)}
-                for name in self.names
-            ],
+            "assets": self.stored_assets(),
         }
+
+    def stored_assets(self):
+        return [
+            {"name": name, "size": (self.dist / name).stat().st_size,
+             "digest": "sha256:" + rc.sha256(self.dist / name)}
+            for name in self.names
+        ]
 
     def publish(self):
         with mock.patch.object(rc, "gh_api", self.github):
@@ -345,11 +349,34 @@ class PublishTests(CandidateDirectory):
         self.assertLess(deleted, created)
         self.assertTrue(self.published())
 
-    def test_retry_does_not_touch_published_release(self):
-        self.github.releases = [self.stale_draft(draft=False)]
-        with self.assertRaisesRegex(ValueError, "already published"):
+    def published_release(self, **changes):
+        release = self.stale_draft(release_id=9, draft=False, assets=self.stored_assets())
+        release.update(changes)
+        return release
+
+    def assert_nothing_changed(self):
+        self.assertEqual(self.requests("DELETE") + self.requests("POST") + self.requests("PATCH"), [])
+
+    def test_retry_accepts_release_already_published_with_verified_files(self):
+        self.github.releases = [self.published_release(), self.stale_draft()]
+        self.publish()
+        self.assertIn((f"repos/{REPO}/releases/9", ()), self.github.calls)
+        self.assert_nothing_changed()
+
+    def test_retry_rejects_release_published_with_other_files(self):
+        assets = self.stored_assets()
+        assets[0]["digest"] = "sha256:" + "0" * 64
+        self.github.releases = [self.published_release(assets=assets)]
+        with self.assertRaisesRegex(ValueError, "checksum mismatch"):
             self.publish()
-        self.assertEqual(self.requests("DELETE") + self.requests("POST"), [])
+        self.assert_nothing_changed()
+
+    def test_retry_requires_digests_to_accept_published_release(self):
+        assets = [dict(asset, digest=None) for asset in self.stored_assets()]
+        self.github.releases = [self.published_release(assets=assets)]
+        with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+            self.publish()
+        self.assert_nothing_changed()
 
     def test_retry_does_not_delete_draft_from_someone_else(self):
         self.github.releases = [self.stale_draft(author={"login": "ChrisLauinger77"})]

@@ -166,7 +166,8 @@ Releases are built once and published from that tested build:
    same commit, matching version), checks the downloaded files against the original
    `SHA256SUMS`, and publishes those exact files. It does not rebuild. If publishing
    fails, rerun the tag workflow: it deletes the draft its earlier attempt left and
-   uploads the verified files again.
+   uploads the verified files again, or succeeds without changes if the release was
+   already published with exactly those files.
 
 Candidate artifacts expire after 30 days. If a candidate expires or fails, start a new
 manual run; never rerun an old candidate as a substitute. Candidate verification lives in

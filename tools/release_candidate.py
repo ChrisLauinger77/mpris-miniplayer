@@ -169,12 +169,27 @@ def resolve(env):
     return run_id, artifact_id
 
 
-def discard_stale_drafts(repository, tag):
-    """Delete drafts an earlier failed attempt left for tag, so a rerun starts from scratch."""
+def tag_releases(repository, tag):
     pages = gh_api(f"repos/{repository}/releases?per_page=100", "--paginate", "--slurp")
-    for release in [release for page in pages for release in page if release["tag_name"] == tag]:
-        if not release["draft"]:
-            raise ValueError(f"Release {tag} is already published; there is nothing to retry")
+    return [release for page in pages for release in page if release["tag_name"] == tag]
+
+
+def check_stored_assets(release, dist, names, digests, require_digest=False):
+    """Require the release to hold exactly the verified files."""
+    assets = {asset["name"]: asset for asset in release["assets"]}
+    if sorted(assets) != sorted(names):
+        raise ValueError(f"Release assets {sorted(assets)} differ from {sorted(names)}")
+    for name in names:
+        if assets[name]["size"] != (dist / name).stat().st_size:
+            raise ValueError(f"Uploaded asset has an incorrect size: {name}")
+        stored = assets[name].get("digest")
+        if (stored or require_digest) and stored != "sha256:" + digests[name]:
+            raise ValueError(f"Uploaded asset checksum mismatch: {name}")
+
+
+def discard_stale_drafts(repository, tag, drafts):
+    """Delete drafts an earlier failed attempt left for tag, so a rerun starts from scratch."""
+    for release in drafts:
         if (release.get("author") or {}).get("login") != WORKFLOW_ACCOUNT:
             raise ValueError(f"Draft release {release['id']} for {tag} was not created by this workflow; "
                              "delete it before retrying")
@@ -198,24 +213,25 @@ def publish(env, dist):
     tag, repository = env["RELEASE_TAG"], env["GH_REPO"]
     release_tag(tag)
     digests = verify_assets(dist, tag)
+    digests[CHECKSUMS] = sha256(dist / CHECKSUMS)
     names = package_names(tag) + [CHECKSUMS]
     # Fails if the tag is missing, so creating the release can never create a tag.
     gh_api(f"repos/{repository}/git/ref/tags/{tag}")
-    discard_stale_drafts(repository, tag)
+    existing = tag_releases(repository, tag)
+    published = [release for release in existing if not release["draft"]]
+    if published:
+        # An earlier attempt's final PATCH can succeed even though its response was lost.
+        # Accept that release only if it provably holds the verified bytes.
+        check_stored_assets(gh_api(f"repos/{repository}/releases/{published[0]['id']}"),
+                            dist, names, digests, require_digest=True)
+        print(f"Release {tag} is already published with the verified files")
+        return
+    discard_stale_drafts(repository, tag, existing)
     endpoint = f"repos/{repository}/releases/{create_draft(repository, tag, dist, names)}"
     release = gh_api(endpoint)
     if release["tag_name"] != tag or release["draft"] is not True:
         raise ValueError("Release lookup did not return the expected draft")
-    assets = {asset["name"]: asset for asset in release["assets"]}
-    if sorted(assets) != sorted(names):
-        raise ValueError(f"Draft release assets {sorted(assets)} differ from {sorted(names)}")
-    digests[CHECKSUMS] = sha256(dist / CHECKSUMS)
-    for name in names:
-        if assets[name]["size"] != (dist / name).stat().st_size:
-            raise ValueError(f"Uploaded asset has an incorrect size: {name}")
-        stored = assets[name].get("digest")
-        if stored and stored != "sha256:" + digests[name]:
-            raise ValueError(f"Uploaded asset checksum mismatch: {name}")
+    check_stored_assets(release, dist, names, digests)
     gh_api(endpoint, "--method", "PATCH", "-F", "draft=false")
 
 
