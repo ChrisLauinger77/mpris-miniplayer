@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic tests for tools/release_candidate.py; GitHub is always mocked."""
 import copy
-import json
 from pathlib import Path
 import subprocess
 import sys
@@ -19,6 +18,7 @@ COMMIT = "a" * 40
 RUN_ID = 4242
 WORKFLOW_ID = 77
 TAG_SHA = "b" * 40
+UPLOADS = f"https://uploads.github.com/repos/{REPO}/releases/1/assets"
 ENV = {
     "RELEASE_TAG": TAG,
     "GH_REPO": REPO,
@@ -64,12 +64,13 @@ class FakeGitHub:
         self.tag = {"tag": TAG, "message": message, "object": {"type": "commit", "sha": COMMIT}}
         self.run = good_run()
         self.artifacts = [good_artifact()]
+        self.releases = []
         self.release = None
         self.calls = []
 
     def __call__(self, endpoint, *args):
         self.calls.append((endpoint, args))
-        if endpoint == f"repos/{REPO}/git/ref/tags/{TAG}":
+        if endpoint == f"repos/{REPO}/git/ref/tags/{TAG}" and self.ref is not None:
             return self.ref
         if endpoint == f"repos/{REPO}/git/tags/{TAG_SHA}":
             return self.tag
@@ -79,8 +80,16 @@ class FakeGitHub:
             return self.run
         if endpoint.startswith(f"repos/{REPO}/actions/runs/{RUN_ID}/artifacts"):
             return [{"artifacts": self.artifacts}]
+        if endpoint == f"repos/{REPO}/releases?per_page=100":
+            return [self.releases]
+        if endpoint == f"repos/{REPO}/releases":
+            return {"id": 1, "upload_url": f"{UPLOADS}{{?name,label}}"}
+        if endpoint.startswith(f"{UPLOADS}?name="):
+            return {}
         if endpoint == f"repos/{REPO}/releases/1":
             return None if args else self.release
+        if any(endpoint == f"repos/{REPO}/releases/{release['id']}" for release in self.releases):
+            return None
         raise subprocess.CalledProcessError(1, ["gh", "api", endpoint])
 
 
@@ -285,28 +294,32 @@ class PublishTests(CandidateDirectory):
                 for name in self.names
             ],
         }
-        self.commands = []
-
-    def fake_run(self, *args, **kwargs):
-        self.commands.append([str(arg) for arg in args])
-        stdout = json.dumps({"databaseId": 1}) if args[:3] == ("gh", "release", "view") else ""
-        return subprocess.CompletedProcess(args, 0, stdout=stdout)
 
     def publish(self):
-        with mock.patch.object(rc, "gh_api", self.github), mock.patch.object(rc, "run", self.fake_run):
+        with mock.patch.object(rc, "gh_api", self.github):
             rc.publish(ENV, self.dist)
 
+    def requests(self, method):
+        return [endpoint for endpoint, args in self.github.calls if method in args]
+
     def published(self):
-        return any(endpoint.endswith("/releases/1") and "PATCH" in args for endpoint, args in self.github.calls)
+        return f"repos/{REPO}/releases/1" in self.requests("PATCH")
+
+    def stale_draft(self, release_id=7, **changes):
+        release = {"id": release_id, "tag_name": TAG, "draft": True, "author": {"login": rc.WORKFLOW_ACCOUNT}}
+        release.update(changes)
+        return release
 
     def test_exact_artifacts_are_uploaded_then_published(self):
         before = {name: (self.dist / name).read_bytes() for name in self.names}
         self.publish()
-        create = self.commands[0]
-        self.assertEqual(create[:3], ["gh", "release", "create"])
-        self.assertIn("--draft", create)
-        self.assertIn("--verify-tag", create)
-        self.assertEqual(create[-len(self.names):], [str(self.dist / name) for name in self.names])
+        create = next(args for endpoint, args in self.github.calls if endpoint == f"repos/{REPO}/releases")
+        self.assertIn("draft=true", create)
+        self.assertIn(f"tag_name={TAG}", create)
+        uploads = [(endpoint, args) for endpoint, args in self.github.calls if endpoint.startswith(UPLOADS)]
+        self.assertEqual([endpoint for endpoint, _ in uploads], [f"{UPLOADS}?name={name}" for name in self.names])
+        self.assertEqual([args[-1] for _, args in uploads], [self.dist / name for name in self.names])
+        self.assertEqual(self.requests("DELETE"), [])
         self.assertTrue(self.published())
         self.assertEqual(before, {name: (self.dist / name).read_bytes() for name in self.names})
 
@@ -314,7 +327,35 @@ class PublishTests(CandidateDirectory):
         (self.dist / rc.package_names(TAG)[0]).write_bytes(b"rebuilt")
         with self.assertRaisesRegex(ValueError, "Checksum mismatch"):
             self.publish()
-        self.assertEqual(self.commands, [])
+        self.assertEqual(self.github.calls, [])
+
+    def test_missing_tag_is_rejected_before_creating_a_release(self):
+        self.github.ref = None
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.publish()
+        self.assertEqual(self.requests("POST"), [])
+
+    def test_retry_replaces_draft_left_by_earlier_attempt(self):
+        other_tag = self.stale_draft(release_id=8, tag_name="v0.0.1")
+        self.github.releases = [self.stale_draft(), other_tag]
+        self.publish()
+        self.assertEqual(self.requests("DELETE"), [f"repos/{REPO}/releases/7"])
+        deleted = self.github.calls.index((f"repos/{REPO}/releases/7", ("--method", "DELETE")))
+        created = [endpoint for endpoint, _ in self.github.calls].index(f"repos/{REPO}/releases")
+        self.assertLess(deleted, created)
+        self.assertTrue(self.published())
+
+    def test_retry_does_not_touch_published_release(self):
+        self.github.releases = [self.stale_draft(draft=False)]
+        with self.assertRaisesRegex(ValueError, "already published"):
+            self.publish()
+        self.assertEqual(self.requests("DELETE") + self.requests("POST"), [])
+
+    def test_retry_does_not_delete_draft_from_someone_else(self):
+        self.github.releases = [self.stale_draft(author={"login": "ChrisLauinger77"})]
+        with self.assertRaisesRegex(ValueError, "not created by this workflow"):
+            self.publish()
+        self.assertEqual(self.requests("DELETE") + self.requests("POST"), [])
 
     def test_stored_asset_digest_mismatch_leaves_draft(self):
         self.github.release["assets"][0]["digest"] = "sha256:" + "0" * 64

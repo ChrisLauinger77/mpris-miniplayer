@@ -151,6 +151,8 @@ Releases use two stages so the published files are exactly the ones that were te
    Pushing the annotated tag verifies that the candidate run is a successful, first-attempt
    manual run of this workflow for the tagged commit, downloads its artifact, checks every
    file against the original `SHA256SUMS`, and publishes those bytes without rebuilding.
+   If publishing fails, rerun that tag workflow; it replaces the draft release left by the
+   failed attempt.
 
 If the artifact expires or a new build is needed, start a new manual run; do not rerun an
 old candidate. The release contains `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`,

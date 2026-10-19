@@ -24,6 +24,8 @@ WORKFLOW_PATH = ".github/workflows/release.yml"
 ARTIFACT_NAME = "release-assets"
 CHECKSUMS = "SHA256SUMS"
 RETENTION_DAYS = 30
+# Author of releases created with the workflow's GITHUB_TOKEN.
+WORKFLOW_ACCOUNT = "github-actions[bot]"
 
 
 def _load_check_release():
@@ -167,18 +169,40 @@ def resolve(env):
     return run_id, artifact_id
 
 
+def discard_stale_drafts(repository, tag):
+    """Delete drafts an earlier failed attempt left for tag, so a rerun starts from scratch."""
+    pages = gh_api(f"repos/{repository}/releases?per_page=100", "--paginate", "--slurp")
+    for release in [release for page in pages for release in page if release["tag_name"] == tag]:
+        if not release["draft"]:
+            raise ValueError(f"Release {tag} is already published; there is nothing to retry")
+        if (release.get("author") or {}).get("login") != WORKFLOW_ACCOUNT:
+            raise ValueError(f"Draft release {release['id']} for {tag} was not created by this workflow; "
+                             "delete it before retrying")
+        print(f"Deleting draft release {release['id']} left by an earlier attempt")
+        gh_api(f"repos/{repository}/releases/{release['id']}", "--method", "DELETE")
+
+
+def create_draft(repository, tag, dist, names):
+    """Create a draft and upload to it by ID; a fresh draft is not always found by tag yet."""
+    release = gh_api(f"repos/{repository}/releases", "--method", "POST", "-f", f"tag_name={tag}",
+                     "-f", f"name={tag}", "-F", "draft=true", "-F", "generate_release_notes=true")
+    upload_url = release["upload_url"].split("{", 1)[0]
+    for name in names:
+        gh_api(f"{upload_url}?name={name}", "--method", "POST",
+               "-H", "Content-Type: application/octet-stream", "--input", dist / name)
+    return release["id"]
+
+
 def publish(env, dist):
     """Upload verified bytes to a draft release, check what GitHub stored, then publish it."""
     tag, repository = env["RELEASE_TAG"], env["GH_REPO"]
     release_tag(tag)
     digests = verify_assets(dist, tag)
     names = package_names(tag) + [CHECKSUMS]
-    run("gh", "release", "create", tag, "--repo", repository, "--verify-tag", "--draft",
-        "--title", tag, "--generate-notes", *[dist / name for name in names])
-    view = run("gh", "release", "view", tag, "--repo", repository, "--json", "databaseId",
-               stdout=subprocess.PIPE, text=True)
-    release_id = json.loads(view.stdout)["databaseId"]
-    endpoint = f"repos/{repository}/releases/{release_id}"
+    # Fails if the tag is missing, so creating the release can never create a tag.
+    gh_api(f"repos/{repository}/git/ref/tags/{tag}")
+    discard_stale_drafts(repository, tag)
+    endpoint = f"repos/{repository}/releases/{create_draft(repository, tag, dist, names)}"
     release = gh_api(endpoint)
     if release["tag_name"] != tag or release["draft"] is not True:
         raise ValueError("Release lookup did not return the expected draft")
