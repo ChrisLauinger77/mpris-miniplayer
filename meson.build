@@ -91,6 +91,7 @@ test('Artwork ownership and source changes', artwork_test)
 
 python = find_program('python3')
 test('Release version agreement', python, args: files('tools/check-release.py'))
+test('Release candidate verification', python, args: files('tests/test_release_candidate.py'))
 
 desktop_state_test = executable(
   'desktop-state-test',
