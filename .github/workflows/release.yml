@@ -1,19 +1,65 @@
 name: Release
 
+# Stage 1 (workflow_dispatch on main): build, test and upload a release candidate.
+# Stage 2 (annotated v* tag with a Candidate-Run line): publish that candidate's
+# exact bytes without rebuilding. See the candidate run's job summary for the tag
+# commands.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch'
+    name: Prepare candidate
+    runs-on: ubuntu-26.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Require the default branch and a first attempt
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            echo "Release candidates must be built from $DEFAULT_BRANCH, not $GITHUB_REF." >&2
+            exit 1
+          fi
+          if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then
+            echo "Reruns cannot become release candidates; start a new manual workflow run." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Determine release version
+        id: version
+        run: |
+          tag="$(python3 tools/release_candidate.py version)"
+          echo "Candidate $tag from $GITHUB_SHA"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Test release candidate tooling
+        run: python3 tests/test_release_candidate.py
+
   validation:
+    needs: prepare
     uses: ./.github/workflows/ci.yml
 
   flatpak:
-    needs: validation
+    needs: [prepare, validation]
     name: Build Flatpak
     runs-on: ubuntu-26.04
     container:
@@ -23,12 +69,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
         with:
           manifest-path: io.github.ChrisLauinger.MprisMiniPlayer.yml
-          bundle: MPRIS-MiniPlayer-${{ github.ref_name }}-x86_64.flatpak
+          bundle: MPRIS-MiniPlayer-${{ needs.prepare.outputs.tag }}-x86_64.flatpak
           arch: x86_64
           cache-key: flatpak-builder-${{ github.sha }}
           verbose: true
@@ -37,18 +85,20 @@ jobs:
       - name: Upload Flatpak bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: flatpak-bundle
-          path: MPRIS-MiniPlayer-${{ github.ref_name }}-x86_64.flatpak
+          name: package-flatpak
+          path: MPRIS-MiniPlayer-${{ needs.prepare.outputs.tag }}-x86_64.flatpak
           if-no-files-found: error
 
   debian:
-    needs: validation
+    needs: [prepare, validation]
     name: Build Debian package
     runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install build dependencies
         run: |
@@ -73,19 +123,21 @@ jobs:
         run: dpkg-buildpackage -us -uc -b
 
       - name: Normalize Debian package name
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           mkdir -p release-assets
-          cp ../mpris-miniplayer_*_amd64.deb release-assets/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
+          cp ../mpris-miniplayer_*_amd64.deb "release-assets/mpris-miniplayer_${TAG}_amd64.deb"
 
       - name: Upload Debian package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: debian-package
-          path: release-assets/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
+          name: package-debian
+          path: release-assets/mpris-miniplayer_${{ needs.prepare.outputs.tag }}_amd64.deb
           if-no-files-found: error
 
   rpm:
-    needs: validation
+    needs: [prepare, validation]
     name: Build RPM package
     runs-on: ubuntu-26.04
     container:
@@ -110,11 +162,15 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build x86_64 RPM package
         shell: bash
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           mkdir -p "$HOME/rpmbuild/SOURCES"
           git archive \
@@ -127,37 +183,81 @@ jobs:
             rpm/mpris-miniplayer.spec
           mkdir -p release-assets
           cp "$HOME"/rpmbuild/RPMS/x86_64/mpris-miniplayer-"${version}"-*.x86_64.rpm \
-            "release-assets/mpris-miniplayer-${GITHUB_REF_NAME}.x86_64.rpm"
+            "release-assets/mpris-miniplayer-${TAG}.x86_64.rpm"
 
       - name: Upload RPM package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: rpm-package
-          path: release-assets/mpris-miniplayer-${{ github.ref_name }}.x86_64.rpm
+          name: package-rpm
+          path: release-assets/mpris-miniplayer-${{ needs.prepare.outputs.tag }}.x86_64.rpm
           if-no-files-found: error
 
-  release:
-    permissions:
-      contents: write
-    name: Create GitHub release
+  aggregate:
+    needs: [prepare, flatpak, debian, rpm]
+    name: Aggregate release candidate
     runs-on: ubuntu-26.04
-    needs:
-      - flatpak
-      - debian
-      - rpm
 
     steps:
-      - name: Download release artifacts
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
+          pattern: package-*
+          merge-multiple: true
           path: release-assets
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      - name: Require all packages and generate SHA256SUMS
+        run: python3 tools/release_candidate.py aggregate --dist release-assets
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          files: |
-            release-assets/flatpak-bundle/MPRIS-MiniPlayer-${{ github.ref_name }}-x86_64.flatpak
-            release-assets/debian-package/mpris-miniplayer_${{ github.ref_name }}_amd64.deb
-            release-assets/rpm-package/mpris-miniplayer-${{ github.ref_name }}.x86_64.rpm
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+          name: release-assets
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Print the commands to publish this candidate
+        run: python3 tools/release_candidate.py summary
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    name: Publish verified candidate
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify annotated tag and candidate run
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 tools/release_candidate.py resolve
+
+      - name: Download candidate artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.artifact_id }}
+          run-id: ${{ steps.candidate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: release-assets
+
+      - name: Verify checksums and publish the exact candidate bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 tools/release_candidate.py publish --dist release-assets

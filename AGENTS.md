@@ -144,12 +144,31 @@ When preparing a new release, update the version in:
 
 Do not translate AppStream release notes. Keep release entries in `data/io.github.ChrisLauinger.MprisMiniPlayer.releases.xml`, which is intentionally not listed in `po/POTFILES`; release-note strings should never be added to `po/mpris-miniplayer.pot` or `po/*.po`.
 
-Then tag the release with a `v` prefix, for example:
+Releases are built once and published from that tested build:
 
-```bash
-git tag v1.1.0
-git push origin v1.1.0
-```
+1. After the version changes are on `main`, run the `Release` workflow manually
+   (`workflow_dispatch`) on `main`. It builds the Flatpak, Debian, and RPM packages,
+   writes `SHA256SUMS`, and uploads everything as the `release-assets` artifact.
+   It never creates tags or releases.
+2. Test that artifact. The run's job summary prints the exact commands to tag the
+   candidate commit with an annotated `v`-prefixed tag carrying a
+   `Candidate-Run: <run ID>` line, for example:
+
+   ```bash
+   git tag -a v1.1.0 <candidate commit SHA> \
+     -m "MPRIS MiniPlayer 1.1.0" \
+     -m "Candidate-Run: <candidate run ID>"
+   git push origin v1.1.0
+   ```
+
+3. The tag push verifies the candidate run through the GitHub Actions API
+   (repository, workflow, `workflow_dispatch` event, success on its first attempt,
+   same commit, matching version), checks the downloaded files against the original
+   `SHA256SUMS`, and publishes those exact files. It does not rebuild.
+
+Candidate artifacts expire after 30 days. If a candidate expires or fails, start a new
+manual run; never rerun an old candidate as a substitute. Candidate verification lives in
+`tools/release_candidate.py` with tests in `tests/test_release_candidate.py`.
 
 The release workflow removes the tag's `v` prefix for the RPM package metadata.
 It uses the full Git tag in the uploaded Flatpak, Debian, and RPM asset names.

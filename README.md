@@ -132,14 +132,29 @@ the updated files from `data/` into `docs/assets/`.
 
 ## Maintainer Release
 
-Pushing a version tag builds a Flatpak bundle, an amd64 Debian package, an x86_64 RPM package, and creates a GitHub release:
+Releases use two stages so the published files are exactly the ones that were tested:
 
-```bash
-git tag v1.4.2
-git push origin v1.4.2
-```
+1. Run the **Release** workflow manually (`workflow_dispatch`) on `main`. It validates
+   the version metadata, runs the test suite, builds the Flatpak bundle, the amd64 Debian
+   package and the x86_64 RPM package, and uploads them with `SHA256SUMS` as the
+   `release-assets` artifact (kept for 30 days). It never tags or publishes anything.
+2. Download and test the `release-assets` artifact. The run's job summary prints the
+   exact commands to publish it, for example:
 
-The release workflow attaches `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`, `mpris-miniplayer_<tag>_amd64.deb`, and `mpris-miniplayer-<tag>.x86_64.rpm` to the generated release.
+   ```bash
+   git tag -a v1.4.2 <candidate commit SHA> \
+     -m "MPRIS MiniPlayer 1.4.2" \
+     -m "Candidate-Run: <candidate run ID>"
+   git push origin v1.4.2
+   ```
+
+   Pushing the annotated tag verifies that the candidate run is a successful, first-attempt
+   manual run of this workflow for the tagged commit, downloads its artifact, checks every
+   file against the original `SHA256SUMS`, and publishes those bytes without rebuilding.
+
+If the artifact expires or a new build is needed, start a new manual run; do not rerun an
+old candidate. The release contains `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`,
+`mpris-miniplayer_<tag>_amd64.deb`, `mpris-miniplayer-<tag>.x86_64.rpm`, and `SHA256SUMS`.
 
 ## License
 
