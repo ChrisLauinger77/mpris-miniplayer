@@ -132,30 +132,31 @@ the updated files from `data/` into `docs/assets/`.
 
 ## Maintainer Release
 
-Releases use two stages so the published files are exactly the ones that were tested:
+Releases use one manually started workflow with two stages, so the published files are
+exactly the ones that were tested. The `release` environment must have the maintainer
+configured as a required reviewer and allow deployments from `main`. Leave **Prevent
+self-review** disabled if the same maintainer starts and approves the run.
 
 1. Run the **Release** workflow manually (`workflow_dispatch`) on `main`. It validates
    the version metadata, runs the test suite, builds the Flatpak bundle, the amd64 Debian
    package and the x86_64 RPM package, and uploads them with `SHA256SUMS` as the
-   `release-assets` artifact (kept for 30 days). It never tags or publishes anything.
-2. Download and test the `release-assets` artifact. The run's job summary prints the
-   exact commands to publish it, for example:
+   `release-assets` artifact (kept for 30 days). The **Publish release** job then waits
+   for review through the `release` environment. No tag or release is created yet.
+2. Download and test the `release-assets` artifact linked in the run's job summary.
+   In the workflow run, click **Review deployments**, select **release**, then choose:
 
-   ```bash
-   git tag -a v1.4.2 <candidate commit SHA> \
-     -m "MPRIS MiniPlayer 1.4.2" \
-     -m "Candidate-Run: <candidate run ID>"
-   git push origin v1.4.2
-   ```
+   - **Approve and deploy** to check the original `SHA256SUMS`, create the annotated
+     `v`-prefixed tag at the built commit, and publish those exact files without rebuilding.
+   - **Reject** to fail the workflow without creating a tag or release.
 
-   Pushing the annotated tag verifies that the candidate run is a successful, first-attempt
-   manual run of this workflow for the tagged commit, downloads its artifact, checks every
-   file against the original `SHA256SUMS`, and publishes those bytes without rebuilding.
-   If publishing fails, rerun that tag workflow; it replaces the draft release left by the
-   failed attempt, or confirms a release that was already published with the same files.
+If publishing fails after approval, rerun only the failed **Publish release** job and
+approve it again. It downloads the same artifact by its immutable ID, verifies any
+existing tag points at the built commit, and replaces a draft release left by an earlier
+attempt, or confirms a release already published with exactly the same files. Tags
+include a `Candidate-Run` line for traceability; pushing a tag does not start this workflow.
 
-If the artifact expires or a new build is needed, start a new manual run; do not rerun an
-old candidate. The release contains `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`,
+If a build fails, the artifact expires, or a new build is needed, start a new manual run
+instead of rerunning the build jobs. The release contains `MPRIS-MiniPlayer-<tag>-x86_64.flatpak`,
 `mpris-miniplayer_<tag>_amd64.deb`, `mpris-miniplayer-<tag>.x86_64.rpm`, and `SHA256SUMS`.
 
 ## License

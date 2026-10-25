@@ -16,70 +16,40 @@ TAG = rc.release_tag()
 REPO = "ChrisLauinger77/mpris-miniplayer"
 COMMIT = "a" * 40
 RUN_ID = 4242
-WORKFLOW_ID = 77
 TAG_SHA = "b" * 40
 UPLOADS = f"https://uploads.github.com/repos/{REPO}/releases/1/assets"
 ENV = {
     "RELEASE_TAG": TAG,
     "GH_REPO": REPO,
     "GITHUB_SHA": COMMIT,
-    "GITHUB_RUN_ID": "9999",
-    "DEFAULT_BRANCH": "main",
+    "GITHUB_RUN_ID": str(RUN_ID),
 }
 
 
-def good_run():
-    return {
-        "id": RUN_ID,
-        "event": "workflow_dispatch",
-        "status": "completed",
-        "conclusion": "success",
-        "head_sha": COMMIT,
-        "head_branch": "main",
-        "path": rc.WORKFLOW_PATH,
-        "workflow_id": WORKFLOW_ID,
-        "run_attempt": 1,
-        "repository": {"full_name": REPO},
-        "head_repository": {"full_name": REPO},
-    }
-
-
-def good_artifact(**changes):
-    artifact = {
-        "id": 555,
-        "name": rc.ARTIFACT_NAME,
-        "expired": False,
-        "size_in_bytes": 1234,
-        "workflow_run": {"id": RUN_ID, "head_sha": COMMIT},
-    }
-    artifact.update(changes)
-    return artifact
-
-
 class FakeGitHub:
-    """Answers the REST endpoints used by resolve() and publish()."""
+    """Answers the REST endpoints used by ensure_tag() and publish()."""
 
-    def __init__(self, message=f"MPRIS MiniPlayer {TAG[1:]}\n\nCandidate-Run: {RUN_ID}\n"):
+    def __init__(self):
         self.ref = {"object": {"type": "tag", "sha": TAG_SHA}}
-        self.tag = {"tag": TAG, "message": message, "object": {"type": "commit", "sha": COMMIT}}
-        self.run = good_run()
-        self.artifacts = [good_artifact()]
+        self.tag = {"tag": TAG, "message": "Release", "object": {"type": "commit", "sha": COMMIT}}
+        self.neighbor_refs = []
         self.releases = []
         self.release = None
         self.calls = []
 
     def __call__(self, endpoint, *args):
         self.calls.append((endpoint, args))
+        if endpoint == f"repos/{REPO}/git/matching-refs/tags/{TAG}":
+            return self.neighbor_refs + ([{"ref": f"refs/tags/{TAG}"}] if self.ref else [])
         if endpoint == f"repos/{REPO}/git/ref/tags/{TAG}" and self.ref is not None:
             return self.ref
         if endpoint == f"repos/{REPO}/git/tags/{TAG_SHA}":
             return self.tag
-        if endpoint == f"repos/{REPO}/actions/runs/{ENV['GITHUB_RUN_ID']}":
-            return {"workflow_id": WORKFLOW_ID}
-        if endpoint == f"repos/{REPO}/actions/runs/{RUN_ID}":
-            return self.run
-        if endpoint.startswith(f"repos/{REPO}/actions/runs/{RUN_ID}/artifacts"):
-            return [{"artifacts": self.artifacts}]
+        if endpoint == f"repos/{REPO}/git/tags":
+            return {"sha": TAG_SHA}
+        if endpoint == f"repos/{REPO}/git/refs":
+            self.ref = {"object": {"type": "tag", "sha": TAG_SHA}}
+            return {}
         if endpoint == f"repos/{REPO}/releases?per_page=100":
             return [self.releases]
         if endpoint == f"repos/{REPO}/releases":
@@ -122,24 +92,6 @@ class VersionTests(unittest.TestCase):
             "mpris-miniplayer_v1.2.3_amd64.deb",
             "mpris-miniplayer-v1.2.3.x86_64.rpm",
         ])
-
-
-class TrailerTests(unittest.TestCase):
-    def test_valid_trailer(self):
-        self.assertEqual(rc.candidate_run_id("Title\n\nCandidate-Run: 123\n"), 123)
-
-    def test_missing_trailer(self):
-        with self.assertRaisesRegex(ValueError, "Candidate-Run"):
-            rc.candidate_run_id("MPRIS MiniPlayer 1.0.0\n")
-
-    def test_invalid_run_ids(self):
-        for value in ("0", "-1", "12a", "", "1 2", "0123"):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                rc.candidate_run_id(f"Title\n\nCandidate-Run: {value}\n")
-
-    def test_duplicate_trailer(self):
-        with self.assertRaises(ValueError):
-            rc.candidate_run_id("Candidate-Run: 1\nCandidate-Run: 2\n")
 
 
 class AggregateTests(CandidateDirectory):
@@ -202,83 +154,6 @@ class VerifyAssetTests(CandidateDirectory):
             rc.verify_assets(self.dist / "absent", TAG)
 
 
-class ResolveTests(unittest.TestCase):
-    def resolve(self, github):
-        with mock.patch.object(rc, "gh_api", github):
-            return rc.resolve(ENV)
-
-    def test_successful_candidate_resolution(self):
-        self.assertEqual(self.resolve(FakeGitHub()), (RUN_ID, 555))
-
-    def test_lightweight_tag_is_rejected(self):
-        github = FakeGitHub()
-        github.ref["object"]["type"] = "commit"
-        with self.assertRaisesRegex(ValueError, "annotated"):
-            self.resolve(github)
-
-    def test_tag_on_other_commit_is_rejected(self):
-        github = FakeGitHub()
-        github.tag["object"]["sha"] = "c" * 40
-        with self.assertRaisesRegex(ValueError, "Tag points at"):
-            self.resolve(github)
-
-    def test_missing_trailer_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "Candidate-Run"):
-            self.resolve(FakeGitHub(message="MPRIS MiniPlayer\n"))
-
-    def test_unknown_run_is_rejected(self):
-        with self.assertRaises(subprocess.CalledProcessError):
-            self.resolve(FakeGitHub(message="Candidate-Run: 31337\n"))
-
-    def test_version_mismatch_is_rejected(self):
-        with mock.patch.object(rc, "gh_api", FakeGitHub()), self.assertRaisesRegex(ValueError, "disagree"):
-            rc.resolve(dict(ENV, RELEASE_TAG="v0.0.0"))
-
-    def test_run_field_mismatches_are_rejected(self):
-        cases = {
-            "wrong workflow path": ("path", ".github/workflows/ci.yml"),
-            "wrong workflow id": ("workflow_id", WORKFLOW_ID + 1),
-            "wrong event": ("event", "push"),
-            "wrong source commit": ("head_sha", "d" * 40),
-            "wrong branch": ("head_branch", "feature"),
-            "failed candidate": ("conclusion", "failure"),
-            "cancelled candidate": ("conclusion", "cancelled"),
-            "incomplete candidate": ("status", "in_progress"),
-            "rerun candidate": ("run_attempt", 2),
-        }
-        for label, (key, value) in cases.items():
-            with self.subTest(label):
-                github = FakeGitHub()
-                github.run[key] = value
-                with self.assertRaisesRegex(ValueError, key):
-                    self.resolve(github)
-
-    def test_wrong_repository_is_rejected(self):
-        for key in ("repository", "head_repository"):
-            with self.subTest(key):
-                github = FakeGitHub()
-                github.run[key] = {"full_name": "someone/fork"}
-                with self.assertRaisesRegex(ValueError, "this repository"):
-                    self.resolve(github)
-
-    def test_artifact_problems_are_rejected(self):
-        cases = {
-            "missing": ([], "exactly one"),
-            "duplicate": ([good_artifact(), good_artifact(id=556)], "exactly one"),
-            "expired": ([good_artifact(expired=True)], "expired"),
-            "empty": ([good_artifact(size_in_bytes=0)], "empty"),
-            "other run": ([good_artifact(workflow_run={"id": 1, "head_sha": COMMIT})], "does not belong"),
-            "other commit": ([good_artifact(workflow_run={"id": RUN_ID, "head_sha": "e" * 40})], "does not belong"),
-            "wrong name": ([good_artifact(name="package-rpm")], "exactly one"),
-        }
-        for label, (artifacts, error) in cases.items():
-            with self.subTest(label):
-                github = FakeGitHub()
-                github.artifacts = artifacts
-                with self.assertRaisesRegex(ValueError, error):
-                    self.resolve(github)
-
-
 class PublishTests(CandidateDirectory):
     def setUp(self):
         super().setUp()
@@ -333,11 +208,73 @@ class PublishTests(CandidateDirectory):
             self.publish()
         self.assertEqual(self.github.calls, [])
 
-    def test_missing_tag_is_rejected_before_creating_a_release(self):
+    def test_missing_tag_is_created_at_the_built_commit(self):
         self.github.ref = None
-        with self.assertRaises(subprocess.CalledProcessError):
+        self.publish()
+        annotation = next(args for endpoint, args in self.github.calls if endpoint == f"repos/{REPO}/git/tags")
+        self.assertIn(f"tag={TAG}", annotation)
+        self.assertIn(f"object={COMMIT}", annotation)
+        self.assertIn("type=commit", annotation)
+        self.assertIn(f"message=MPRIS MiniPlayer {TAG[1:]}\n\nCandidate-Run: {RUN_ID}\n", annotation)
+        ref = next(args for endpoint, args in self.github.calls if endpoint == f"repos/{REPO}/git/refs")
+        self.assertIn(f"ref=refs/tags/{TAG}", ref)
+        self.assertIn(f"sha={TAG_SHA}", ref)
+        posts = self.requests("POST")
+        self.assertLess(posts.index(f"repos/{REPO}/git/refs"), posts.index(f"repos/{REPO}/releases"))
+        self.assertTrue(self.published())
+
+    def test_existing_tag_at_built_commit_is_reused(self):
+        self.publish()
+        self.assertNotIn(f"repos/{REPO}/git/tags", self.requests("POST"))
+        self.assertNotIn(f"repos/{REPO}/git/refs", self.requests("POST"))
+        self.assertTrue(self.published())
+
+    def test_tag_with_matching_prefix_does_not_hide_missing_tag(self):
+        self.github.ref = None
+        self.github.neighbor_refs = [{"ref": f"refs/tags/{TAG}-rc1"}]
+        self.publish()
+        self.assertIn(f"repos/{REPO}/git/refs", self.requests("POST"))
+
+    def test_tag_on_other_commit_is_rejected_before_release_creation(self):
+        self.github.tag["object"]["sha"] = "c" * 40
+        with self.assertRaisesRegex(ValueError, "Tag points at"):
             self.publish()
-        self.assertEqual(self.requests("POST"), [])
+        self.assert_nothing_changed()
+
+    def test_lightweight_tag_is_rejected_before_release_creation(self):
+        self.github.ref["object"]["type"] = "commit"
+        with self.assertRaisesRegex(ValueError, "annotated"):
+            self.publish()
+        self.assert_nothing_changed()
+
+    def test_nested_tag_is_rejected_before_release_creation(self):
+        self.github.tag["object"]["type"] = "tag"
+        with self.assertRaisesRegex(ValueError, "directly at a commit"):
+            self.publish()
+        self.assert_nothing_changed()
+
+    def test_tag_creation_failure_does_not_create_release(self):
+        self.github.ref = None
+
+        def fail_creation(endpoint, *args):
+            if endpoint == f"repos/{REPO}/git/refs":
+                raise subprocess.CalledProcessError(1, ["gh", "api", endpoint])
+            return self.github(endpoint, *args)
+
+        with mock.patch.object(rc, "gh_api", fail_creation), self.assertRaises(subprocess.CalledProcessError):
+            rc.publish(ENV, self.dist)
+        self.assertNotIn(f"repos/{REPO}/releases", self.requests("POST"))
+
+    def test_tag_lookup_failure_does_not_create_tag_or_release(self):
+        with mock.patch.object(rc, "gh_api", side_effect=subprocess.CalledProcessError(1, ["gh", "api"])) as api:
+            with self.assertRaises(subprocess.CalledProcessError):
+                rc.publish(ENV, self.dist)
+        api.assert_called_once_with(f"repos/{REPO}/git/matching-refs/tags/{TAG}")
+
+    def test_version_mismatch_is_rejected_before_any_github_call(self):
+        with mock.patch.object(rc, "gh_api", self.github), self.assertRaisesRegex(ValueError, "disagree"):
+            rc.publish(dict(ENV, RELEASE_TAG="v0.0.0"), self.dist)
+        self.assertEqual(self.github.calls, [])
 
     def test_retry_replaces_draft_left_by_earlier_attempt(self):
         other_tag = self.stale_draft(release_id=8, tag_name="v0.0.1")
@@ -405,12 +342,19 @@ class PublishTests(CandidateDirectory):
 
 class SummaryTests(unittest.TestCase):
     def test_summary_contains_real_values(self):
-        text = rc.summary({"GITHUB_RUN_ATTEMPT": "1", "GITHUB_SHA": COMMIT, "GITHUB_RUN_ID": str(RUN_ID)})
+        artifact_url = f"https://github.com/{REPO}/actions/runs/{RUN_ID}/artifacts/555"
+        text = rc.summary(dict(ENV, GITHUB_RUN_ATTEMPT="1", RELEASE_ARTIFACT_URL=artifact_url))
         self.assertIn("### Candidate ready for verification", text)
-        self.assertIn(f"git tag -a {TAG} {COMMIT} \\", text)
-        self.assertIn(f'-m "MPRIS MiniPlayer {TAG[1:]}"', text)
-        self.assertIn(f'-m "Candidate-Run: {RUN_ID}"', text)
-        self.assertIn(f"git push origin {TAG}", text)
+        self.assertIn(f"`{TAG}`", text)
+        self.assertIn(f"`{COMMIT}`", text)
+        self.assertIn(f"`{RUN_ID}`", text)
+        self.assertIn(f"[release-assets]({artifact_url})", text)
+        self.assertIn("**Review deployments**", text)
+        self.assertIn("**release** environment", text)
+        self.assertIn("**Approve and deploy**", text)
+        self.assertIn("**Reject**", text)
+        self.assertNotIn("git tag", text)
+        self.assertNotIn("git push", text)
         self.assertNotIn("<", text)
 
     def test_summary_rejects_rerun(self):

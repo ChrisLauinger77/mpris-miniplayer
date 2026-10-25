@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Build once, publish the same bytes: connect a release tag to a tested candidate run.
+"""Build once, publish the same bytes after approval of the release environment.
 
 Subcommands:
   version    print the v-prefixed release tag derived from project metadata
   aggregate  require the complete package set and write SHA256SUMS
-  summary    print the commands that publish this candidate (Stage 1 only)
-  resolve    verify the annotated tag and its Candidate-Run (Stage 2)
-  publish    verify downloaded bytes and publish them as the GitHub release
+  summary    explain how to approve or reject the built candidate
+  publish    verify downloaded bytes, tag the built commit and publish the release
 """
 import argparse
 import hashlib
@@ -20,7 +19,6 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "MPRIS MiniPlayer"
-WORKFLOW_PATH = ".github/workflows/release.yml"
 ARTIFACT_NAME = "release-assets"
 CHECKSUMS = "SHA256SUMS"
 RETENTION_DAYS = 30
@@ -90,13 +88,6 @@ def verify_assets(dist, tag):
     return recorded
 
 
-def candidate_run_id(message):
-    trailers = [line.strip() for line in message.splitlines() if line.startswith("Candidate-Run:")]
-    if len(trailers) != 1 or not re.fullmatch(r"Candidate-Run: [1-9][0-9]*", trailers[0]):
-        raise ValueError("Tag message must contain exactly one 'Candidate-Run: <positive run ID>' line")
-    return int(trailers[0].split(" ")[1])
-
-
 def run(*args, **kwargs):
     return subprocess.run([str(arg) for arg in args], check=True, **kwargs)
 
@@ -107,66 +98,31 @@ def gh_api(endpoint, *args):
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
-def tag_message(repository, tag, commit):
-    """Return the message of an annotated tag that points directly at commit."""
+def verify_tag(repository, tag, commit):
+    """Require an annotated tag that points directly at the built commit."""
     ref = gh_api(f"repos/{repository}/git/ref/tags/{tag}")
     if ref["object"]["type"] != "tag":
-        raise ValueError("Release requires an annotated tag with a Candidate-Run line")
+        raise ValueError("Release requires an annotated tag pointing at the built commit")
     tag_object = gh_api(f"repos/{repository}/git/tags/{ref['object']['sha']}")
     if tag_object["tag"] != tag or tag_object["object"]["type"] != "commit":
         raise ValueError("Annotated tag must point directly at a commit")
     if tag_object["object"]["sha"] != commit:
         raise ValueError(f"Tag points at {tag_object['object']['sha']}, but this workflow runs for {commit}")
-    return tag_object["message"]
 
 
-def verify_run(candidate, repository, commit, workflow_id, branch):
-    expected = {
-        "event": "workflow_dispatch",
-        "status": "completed",
-        "conclusion": "success",
-        "head_sha": commit,
-        "head_branch": branch,
-        "path": WORKFLOW_PATH,
-        "workflow_id": workflow_id,
-        # A rerun can replace artifacts under the same run ID. Require a fresh
-        # manual run so the run ID unambiguously identifies the tested bytes.
-        "run_attempt": 1,
-    }
-    for key, value in expected.items():
-        if candidate.get(key) != value:
-            raise ValueError(f"Candidate run requires {key}={value!r}; found {candidate.get(key)!r}")
-    for key in ("repository", "head_repository"):
-        if (candidate.get(key) or {}).get("full_name") != repository:
-            raise ValueError("Candidate run must originate in this repository")
-
-
-def select_artifact(artifacts, run_id, commit):
-    matches = [artifact for artifact in artifacts if artifact["name"] == ARTIFACT_NAME]
-    if len(matches) != 1:
-        raise ValueError(f"Candidate run must contain exactly one {ARTIFACT_NAME} artifact; found {len(matches)}")
-    artifact = matches[0]
-    if artifact["expired"]:
-        raise ValueError(f"Candidate {ARTIFACT_NAME} artifact has expired; start a new manual candidate run")
-    if artifact["size_in_bytes"] <= 0:
-        raise ValueError(f"Candidate {ARTIFACT_NAME} artifact is empty; start a new manual candidate run")
-    origin = artifact.get("workflow_run") or {}
-    if origin.get("id") != run_id or origin.get("head_sha") != commit:
-        raise ValueError(f"{ARTIFACT_NAME} artifact does not belong to candidate run {run_id} at {commit}")
-    return artifact["id"]
-
-
-def resolve(env):
-    """Return (run_id, artifact_id) for the candidate named by the pushed tag."""
+def ensure_tag(env):
+    """Create an annotated tag at the built commit, or verify it on a publish retry."""
     tag, repository, commit = env["RELEASE_TAG"], env["GH_REPO"], env["GITHUB_SHA"]
-    release_tag(tag)
-    run_id = candidate_run_id(tag_message(repository, tag, commit))
-    current = gh_api(f"repos/{repository}/actions/runs/{env['GITHUB_RUN_ID']}")
-    candidate = gh_api(f"repos/{repository}/actions/runs/{run_id}")
-    verify_run(candidate, repository, commit, current["workflow_id"], env["DEFAULT_BRANCH"])
-    pages = gh_api(f"repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100", "--paginate", "--slurp")
-    artifact_id = select_artifact([artifact for page in pages for artifact in page["artifacts"]], run_id, commit)
-    return run_id, artifact_id
+    refs = gh_api(f"repos/{repository}/git/matching-refs/tags/{tag}")
+    if any(ref["ref"] == f"refs/tags/{tag}" for ref in refs):
+        verify_tag(repository, tag, commit)
+        return
+    message = f"{PROJECT_NAME} {tag[1:]}\n\nCandidate-Run: {env['GITHUB_RUN_ID']}\n"
+    annotation = gh_api(f"repos/{repository}/git/tags", "--method", "POST",
+                        "-f", f"tag={tag}", "-f", f"message={message}",
+                        "-f", f"object={commit}", "-f", "type=commit")
+    gh_api(f"repos/{repository}/git/refs", "--method", "POST",
+           "-f", f"ref=refs/tags/{tag}", "-f", f"sha={annotation['sha']}")
 
 
 def tag_releases(repository, tag):
@@ -209,14 +165,14 @@ def create_draft(repository, tag, dist, names):
 
 
 def publish(env, dist):
-    """Upload verified bytes to a draft release, check what GitHub stored, then publish it."""
+    """Tag the approved commit, upload verified bytes to a draft, then publish it."""
     tag, repository = env["RELEASE_TAG"], env["GH_REPO"]
     release_tag(tag)
     digests = verify_assets(dist, tag)
     digests[CHECKSUMS] = sha256(dist / CHECKSUMS)
     names = package_names(tag) + [CHECKSUMS]
-    # Fails if the tag is missing, so creating the release can never create a tag.
-    gh_api(f"repos/{repository}/git/ref/tags/{tag}")
+    # Verify the downloaded bytes before creating any tag or release.
+    ensure_tag(env)
     existing = tag_releases(repository, tag)
     published = [release for release in existing if not release["draft"]]
     if published:
@@ -245,21 +201,18 @@ def summary(env):
         f"- Version: `{tag[1:]}`\n"
         f"- Source commit: `{commit}`\n"
         f"- Candidate run: `{run_id}`\n\n"
-        f"After this run succeeds, download and test its complete `{ARTIFACT_NAME}` artifact.\n\n"
-        "When satisfied, run these commands in your local checkout:\n\n"
-        "```bash\n"
-        f"git tag -a {tag} {commit} \\\n"
-        f"  -m \"{PROJECT_NAME} {tag[1:]}\" \\\n"
-        f"  -m \"Candidate-Run: {run_id}\"\n\n"
-        f"git push origin {tag}\n"
-        "```\n\n"
-        "The tag-triggered workflow verifies the `Candidate-Run` line against this run and publishes "
-        "these exact artifact bytes without rebuilding.\n\n"
-        f"- Test and approve the artifacts before tagging.\n"
+        f"Download and test the complete [{ARTIFACT_NAME}]({env['RELEASE_ARTIFACT_URL']}) artifact "
+        "while the **Publish release** job waits for review.\n\n"
+        "In this workflow run, click **Review deployments** and select the **release** environment:\n\n"
+        f"- **Approve and deploy**: verify the original `SHA256SUMS`, create the annotated `{tag}` "
+        f"tag at `{commit}`, and publish these exact artifact bytes without rebuilding.\n"
+        "- **Reject**: fail the workflow without creating a tag or release.\n\n"
         f"- Candidate artifacts are kept for {RETENTION_DAYS} days (subject to repository limits); "
         "publish before they expire.\n"
         "- A new candidate requires a new manual workflow run. Do not rerun this run as a substitute; "
-        "reruns are rejected.\n"
+        "build reruns are rejected.\n"
+        "- If publishing fails after approval, rerun only the failed **Publish release** job and "
+        "approve it again. It reuses the original artifact and safely retries publication.\n"
     )
 
 
@@ -270,7 +223,7 @@ def write_lines(path, text):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("version", "aggregate", "summary", "resolve", "publish"))
+    parser.add_argument("command", choices=("version", "aggregate", "summary", "publish"))
     parser.add_argument("--dist", type=Path, default=ROOT / "release-assets")
     args = parser.parse_args()
     env = os.environ
@@ -283,10 +236,6 @@ def main():
         text = summary(env)
         print(text, end="")
         write_lines(env["GITHUB_STEP_SUMMARY"], text)
-    elif args.command == "resolve":
-        run_id, artifact_id = resolve(env)
-        print(f"Verified candidate run {run_id}, artifact {artifact_id}")
-        write_lines(env["GITHUB_OUTPUT"], f"run_id={run_id}\nartifact_id={artifact_id}\n")
     else:
         publish(env, args.dist)
 
