@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
   workflow_call:
+  schedule:
+    - cron: '0 0 1 * *'
 
 permissions:
   contents: read
