@@ -67,7 +67,7 @@ When it starts without a player, it can stay hidden in the background and show t
 ## Features
 
 - Detects MPRIS players on the session bus
-- Selects the first available player automatically
+- Selects a player automatically, preferring one that is playing or paused
 - Shows track title, artist, album, and album art, with a fallback player icon when artwork is unavailable
 - Provides previous, play/pause, and next controls
 - Supports synchronized shuffle and repeat modes when exposed by the player
@@ -83,8 +83,9 @@ When it starts without a player, it can stay hidden in the background and show t
 - Can show a status indicator with current track information, media controls, and volume presets when the desktop supports it
 - Adjusts volume by scrolling over the status indicator, with temporary icon feedback and a 100% upper limit
 - Provides status indicator actions for showing or hiding the window, compact mode, preferences, about, and quit
-- Provides preferences for compact mode, background notifications, automatic visibility, status indicators, and start on login
-- Shows a status indicator link when a newer stable release is available
+- Can tint the player with a color from the current album cover
+- Provides preferences for compact mode, album color tint, keeping the queue open, background notifications, automatic visibility, status indicators, and start on login
+- Shows a link in the main menu and status indicator when a newer stable release is available
 - Hides the window on close; use Quit to stop the app
 
 ## Build from Source

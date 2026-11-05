@@ -33,22 +33,39 @@ Do not rewrite the long-term implementation in Python. Do not use raylib or imgu
 
 ```text
 mpris-miniplayer/
+├── .github/workflows/        # ci.yml, release.yml, claude.yml
 ├── data/
+│   ├── icons/
+│   ├── screenshots/
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.desktop.in
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.gresource.xml
+│   ├── io.github.ChrisLauinger.MprisMiniPlayer.gschema.xml
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in
 │   ├── io.github.ChrisLauinger.MprisMiniPlayer.releases.xml
 │   └── meson.build
+├── debian/                   # Debian packaging and manpage
+├── docs/                     # GitHub Pages website and reliability report
 ├── po/
 ├── rpm/
 │   └── mpris-miniplayer.spec
 ├── src/
 │   ├── main.vala
 │   ├── application.vala
-│   ├── window.vala
+│   ├── app-settings.vala
+│   ├── artwork-loader.vala
+│   ├── background-portal.vala
+│   ├── config.vala.in
 │   ├── mpris-manager.vala
 │   ├── mpris-player.vala
+│   ├── mpris-transport.vala
+│   ├── preferences-window.vala
+│   ├── status-indicator.vala
+│   ├── update-checker.vala
+│   ├── window.vala
 │   └── meson.build
+├── tests/                    # Vala unit/D-Bus tests and release tooling tests
+├── tools/                    # check-release.py, release_candidate.py
+├── io.github.ChrisLauinger.MprisMiniPlayer.yml   # Flatpak manifest
 ├── meson.build
 ├── README.md
 ├── LICENSE
@@ -62,12 +79,23 @@ Expected local development flow:
 ```bash
 meson setup build
 meson compile -C build
-./build/src/mpris-miniplayer
+meson devenv -C build ./src/mpris-miniplayer
+```
+
+`meson devenv` makes the generated GSettings schemas available; running
+`./build/src/mpris-miniplayer` directly falls back to default settings.
+
+Run the test suite (D-Bus tests use a private bus via `dbus-run-session`):
+
+```bash
+meson test -C build --print-errorlogs
+meson test -C build --no-suite dbus --print-errorlogs   # if local sockets are unavailable
 ```
 
 Useful validation commands:
 
 ```bash
+python3 tools/check-release.py
 desktop-file-validate build/data/io.github.ChrisLauinger.MprisMiniPlayer.desktop
 appstreamcli validate --no-net build/data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 ```
@@ -103,7 +131,8 @@ sudo apt install \
   meson ninja-build valac \
   libgtk-4-dev libadwaita-1-dev \
   libsoup-3.0-dev \
-  gettext desktop-file-utils appstream-util
+  gettext desktop-file-utils appstream \
+  dbus-daemon python3
 ```
 
 Package names may need adjustment by distribution and version.
@@ -114,7 +143,7 @@ Typical Fedora dependencies for building the application and RPM package:
 sudo dnf install \
   desktop-file-utils gcc gettext git \
   gtk4-devel libadwaita-devel meson \
-  libsoup3-devel \
+  libsoup3-devel dbus-daemon python3 \
   rpm-build vala
 ```
 
@@ -122,7 +151,7 @@ To reproduce the release RPM build locally, create the source archive expected b
 the spec and pass the upstream version without the tag's `v` prefix:
 
 ```bash
-version="1.3.3"
+version="2.3.0"
 mkdir -p "$HOME/rpmbuild/SOURCES"
 git archive \
   --format=tar.gz \
@@ -141,6 +170,8 @@ When preparing a new release, update the version in:
 - `debian/changelog`: add a new Debian changelog entry, usually `<upstream-version>-1` for a new upstream release.
 - `debian/mpris-miniplayer.1`: update the manpage header version string.
 - `rpm/mpris-miniplayer.spec`: update the fallback `pkg_version` and add a new top `%changelog` entry.
+
+`python3 tools/check-release.py` (also run by `meson test`, CI, and the release workflow) fails if these versions disagree.
 
 Do not translate AppStream release notes. Keep release entries in `data/io.github.ChrisLauinger.MprisMiniPlayer.releases.xml`, which is intentionally not listed in `po/POTFILES`; release-note strings should never be added to `po/mpris-miniplayer.pot` or `po/*.po`.
 
@@ -191,6 +222,7 @@ Important interfaces:
 ```text
 org.mpris.MediaPlayer2
 org.mpris.MediaPlayer2.Player
+org.mpris.MediaPlayer2.TrackList   # optional, used for the queue
 org.freedesktop.DBus.Properties
 ```
 
@@ -205,6 +237,11 @@ CanGoPrevious
 CanPlay
 CanPause
 CanSeek
+CanControl
+Volume
+Rate
+Shuffle
+LoopStatus
 ```
 
 Important player methods:
@@ -223,6 +260,7 @@ Listen for:
 
 ```text
 org.freedesktop.DBus.Properties.PropertiesChanged
+org.mpris.MediaPlayer2.Player.Seeked
 ```
 
 Common metadata fields:
@@ -248,9 +286,13 @@ Metadata details:
 
 Keep the code small, explicit, and aligned with GNOME conventions.
 
-- `MprisManager` watches `org.freedesktop.DBus`, lists names starting with `org.mpris.MediaPlayer2.`, and emits a signal when players appear or disappear.
-- `MprisPlayer` wraps one bus name, exposes metadata and capabilities as Vala properties, calls MPRIS methods, and listens to `PropertiesChanged`.
-- `Window` binds to the active `MprisPlayer`, updates labels/buttons/artwork, and should eventually provide a player chooser.
+- `MprisManager` watches `org.freedesktop.DBus`, lists names starting with `org.mpris.MediaPlayer2.`, keeps a registry keyed by well-known name, emits signals when players appear or disappear, and selects the active player (manual pin, then Playing, then Paused).
+- `MprisPlayer` wraps one unique bus owner, exposes cached metadata, capabilities, and queue state as Vala properties, calls MPRIS methods, and listens to `PropertiesChanged`, `Seeked`, and TrackList changes.
+- `MprisTransport` abstracts the asynchronous D-Bus calls for one owner so tests can substitute a fake transport. Keep D-Bus calls asynchronous and cancellable.
+- `Window` binds to the active `MprisPlayer`, updates labels/buttons/artwork/queue, and provides the player chooser.
+- `ArtworkLoader` loads and owns cover art requests; `StatusIndicator` provides the StatusNotifierItem tray icon and menu; `BackgroundPortal` and `AppSettings` handle background/autostart and GSettings; `UpdateChecker` checks GitHub for newer releases.
+
+See [docs/reliability-report.md](docs/reliability-report.md) for lifecycle and ownership rationale.
 
 Do not crash when no player is running. Do not assume one specific media player.
 
