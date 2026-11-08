@@ -21,6 +21,8 @@ namespace MprisMiniPlayer {
         private bool suppress_next_start_on_login_portal_update = false;
         private bool startup_activation_handled = false;
         private bool startup_visibility_pending = false;
+        private Queue<string> pending_media_controls = new Queue<string>();
+        private uint media_control_source_id = 0;
         private bool update_check_started = false;
         private string latest_release_version = "";
         private string latest_release_url = "";
@@ -31,8 +33,41 @@ namespace MprisMiniPlayer {
         public Application() {
             Object(
                 application_id: "io.github.ChrisLauinger.MprisMiniPlayer",
-                flags: ApplicationFlags.DEFAULT_FLAGS
+                flags: ApplicationFlags.HANDLES_COMMAND_LINE
             );
+            add_main_option(
+                "media-control", '\0', OptionFlags.NONE, OptionArg.STRING,
+                _("Control playback"), "play|pause|previous|next"
+            );
+            add_main_option(OPTION_REMAINING, '\0', OptionFlags.HIDDEN, OptionArg.FILENAME_ARRAY, "", null);
+        }
+
+        protected override int handle_local_options(VariantDict options) {
+            if (options.contains(OPTION_REMAINING)) {
+                printerr(_("Unexpected command-line arguments.\n"));
+                return 1;
+            }
+
+            var control = options.lookup_value("media-control", VariantType.STRING);
+            if (control != null) {
+                string action = control.get_string();
+                if (action != "play" && action != "pause" && action != "previous" && action != "next") {
+                    printerr(_("Unknown playback action “%s”.\n"), action);
+                    return 1;
+                }
+            }
+            return -1;
+        }
+
+        protected override int command_line(ApplicationCommandLine invocation) {
+            var control = invocation.get_options_dict().lookup_value("media-control", VariantType.STRING);
+            if (control == null) {
+                activate();
+            } else {
+                pending_media_controls.push_tail(control.get_string());
+                schedule_media_controls();
+            }
+            return 0;
         }
 
         protected override void startup() {
@@ -64,6 +99,7 @@ namespace MprisMiniPlayer {
             });
             manager.discovery_finished.connect(() => {
                 if (startup_visibility_pending) handle_startup_visibility();
+                schedule_media_controls();
             });
             status_indicator.set_player(manager.active_player);
             bind_player_actions(manager.active_player);
@@ -78,6 +114,44 @@ namespace MprisMiniPlayer {
 
             startup_visibility_pending = false;
             present_window();
+        }
+
+        private void schedule_media_controls() {
+            if (!manager.ready || pending_media_controls.is_empty() || media_control_source_id != 0) {
+                return;
+            }
+
+            // Discovery can finish before the manager's idle selects the active player.
+            media_control_source_id = Idle.add(() => {
+                media_control_source_id = 0;
+                while (!pending_media_controls.is_empty()) {
+                    control_active_player(pending_media_controls.pop_head());
+                }
+                return Source.REMOVE;
+            }, Priority.LOW);
+        }
+
+        private void control_active_player(string action) {
+            var player = manager?.active_player;
+            if (player == null) return;
+
+            switch (action) {
+                case "play":
+                    player.play();
+                    break;
+                case "pause":
+                    player.pause();
+                    break;
+                case "play-pause":
+                    player.play_pause();
+                    break;
+                case "previous":
+                    player.previous();
+                    break;
+                case "next":
+                    player.next();
+                    break;
+            }
         }
 
         private void setup_actions() {
@@ -177,7 +251,10 @@ namespace MprisMiniPlayer {
                 main_window.refresh_players();
             }
 
-            if (!app_settings.automatic_window_visibility || (manager != null && !manager.ready)) {
+            // A playback action can start the app without a request to show the window.
+            if ((!startup_activation_handled && main_window == null)
+                || !app_settings.automatic_window_visibility
+                || (manager != null && !manager.ready)) {
                 return;
             }
 
@@ -450,19 +527,9 @@ namespace MprisMiniPlayer {
                     open_latest_release.begin();
                     break;
                 case "previous":
-                    if (manager != null && manager.active_player != null) {
-                        manager.active_player.previous();
-                    }
-                    break;
                 case "play-pause":
-                    if (manager != null && manager.active_player != null) {
-                        manager.active_player.play_pause();
-                    }
-                    break;
                 case "next":
-                    if (manager != null && manager.active_player != null) {
-                        manager.active_player.next();
-                    }
+                    control_active_player(action);
                     break;
                 case "shuffle":
                     if (manager != null && manager.active_player != null) {
@@ -589,6 +656,11 @@ namespace MprisMiniPlayer {
         protected override void shutdown() {
             shutting_down = true;
             lifetime.cancel();
+            if (media_control_source_id != 0) {
+                Source.remove(media_control_source_id);
+                media_control_source_id = 0;
+            }
+            pending_media_controls.clear();
             clear_restore_minimized_source();
             clear_main_toplevel();
             bind_player_actions(null);

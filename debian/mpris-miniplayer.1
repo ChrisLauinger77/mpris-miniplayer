@@ -3,6 +3,7 @@
 mpris-miniplayer \- control MPRIS-compatible media players
 .SH SYNOPSIS
 .B mpris-miniplayer
+.RB [ --media-control=\fIACTION\fR ]
 .SH DESCRIPTION
 .B MPRIS MiniPlayer
 is a compact GTK4/libadwaita controller for Linux media players that expose the
@@ -10,6 +11,14 @@ MPRIS interface on the session D-Bus.
 .PP
 It shows track metadata and playback controls for the selected player.
 .SH OPTIONS
-This program does not currently define command-line options.
+.TP
+.BI --media-control= ACTION
+Send a playback command to the selected player.
+Actions are
+.BR play ,
+.BR pause ,
+.BR previous ,
+and
+.BR next .
 .SH AUTHOR
 Christian Lauinger

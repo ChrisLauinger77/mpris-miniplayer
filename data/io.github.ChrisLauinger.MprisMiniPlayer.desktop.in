@@ -7,3 +7,24 @@ Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Player;GTK;
 StartupNotify=true
+Actions=Play;Pause;Previous;Next;
+
+[Desktop Action Play]
+Name=Play
+Exec=@EXEC_PATH@ --media-control=play
+Icon=media-playback-start-symbolic
+
+[Desktop Action Pause]
+Name=Pause
+Exec=@EXEC_PATH@ --media-control=pause
+Icon=media-playback-pause-symbolic
+
+[Desktop Action Previous]
+Name=Previous
+Exec=@EXEC_PATH@ --media-control=previous
+Icon=media-skip-backward-symbolic
+
+[Desktop Action Next]
+Name=Next
+Exec=@EXEC_PATH@ --media-control=next
+Icon=media-skip-forward-symbolic
