@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-13 22:48+0200\n"
+"POT-Creation-Date: 2026-11-08 16:21+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -46,122 +46,122 @@ msgstr ""
 msgid "Keep watching for MPRIS-compatible media players"
 msgstr ""
 
-#: src/status-indicator.vala:604
+#: src/status-indicator.vala:603
 msgid "Show MPRIS MiniPlayer"
 msgstr ""
 
-#: src/status-indicator.vala:606
+#: src/status-indicator.vala:605
 msgid "Hide MPRIS MiniPlayer"
 msgstr ""
 
-#: src/status-indicator.vala:608 src/window.vala:763
+#: src/status-indicator.vala:607 src/window.vala:763
 #, c-format
 msgid "Update available: %s"
 msgstr ""
 
-#: src/status-indicator.vala:616 src/window.vala:602
+#: src/status-indicator.vala:615 src/window.vala:602
 msgid "No player detected"
 msgstr ""
 
-#: src/status-indicator.vala:618 src/window.vala:450
+#: src/status-indicator.vala:617 src/window.vala:450
 msgid "Previous"
 msgstr ""
 
-#: src/status-indicator.vala:621 src/window.vala:664
+#: src/status-indicator.vala:620 src/window.vala:664
 msgid "Pause"
 msgstr ""
 
-#: src/status-indicator.vala:622 src/window.vala:459 src/window.vala:667
+#: src/status-indicator.vala:621 src/window.vala:459 src/window.vala:667
 msgid "Play"
 msgstr ""
 
-#: src/status-indicator.vala:624 src/window.vala:469
+#: src/status-indicator.vala:623 src/window.vala:469
 msgid "Next"
 msgstr ""
 
-#: src/status-indicator.vala:626 src/window.vala:446
+#: src/status-indicator.vala:625 src/window.vala:446
 msgid "Shuffle"
 msgstr ""
 
-#: src/status-indicator.vala:630
+#: src/status-indicator.vala:629
 msgid "Off"
 msgstr ""
 
-#: src/status-indicator.vala:632
+#: src/status-indicator.vala:631
 msgid "Current Track"
 msgstr ""
 
-#: src/status-indicator.vala:634 src/status-indicator.vala:636
+#: src/status-indicator.vala:633 src/status-indicator.vala:635
 #: src/window.vala:289 src/window.vala:494 src/window.vala:721
 msgid "Queue"
 msgstr ""
 
-#: src/status-indicator.vala:638 src/window.vala:569
+#: src/status-indicator.vala:637 src/window.vala:569
 msgid "Queue is empty"
 msgstr ""
 
-#: src/status-indicator.vala:640
+#: src/status-indicator.vala:639
 #, c-format
-msgid "Volume: %d%%"
+msgid "Volume: %s%%"
 msgstr ""
 
-#: src/status-indicator.vala:643 src/window.vala:400 src/window.vala:1164
+#: src/status-indicator.vala:642 src/window.vala:400 src/window.vala:1164
 msgid "Mute"
 msgstr ""
 
-#: src/status-indicator.vala:644 src/window.vala:1160
+#: src/status-indicator.vala:643 src/window.vala:1160
 msgid "Restore volume"
 msgstr ""
 
-#: src/status-indicator.vala:654 src/window.vala:760
+#: src/status-indicator.vala:645 src/window.vala:760
 msgid "Compact Mode"
 msgstr ""
 
-#: src/status-indicator.vala:656 src/preferences-window.vala:16
+#: src/status-indicator.vala:647 src/preferences-window.vala:16
 #: src/preferences-window.vala:33 src/window.vala:769
 msgid "Preferences"
 msgstr ""
 
-#: src/status-indicator.vala:658
+#: src/status-indicator.vala:649
 msgid "About"
 msgstr ""
 
-#: src/status-indicator.vala:660 src/window.vala:770
+#: src/status-indicator.vala:651 src/window.vala:770
 msgid "Quit"
 msgstr ""
 
-#: src/status-indicator.vala:971 src/window.vala:481 src/window.vala:709
+#: src/status-indicator.vala:958 src/window.vala:481 src/window.vala:709
 msgid "Repeat: Off"
 msgstr ""
 
-#: src/status-indicator.vala:974 src/window.vala:712
+#: src/status-indicator.vala:961 src/window.vala:712
 msgid "Repeat: Current Track"
 msgstr ""
 
-#: src/status-indicator.vala:976 src/window.vala:715
+#: src/status-indicator.vala:963 src/window.vala:715
 msgid "Repeat: Queue"
 msgstr ""
 
-#: src/status-indicator.vala:996 src/window.vala:841
+#: src/status-indicator.vala:983 src/window.vala:841
 #, c-format
 msgid "%s — %s"
 msgstr ""
 
-#: src/application.vala:576
+#: src/application.vala:574
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr ""
 
-#: src/application.vala:578
+#: src/application.vala:576
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
 msgstr ""
 
-#: src/application.vala:580
+#: src/application.vala:578
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 
-#: src/application.vala:582
+#: src/application.vala:580
 msgid "Open"
 msgstr ""
 
