@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 2.3.0}
+%{!?pkg_version:%global pkg_version 2.3.1}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -51,6 +51,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Sun Nov 08 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.3.1-1
+- Offer tray menu volume presets in 12.5% steps
+- Publish release packages from the tested build after approval
+
 * Tue Oct 13 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.3.0-1
 - Round the corners of album artwork to match the theme
 - Update the Flatpak runtime to GNOME 51

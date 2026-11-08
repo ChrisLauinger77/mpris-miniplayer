@@ -1,4 +1,10 @@
   <releases>
+    <release version="2.3.1" date="2026-11-08">
+      <description>
+        <p>Offer tray menu volume presets in 12.5% steps.</p>
+        <p>Publish release packages from the tested build after approval.</p>
+      </description>
+    </release>
     <release version="2.3.0" date="2026-10-13">
       <description>
         <p>Round the corners of album artwork to match the theme.</p>

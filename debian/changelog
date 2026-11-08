@@ -1,3 +1,10 @@
+mpris-miniplayer (2.3.1-1) unstable; urgency=medium
+
+  * Offer tray menu volume presets in 12.5% steps.
+  * Publish release packages from the tested build after approval.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Sun, 08 Nov 2026 16:40:00 +0100
+
 mpris-miniplayer (2.3.0-1) unstable; urgency=medium
 
   * Round the corners of album artwork to match the theme.
