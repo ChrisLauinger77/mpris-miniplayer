@@ -278,7 +278,16 @@ namespace MprisMiniPlayer {
         }
 
         public void play_pause() {
-            if (can_play_pause) run_command.begin(PLAYER_IFACE, playback_status == "Playing" ? "Pause" : "Play", null);
+            if (playback_status == "Playing") pause();
+            else play();
+        }
+
+        public void play() {
+            if (available && can_control && can_play) run_command.begin(PLAYER_IFACE, "Play", null);
+        }
+
+        public void pause() {
+            if (available && can_control && can_pause) run_command.begin(PLAYER_IFACE, "Pause", null);
         }
 
         public void next() {

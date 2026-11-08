@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 16:21+0100\n"
+"POT-Creation-Date: 2026-11-08 17:44+0100\n"
 "PO-Revision-Date: 2026-06-21 09:39+0200\n"
 "Last-Translator: Christian Lauinger\n"
 "Language-Team: Spanish\n"
@@ -14,7 +14,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/status-indicator.vala:35 src/application.vala:391 src/window.vala:137
+#: src/status-indicator.vala:35 src/application.vala:468 src/window.vala:137
 msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
@@ -22,6 +22,26 @@ msgstr "MPRIS MiniPlayer"
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:7
 msgid "Control MPRIS-compatible media players"
 msgstr "Controlar reproductores multimedia compatibles con MPRIS"
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:13
+#: src/status-indicator.vala:621 src/window.vala:459 src/window.vala:667
+msgid "Play"
+msgstr "Reproducir"
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:18
+#: src/status-indicator.vala:620 src/window.vala:664
+msgid "Pause"
+msgstr "Pausa"
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:23
+#: src/status-indicator.vala:617 src/window.vala:450
+msgid "Previous"
+msgstr "Anterior"
+
+#: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:28
+#: src/status-indicator.vala:623 src/window.vala:469
+msgid "Next"
+msgstr "Siguiente"
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:9
 msgid ""
@@ -59,22 +79,6 @@ msgstr "Actualización disponible: %s"
 #: src/status-indicator.vala:615 src/window.vala:602
 msgid "No player detected"
 msgstr "No se detectó ningún reproductor"
-
-#: src/status-indicator.vala:617 src/window.vala:450
-msgid "Previous"
-msgstr "Anterior"
-
-#: src/status-indicator.vala:620 src/window.vala:664
-msgid "Pause"
-msgstr "Pausa"
-
-#: src/status-indicator.vala:621 src/window.vala:459 src/window.vala:667
-msgid "Play"
-msgstr "Reproducir"
-
-#: src/status-indicator.vala:623 src/window.vala:469
-msgid "Next"
-msgstr "Siguiente"
 
 #: src/status-indicator.vala:625 src/window.vala:446
 msgid "Shuffle"
@@ -144,11 +148,24 @@ msgstr "Repetir: cola"
 msgid "%s — %s"
 msgstr "%s — %s"
 
-#: src/application.vala:574
+#: src/application.vala:40
+msgid "Control playback"
+msgstr "Controlar la reproducción"
+
+#: src/application.vala:47
+msgid "Unexpected command-line arguments.\n"
+msgstr "Argumentos de línea de órdenes inesperados.\n"
+
+#: src/application.vala:55
+#, c-format
+msgid "Unknown playback action “%s”.\n"
+msgstr "Acción de reproducción desconocida «%s».\n"
+
+#: src/application.vala:641
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr "MPRIS MiniPlayer se está ejecutando en segundo plano"
 
-#: src/application.vala:576
+#: src/application.vala:643
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
@@ -156,13 +173,13 @@ msgstr ""
 "La ventana aparecerá automáticamente cuando haya disponible un reproductor "
 "multimedia compatible."
 
-#: src/application.vala:578
+#: src/application.vala:645
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 "Abre la ventana cuando quieras controlar un reproductor multimedia "
 "compatible."
 
-#: src/application.vala:580
+#: src/application.vala:647
 msgid "Open"
 msgstr "Abrir"
 
@@ -294,11 +311,11 @@ msgstr "Aleatorio: desactivado"
 msgid "Queue unavailable"
 msgstr "Cola no disponible"
 
-#: src/window.vala:838 src/mpris-player.vala:655 src/mpris-player.vala:811
+#: src/window.vala:838 src/mpris-player.vala:664 src/mpris-player.vala:820
 msgid "Unknown artist"
 msgstr "Artista desconocido"
 
-#: src/mpris-player.vala:648 src/mpris-player.vala:810
+#: src/mpris-player.vala:657 src/mpris-player.vala:819
 msgid "Unknown track"
 msgstr "Pista desconocida"
 
