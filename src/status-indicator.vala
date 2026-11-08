@@ -186,10 +186,10 @@ namespace MprisMiniPlayer {
         private const int REPEAT_PLAYLIST_ID = 27;
         private const int VOLUME_ID = 30;
         private const int MUTE_ID = 31;
-        private const int VOLUME_25_ID = 32;
-        private const int VOLUME_50_ID = 33;
-        private const int VOLUME_75_ID = 34;
-        private const int VOLUME_100_ID = 35;
+        // Preset menu IDs run from VOLUME_PRESET_BASE_ID, one per entry in
+        // VOLUME_PRESET_TENTHS (volume in tenths of a percent).
+        private const int VOLUME_PRESET_BASE_ID = 32;
+        private const int[] VOLUME_PRESET_TENTHS = { 125, 250, 375, 500, 625, 750, 875, 1000 };
         private const int QUEUE_ID = 40;
         private const int QUEUE_EMPTY_ID = 41;
         private const int QUEUE_TRACK_BASE_ID = 1000;
@@ -469,10 +469,9 @@ namespace MprisMiniPlayer {
             var children = new VariantBuilder(new VariantType("av"));
             if (recursion_depth != 0) {
                 children.add_value(new Variant.variant(build_item(MUTE_ID)));
-                children.add_value(new Variant.variant(build_item(VOLUME_25_ID)));
-                children.add_value(new Variant.variant(build_item(VOLUME_50_ID)));
-                children.add_value(new Variant.variant(build_item(VOLUME_75_ID)));
-                children.add_value(new Variant.variant(build_item(VOLUME_100_ID)));
+                for (int i = 0; i < VOLUME_PRESET_TENTHS.length; i++) {
+                    children.add_value(new Variant.variant(build_item(VOLUME_PRESET_BASE_ID + i)));
+                }
             }
 
             return new Variant.tuple({
@@ -637,19 +636,11 @@ namespace MprisMiniPlayer {
                 case QUEUE_EMPTY_ID:
                     return _("Queue is empty");
                 case VOLUME_ID:
-                    return _("Volume: %d%%").printf(current_volume_percent());
+                    return _("Volume: %s%%").printf(format_volume_tenths(current_volume_tenths()));
                 case MUTE_ID:
                     return player != null && player.display_volume > 0.0
                         ? _("Mute")
                         : _("Restore volume");
-                case VOLUME_25_ID:
-                    return "25%";
-                case VOLUME_50_ID:
-                    return "50%";
-                case VOLUME_75_ID:
-                    return "75%";
-                case VOLUME_100_ID:
-                    return "100%";
                 case COMPACT_MODE_ID:
                     return _("Compact Mode");
                 case PREFERENCES_ID:
@@ -659,6 +650,9 @@ namespace MprisMiniPlayer {
                 case QUIT_ID:
                     return _("Quit");
                 default:
+                    if (is_volume_preset(id)) {
+                        return "%s%%".printf(format_volume_tenths(volume_preset_tenths(id)));
+                    }
                     if (is_queue_track(id)) {
                         return queue_track_label(id);
                     }
@@ -675,6 +669,12 @@ namespace MprisMiniPlayer {
                 if (player != null) {
                     player.go_to(queue_item.track.id);
                 }
+                return;
+            }
+            if (is_volume_preset(id)) {
+                // Locale-independent, e.g. "volume-12.5"; parsed by the application.
+                int tenths = volume_preset_tenths(id);
+                action_requested("volume-%d.%d".printf(tenths / 10, tenths % 10));
                 return;
             }
 
@@ -711,18 +711,6 @@ namespace MprisMiniPlayer {
                     break;
                 case MUTE_ID:
                     action_requested("mute");
-                    break;
-                case VOLUME_25_ID:
-                    action_requested("volume-25");
-                    break;
-                case VOLUME_50_ID:
-                    action_requested("volume-50");
-                    break;
-                case VOLUME_75_ID:
-                    action_requested("volume-75");
-                    break;
-                case VOLUME_100_ID:
-                    action_requested("volume-100");
                     break;
                 case COMPACT_MODE_ID:
                     action_requested("compact-mode");
@@ -778,7 +766,7 @@ namespace MprisMiniPlayer {
                 player.can_go_previous ? 1 : 0, player.can_go_next ? 1 : 0,
                 player.can_play ? 1 : 0, player.can_pause ? 1 : 0,
                 player.can_control ? 1 : 0, player.has_volume ? 1 : 0,
-                current_volume_percent(), player.has_shuffle ? 1 : 0,
+                current_volume_tenths(), player.has_shuffle ? 1 : 0,
                 player.shuffle ? 1 : 0, player.has_loop_status ? 1 : 0,
                 player.has_track_list ? 1 : 0
             };
@@ -813,13 +801,12 @@ namespace MprisMiniPlayer {
                 REPEAT_PLAYLIST_ID,
                 VOLUME_ID,
                 MUTE_ID,
-                VOLUME_25_ID,
-                VOLUME_50_ID,
-                VOLUME_75_ID,
-                VOLUME_100_ID,
                 QUEUE_ID,
                 QUEUE_EMPTY_ID
             };
+            for (int i = 0; i < VOLUME_PRESET_TENTHS.length; i++) {
+                ids += VOLUME_PRESET_BASE_ID + i;
+            }
             return ids;
         }
 
@@ -937,7 +924,7 @@ namespace MprisMiniPlayer {
                 case QUEUE_ID:
                     return "view-list-symbolic";
                 case VOLUME_ID:
-                    return current_volume_percent() == 0
+                    return current_volume_tenths() == 0
                         ? "audio-volume-muted-symbolic"
                         : "audio-volume-high-symbolic";
                 case MUTE_ID:
@@ -950,16 +937,16 @@ namespace MprisMiniPlayer {
         }
 
         private bool is_volume_preset(int id) {
-            return id >= VOLUME_25_ID && id <= VOLUME_100_ID;
+            return id >= VOLUME_PRESET_BASE_ID
+                && id < VOLUME_PRESET_BASE_ID + VOLUME_PRESET_TENTHS.length;
+        }
+
+        private int volume_preset_tenths(int id) {
+            return VOLUME_PRESET_TENTHS[id - VOLUME_PRESET_BASE_ID];
         }
 
         private bool volume_matches_preset(int id) {
-            if (player == null) {
-                return false;
-            }
-
-            int preset = (id - VOLUME_25_ID + 1) * 25;
-            return current_volume_percent() == preset;
+            return player != null && current_volume_tenths() == volume_preset_tenths(id);
         }
 
         private bool is_repeat_mode(int id) {
@@ -1126,8 +1113,20 @@ namespace MprisMiniPlayer {
             return groups;
         }
 
-        private int current_volume_percent() {
-            return player == null ? 0 : (int) double.min(int.MAX, player.display_volume * 100.0 + 0.5);
+        // Volume in tenths of a percent, rounded to a whole percent unless it
+        // sits on a half percent such as the 12.5% preset.
+        private int current_volume_tenths() {
+            if (player == null) {
+                return 0;
+            }
+            int tenths = (int) double.min(int.MAX - 10, player.display_volume * 1000.0 + 0.5);
+            return tenths % 10 == 5 ? tenths : (tenths + 5) / 10 * 10;
+        }
+
+        private static string format_volume_tenths(int tenths) {
+            return tenths % 10 == 0
+                ? "%d".printf(tenths / 10)
+                : "%.1f".printf(tenths / 10.0);
         }
 
         private string escape_label(string label) {

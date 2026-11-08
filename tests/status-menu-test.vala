@@ -11,6 +11,9 @@ private const int REPEAT_TRACK_ID = 26;
 private const int REPEAT_PLAYLIST_ID = 27;
 private const int VOLUME_ID = 30;
 private const int MUTE_ID = 31;
+private const int VOLUME_12_5_ID = 32;
+private const int VOLUME_25_ID = 33;
+private const int VOLUME_100_ID = 39;
 private const int QUEUE_ID = 40;
 private const int QUEUE_TRACK_BASE_ID = 1000;
 private const string SYMBOLIC_ICON_NAME =
@@ -640,6 +643,53 @@ private void test_pending_volume_updates_menu() {
     player.shutdown();
 }
 
+private void test_volume_presets() {
+    var transport = new StatusMenuTransport();
+    var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
+    drain_main_context();
+    var menu = new MprisMiniPlayer.StatusNotifierMenu();
+    menu.set_player(player);
+    string action = "";
+    menu.action_requested.connect((requested_action) => action = requested_action);
+
+    uint revision;
+    Variant volume = get_layout(menu, VOLUME_ID, out revision);
+    assert_cmpint(layout_child_count(volume), CompareOperator.EQ, 9);
+    assert_cmpint(layout_child_id(volume, 0), CompareOperator.EQ, MUTE_ID);
+    assert_cmpint(layout_child_id(volume, 1), CompareOperator.EQ, VOLUME_12_5_ID);
+    assert_cmpint(layout_child_id(volume, 8), CompareOperator.EQ, VOLUME_100_ID);
+    assert_cmpstr(get_string_property(menu, VOLUME_12_5_ID, "label"), CompareOperator.EQ, "12.5%");
+    assert_cmpstr(get_string_property(menu, VOLUME_25_ID, "label"), CompareOperator.EQ, "25%");
+    assert_cmpstr(get_string_property(menu, VOLUME_100_ID, "label"), CompareOperator.EQ, "100%");
+
+    try {
+        menu.event(VOLUME_12_5_ID, "clicked", new Variant.string(""), 0);
+        assert_cmpstr(action, CompareOperator.EQ, "volume-12.5");
+        menu.event(VOLUME_100_ID, "clicked", new Variant.string(""), 0);
+        assert_cmpstr(action, CompareOperator.EQ, "volume-100.0");
+    } catch (Error error) {
+        assert_not_reached();
+    }
+
+    player.set_player_volume(0.125);
+    drain_main_context();
+    assert_cmpstr(get_string_property(menu, VOLUME_ID, "label"), CompareOperator.EQ, "Volume: 12.5%");
+    assert_cmpint(get_int_property(menu, VOLUME_12_5_ID, "toggle-state"), CompareOperator.EQ, 1);
+    assert_cmpint(get_int_property(menu, VOLUME_25_ID, "toggle-state"), CompareOperator.EQ, 0);
+
+    player.set_player_volume(0.13);
+    drain_main_context();
+    assert_cmpstr(get_string_property(menu, VOLUME_ID, "label"), CompareOperator.EQ, "Volume: 13%");
+    assert_cmpint(get_int_property(menu, VOLUME_12_5_ID, "toggle-state"), CompareOperator.EQ, 0);
+
+    player.set_player_volume(0.249);
+    drain_main_context();
+    assert_cmpstr(get_string_property(menu, VOLUME_ID, "label"), CompareOperator.EQ, "Volume: 25%");
+    assert_cmpint(get_int_property(menu, VOLUME_25_ID, "toggle-state"), CompareOperator.EQ, 1);
+    menu.set_player(null);
+    player.shutdown();
+}
+
 private void test_metadata_separator_collision() {
     var transport = new StatusMenuTransport();
     var player = new MprisMiniPlayer.MprisPlayer.with_transport("test", transport);
@@ -669,6 +719,7 @@ private void test_metadata_separator_collision() {
 public int main(string[] args) {
     Test.init(ref args);
     Test.add_func("/status-menu/pending-volume", test_pending_volume_updates_menu);
+    Test.add_func("/status-menu/volume-presets", test_volume_presets);
     Test.add_func("/status-menu/metadata-separator-collision", test_metadata_separator_collision);
     Test.add_func("/status-menu/hidden-layout", test_hidden_layout);
     Test.add_func("/status-menu/shown-layout", test_shown_layout);

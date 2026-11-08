@@ -483,18 +483,6 @@ namespace MprisMiniPlayer {
                         manager.active_player.toggle_mute();
                     }
                     break;
-                case "volume-25":
-                    set_active_player_volume(0.25);
-                    break;
-                case "volume-50":
-                    set_active_player_volume(0.50);
-                    break;
-                case "volume-75":
-                    set_active_player_volume(0.75);
-                    break;
-                case "volume-100":
-                    set_active_player_volume(1.0);
-                    break;
                 case "volume-up":
                     adjust_active_player_volume(0.05);
                     break;
@@ -512,6 +500,16 @@ namespace MprisMiniPlayer {
                     break;
                 case "quit":
                     quit_app();
+                    break;
+                default:
+                    // Volume presets arrive as "volume-<percent>", e.g. "volume-12.5".
+                    double percent = 0.0;
+                    if (
+                        action.has_prefix("volume-")
+                        && double.try_parse(action.substring("volume-".length), out percent)
+                    ) {
+                        set_active_player_volume(percent / 100.0);
+                    }
                     break;
             }
         }
