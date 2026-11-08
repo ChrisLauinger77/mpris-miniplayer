@@ -1,3 +1,9 @@
+mpris-miniplayer (2.3.2-1) unstable; urgency=medium
+
+  * Add playback controls to the desktop launcher menu.
+
+ -- Christian Lauinger <chrislauinger77@users.noreply.github.com>  Sun, 08 Nov 2026 18:10:10 +0100
+
 mpris-miniplayer (2.3.1-1) unstable; urgency=medium
 
   * Offer tray menu volume presets in 12.5% steps.
