@@ -149,12 +149,16 @@ private void test_application_identifiers() {
     string[] names = {
         "vlc", "vlc.instance123", "io.bassi.Amberol", "io.bassi.Amberol.instance123",
         "io.bassi.OtherPlayer", "org.gnome.Rhythmbox", "io.example.instanceViewer",
-        "io.example.instance", "io.example.instance123x", "io.example.instance123.tools"
+        "io.example.instance", "io.example.instance123x", "io.example.instance123.tools",
+        "firefox.instance_1_74", "firefox.instance_1_96", "chromium.instance4242",
+        "io.example.instance_", "io.example.instance_x1"
     };
     string[] expected = {
         "vlc", "vlc", "io.bassi.Amberol", "io.bassi.Amberol",
         "io.bassi.OtherPlayer", "org.gnome.Rhythmbox", "io.example.instanceViewer",
-        "io.example.instance", "io.example.instance123x", "io.example.instance123.tools"
+        "io.example.instance", "io.example.instance123x", "io.example.instance123.tools",
+        "firefox", "firefox", "chromium",
+        "io.example.instance_", "io.example.instance_x1"
     };
     for (int i = 0; i < names.length; i++) {
         assert_cmpstr(MprisMiniPlayer.MprisManager.application_id("org.mpris.MediaPlayer2." + names[i]),
@@ -274,6 +278,38 @@ private void test_blacklist_startup_and_instances() {
         drain();
     } catch (Error error) {
         Test.fail_printf("Blacklist startup and instances: %s", error.message);
+    }
+}
+
+private void test_blacklist_details_survive_bus_close() {
+    try {
+        var client = connection();
+        var server = new MockService();
+        server.root.label = "Friendly player";
+        server.root.desktop_id = "friendly-icon";
+        own(server.bus, NAME_A);
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+        wait_until(() => manager.ready && find_application(manager, "reliability_a") != null
+            && find_application(manager, "reliability_a").icon_name == "friendly-icon");
+        manager.set_blacklisted_players({ "reliability_a" });
+        var saved = manager.get_blacklisted_player_details();
+        assert_cmpuint((uint) saved.n_children(), CompareOperator.EQ, 1);
+        int catalog_changes = 0;
+        manager.applications_changed.connect(() => catalog_changes++);
+
+        // Losing the session bus stops the manager; listeners that persist
+        // ignored-player details must not observe an empty catalog.
+        client.close_sync();
+        wait_until(() => !manager.connected);
+        drain();
+        assert_cmpint(catalog_changes, CompareOperator.EQ, 0);
+        assert_true(manager.get_blacklisted_player_details().equal(saved));
+        assert_nonnull(find_application(manager, "reliability_a"));
+        manager.shutdown();
+        server.close();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Blacklist details after bus close: %s", error.message);
     }
 }
 
@@ -969,6 +1005,7 @@ public int main(string[] args) {
     Test.add_func("/mpris-dbus/application-identifiers", test_application_identifiers);
     Test.add_func("/mpris-dbus/blacklist-dotted-applications", test_blacklist_dotted_applications);
     Test.add_func("/mpris-dbus/blacklist-application-details", test_blacklist_application_details);
+    Test.add_func("/mpris-dbus/blacklist-details-bus-close", test_blacklist_details_survive_bus_close);
     Test.add_func("/mpris-dbus/overlapping-owner-lookups", test_overlapping_owner_lookups);
     Test.add_func("/mpris-dbus/blacklist-active-replacement-restore", test_blacklist_active_replacement_and_restore);
     Test.add_func("/mpris-dbus/blacklist-pending-discovery-snapshot", test_blacklist_pending_discovery_and_snapshot);

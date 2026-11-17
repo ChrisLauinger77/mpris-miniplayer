@@ -72,14 +72,20 @@ namespace MprisMiniPlayer {
             if (dot <= 0) return suffix;
             string instance = suffix.substring(dot + 1);
             // Dots can belong to the application ID itself (io.bassi.Amberol).
-            // Strip only the conventional trailing .instance<PID> component;
-            // ambiguous or unfamiliar suffixes remain part of the identifier.
+            // Strip only the conventional trailing per-process component:
+            // .instance<PID> (Chromium, VLC) or .instance_<N>_<M> (Firefox).
+            // Ambiguous or unfamiliar suffixes remain part of the identifier.
             const string INSTANCE_PREFIX = "instance";
-            if (!instance.has_prefix(INSTANCE_PREFIX) || instance.length == INSTANCE_PREFIX.length) return suffix;
+            if (!instance.has_prefix(INSTANCE_PREFIX)) return suffix;
+            bool has_digit = false;
             for (int i = INSTANCE_PREFIX.length; i < instance.length; i++) {
-                if (!instance[i].isdigit()) return suffix;
+                if (instance[i].isdigit()) {
+                    has_digit = true;
+                } else if (instance[i] != '_') {
+                    return suffix;
+                }
             }
-            return suffix.substring(0, dot);
+            return has_digit ? suffix.substring(0, dot) : suffix;
         }
 
         public bool is_blacklisted(string id) {
@@ -306,15 +312,14 @@ namespace MprisMiniPlayer {
             foreach (var player in players.get_values()) player.shutdown();
             players.remove_all();
             owners.remove_all();
-            application_names.remove_all();
-            application_icons.remove_all();
-            applications = {};
             discovering.remove_all();
             names = {};
             active_player = null;
             active_player_changed();
             players_changed();
-            applications_changed();
+            // Keep the last application catalog and do not announce a change:
+            // a stopped manager (including after the session bus closed) is not
+            // an empty catalog, and listeners persist ignored-player details.
         }
 
         public string[] list_players() {
