@@ -26,6 +26,9 @@ namespace MprisMiniPlayer {
         private string[] fallback_blacklisted_players = {};
         private bool has_blacklisted_player_details_key = false;
         private Variant fallback_blacklisted_player_details = new Variant.array(new VariantType("{s(ss)}"), {});
+        private string[] pending_ignore_ids = {};
+        private bool[] pending_ignore_states = {};
+        private uint pending_ignore_source = 0;
         private bool syncing = false;
 
         public signal void changed(string key);
@@ -198,6 +201,34 @@ namespace MprisMiniPlayer {
                     changed(KEY_BLACKLISTED_PLAYERS);
                 }
             }
+        }
+
+        // Queues an ignore toggle and applies it from an idle callback. Writing
+        // synchronously from a widget's signal handler would let listeners
+        // rebuild the catalog and free that widget while it is still emitting.
+        public void queue_player_ignored(string id, bool ignored) {
+            pending_ignore_ids += id;
+            pending_ignore_states += ignored;
+            if (pending_ignore_source == 0) pending_ignore_source = Idle.add(apply_queued_ignore_changes);
+        }
+
+        private bool apply_queued_ignore_changes() {
+            pending_ignore_source = 0;
+            var ids = (owned) pending_ignore_ids;
+            var states = (owned) pending_ignore_states;
+            pending_ignore_ids = {};
+            pending_ignore_states = {};
+            var current = blacklisted_players;
+            string[] updated = current;
+            for (int i = 0; i < ids.length; i++) {
+                string[] next = {};
+                foreach (var existing in updated) if (existing != ids[i]) next += existing;
+                if (states[i]) next += ids[i];
+                updated = next;
+            }
+            // Toggling back to the stored state must not rewrite the key.
+            if (!new Variant.strv(current).equal(new Variant.strv(updated))) blacklisted_players = updated;
+            return Source.REMOVE;
         }
 
         public Variant blacklisted_player_details {

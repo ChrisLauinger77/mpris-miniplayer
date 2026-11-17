@@ -136,8 +136,46 @@ private void test_external_details() {
     }
 }
 
+private void check_queued_ignore_changes(Settings? settings) {
+    var app_settings = new MprisMiniPlayer.AppSettings.with_settings(settings);
+    app_settings.blacklisted_players = { "vlc" };
+    int changes = 0;
+    app_settings.changed.connect((key) => {
+        assert_cmpstr(key, CompareOperator.EQ, "blacklisted-players");
+        changes++;
+    });
+    app_settings.queue_player_ignored("firefox", true);
+    app_settings.queue_player_ignored("vlc", false);
+    app_settings.queue_player_ignored("mpv", true);
+    app_settings.queue_player_ignored("mpv", false);
+    // Nothing is written while the caller's signal emission is still running.
+    assert_ids(app_settings.blacklisted_players, { "vlc" });
+    assert_cmpint(changes, CompareOperator.EQ, 0);
+    while (MainContext.default().iteration(false)) {}
+    // Toggles apply in order and coalesce into one write.
+    assert_ids(app_settings.blacklisted_players, { "firefox" });
+    assert_cmpint(changes, CompareOperator.EQ, 1);
+
+    app_settings.queue_player_ignored("firefox", false);
+    app_settings.queue_player_ignored("firefox", true);
+    while (MainContext.default().iteration(false)) {}
+    assert_ids(app_settings.blacklisted_players, { "firefox" });
+    assert_cmpint(changes, CompareOperator.EQ, 1);
+}
+
+private void test_queued_ignore_changes() {
+    check_queued_ignore_changes(null);
+    try {
+        var schema = load_schema(Environment.get_variable("TEST_APP_SCHEMA_DIR"), SCHEMA_ID);
+        check_queued_ignore_changes(new Settings.full(schema, SettingsBackend.memory_settings_backend_new(), null));
+    } catch (Error error) {
+        Test.fail_printf("Queued ignore changes: %s", error.message);
+    }
+}
+
 public int main(string[] args) {
     Test.init(ref args);
+    Test.add_func("/blacklist-settings/queued-ignore-changes", test_queued_ignore_changes);
     Test.add_func("/blacklist-settings/no-schema", test_no_schema);
     Test.add_func("/blacklist-settings/old-schema", test_old_schema);
     Test.add_func("/blacklist-settings/external-changes", test_external_changes);

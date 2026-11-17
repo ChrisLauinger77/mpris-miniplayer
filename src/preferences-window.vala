@@ -192,12 +192,9 @@ namespace MprisMiniPlayer {
 
         private void on_ignored_player_toggled(string application_id, bool active) {
             if (syncing_players) return;
-            string[] ignored = {};
-            foreach (var id in app_settings.blacklisted_players) {
-                if (id != application_id) ignored += id;
-            }
-            if (active) ignored += application_id;
-            app_settings.blacklisted_players = ignored;
+            // Deferred: the resulting catalog update can remove this very row
+            // (an offline player that is no longer ignored).
+            app_settings.queue_player_ignored(application_id, active);
         }
 
         private void sync_rows(string key) {
