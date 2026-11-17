@@ -11,6 +11,26 @@ private void assert_ids(string[] actual, string[] expected) {
     assert_true(new Variant.strv(actual).equal(new Variant.strv(expected)));
 }
 
+private Variant player_details() {
+    var details = new VariantBuilder(new VariantType("a{s(ss)}"));
+    details.add("{s(ss)}", "vlc", "VLC media player", "vlc");
+    return details.end();
+}
+
+private void check_details_fallback(Settings? settings) {
+    var app_settings = new MprisMiniPlayer.AppSettings.with_settings(settings);
+    int changes = 0;
+    app_settings.changed.connect((key) => {
+        assert_cmpstr(key, CompareOperator.EQ, "blacklisted-player-details");
+        changes++;
+    });
+    assert_cmpuint((uint) app_settings.blacklisted_player_details.n_children(), CompareOperator.EQ, 0);
+    app_settings.blacklisted_player_details = player_details();
+    assert_true(app_settings.blacklisted_player_details.equal(player_details()));
+    app_settings.blacklisted_player_details = player_details();
+    assert_cmpint(changes, CompareOperator.EQ, 1);
+}
+
 private void check_fallback(Settings? settings) {
     var app_settings = new MprisMiniPlayer.AppSettings.with_settings(settings);
     int changes = 0;
@@ -34,6 +54,7 @@ private void check_fallback(Settings? settings) {
 
 private void test_no_schema() {
     check_fallback(null);
+    check_details_fallback(null);
 }
 
 private void test_old_schema() {
@@ -41,6 +62,7 @@ private void test_old_schema() {
         var schema = load_schema(Environment.get_variable("TEST_LEGACY_SCHEMA_DIR"), SCHEMA_ID + ".LegacyTest");
         var settings = new Settings.full(schema, SettingsBackend.memory_settings_backend_new(), null);
         check_fallback(settings);
+        check_details_fallback(settings);
     } catch (Error error) {
         Test.fail_printf("Legacy schema: %s", error.message);
     }
@@ -79,14 +101,38 @@ private void test_persistence() {
         var settings = new Settings.full(schema, SettingsBackend.keyfile_settings_backend_new(path, "/", null), null);
         var app_settings = new MprisMiniPlayer.AppSettings.with_settings(settings);
         app_settings.blacklisted_players = { "vlc", "io.bassi.Amberol" };
+        app_settings.blacklisted_player_details = player_details();
         Settings.sync();
         var restored = new MprisMiniPlayer.AppSettings.with_settings(new Settings.full(schema,
             SettingsBackend.keyfile_settings_backend_new(path, "/", null), null));
         assert_ids(restored.blacklisted_players, { "vlc", "io.bassi.Amberol" });
+        assert_true(restored.blacklisted_player_details.equal(player_details()));
         File.new_for_path(path).delete();
         File.new_for_path(directory).delete();
     } catch (Error error) {
         Test.fail_printf("Settings persistence: %s", error.message);
+    }
+}
+
+private void test_external_details() {
+    try {
+        var schema = load_schema(Environment.get_variable("TEST_APP_SCHEMA_DIR"), SCHEMA_ID);
+        var backend = SettingsBackend.memory_settings_backend_new();
+        var settings = new Settings.full(schema, backend, null);
+        var external = new Settings.full(schema, backend, null);
+        var app_settings = new MprisMiniPlayer.AppSettings.with_settings(settings);
+        int changes = 0;
+        app_settings.changed.connect((key) => {
+            assert_cmpstr(key, CompareOperator.EQ, "blacklisted-player-details");
+            changes++;
+        });
+        external.set_value("blacklisted-player-details", player_details());
+        assert_true(app_settings.blacklisted_player_details.equal(player_details()));
+        external.reset("blacklisted-player-details");
+        assert_cmpuint((uint) app_settings.blacklisted_player_details.n_children(), CompareOperator.EQ, 0);
+        assert_cmpint(changes, CompareOperator.EQ, 2);
+    } catch (Error error) {
+        Test.fail_printf("External player details: %s", error.message);
     }
 }
 
@@ -96,5 +142,6 @@ public int main(string[] args) {
     Test.add_func("/blacklist-settings/old-schema", test_old_schema);
     Test.add_func("/blacklist-settings/external-changes", test_external_changes);
     Test.add_func("/blacklist-settings/persistence", test_persistence);
+    Test.add_func("/blacklist-settings/external-details", test_external_details);
     return Test.run();
 }

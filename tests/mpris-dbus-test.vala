@@ -277,6 +277,81 @@ private void test_blacklist_startup_and_instances() {
     }
 }
 
+private void test_blacklist_application_details() {
+    try {
+        var client = connection();
+        var server = new MockService();
+        server.root.label = "Friendly player";
+        server.root.desktop_id = "friendly-icon";
+        own(server.bus, NAME_A);
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+        wait_until(() => manager.ready && find_application(manager, "reliability_a") != null
+            && find_application(manager, "reliability_a").icon_name == "friendly-icon");
+        var original = find_application(manager, "reliability_a");
+        int catalog_changes = 0;
+        ulong handler = manager.applications_changed.connect(() => catalog_changes++);
+        server.player.state = "Paused";
+        server.player.title = "New track";
+        emit_state(server.bus, server.player);
+        wait_until(() => manager.get_player(NAME_A).title == "New track");
+        drain();
+        assert_cmpint(catalog_changes, CompareOperator.EQ, 0);
+        // Playback updates reuse the cached catalog instead of allocating it again.
+        assert_true(find_application(manager, "reliability_a") == original);
+
+        server.root.label = "Renamed player";
+        server.root.desktop_id = "renamed-icon";
+        var properties = new VariantBuilder(new VariantType("a{sv}"));
+        properties.add("{sv}", "Identity", new Variant.string(server.root.label));
+        properties.add("{sv}", "DesktopEntry", new Variant.string(server.root.desktop_id));
+        server.bus.emit_signal(null, PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged",
+            new Variant("(s@a{sv}@as)", "org.mpris.MediaPlayer2", properties.end(), new Variant.strv({})));
+        wait_until(() => find_application(manager, "reliability_a").icon_name == "renamed-icon");
+        assert_cmpint(catalog_changes, CompareOperator.EQ, 1);
+        manager.set_blacklisted_players({ "reliability_a" });
+        assert_cmpint(catalog_changes, CompareOperator.EQ, 2);
+        var saved = manager.get_blacklisted_player_details();
+        assert_cmpuint((uint) saved.n_children(), CompareOperator.EQ, 1);
+        SignalHandler.disconnect(manager, handler);
+        manager.shutdown();
+
+        int reads = server.root.reads + server.player.reads;
+        manager = new MprisMiniPlayer.MprisManager.with_connection(client, { "reliability_a" }, saved);
+        wait_until(() => manager.ready && find_application(manager, "reliability_a").running);
+        var restored = find_application(manager, "reliability_a");
+        assert_cmpstr(restored.display_name, CompareOperator.EQ, "Renamed player");
+        assert_cmpstr(restored.icon_name, CompareOperator.EQ, "renamed-icon");
+        assert_null(manager.get_player(NAME_A));
+        assert_cmpint(server.root.reads + server.player.reads, CompareOperator.EQ, reads);
+        release(server.bus, NAME_A);
+        wait_until(() => !find_application(manager, "reliability_a").running);
+        assert_true(manager.get_blacklisted_player_details().equal(saved));
+        manager.set_blacklisted_players({});
+        assert_cmpint(manager.list_applications().length, CompareOperator.EQ, 0);
+        assert_cmpuint((uint) manager.get_blacklisted_player_details().n_children(), CompareOperator.EQ, 0);
+        // Removing the offline ignore entry also forgets its session-only details.
+        manager.set_blacklisted_players({ "reliability_a" });
+        var forgotten = find_application(manager, "reliability_a");
+        assert_cmpstr(forgotten.display_name, CompareOperator.EQ, "reliability_a");
+        assert_cmpstr(forgotten.icon_name, CompareOperator.EQ, "multimedia-player-symbolic");
+        manager.set_blacklisted_players({});
+
+        // Unignored, short-lived players must not leave historical cache entries.
+        own(server.bus, NAME_A);
+        wait_until(() => find_application(manager, "reliability_a") != null
+            && find_application(manager, "reliability_a").display_name == "Renamed player");
+        release(server.bus, NAME_A);
+        wait_until(() => manager.list_applications().length == 0);
+        manager.set_blacklisted_players({ "reliability_a" });
+        assert_cmpstr(find_application(manager, "reliability_a").display_name, CompareOperator.EQ, "reliability_a");
+        manager.shutdown();
+        server.close(); client.close_sync();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Application catalog details: %s", error.message);
+    }
+}
+
 private void test_blacklist_active_replacement_and_restore() {
     try {
         var client = connection();
@@ -378,6 +453,111 @@ private class ReplyGate : Object {
             mutex.unlock();
         }
         return (owned) message;
+    }
+}
+
+// Route owner lookups through a controllable async service so a snapshot can
+// progress while an older reply is held, without blocking GDBus's worker.
+[DBus (name = "org.mpris.MiniPlayer.TestOwnerLookup")]
+private class MockOwnerLookup : Object {
+    public string owner = "";
+    public int calls = 0;
+    public int completed = 0;
+    private SourceFunc? first_reply;
+    private SourceFunc? second_reply;
+
+    public async string get_name_owner(string name) throws DBusError, IOError {
+        int call = ++calls;
+        string snapshot = owner;
+        if (call == 1) { first_reply = get_name_owner.callback; yield; }
+        if (call == 2) { second_reply = get_name_owner.callback; yield; }
+        completed++;
+        return snapshot;
+    }
+
+    [DBus (visible = false)]
+    public void release_first() {
+        if (first_reply != null) Idle.add((owned) first_reply);
+    }
+
+    [DBus (visible = false)]
+    public void release_second() {
+        if (second_reply != null) Idle.add((owned) second_reply);
+    }
+}
+
+private class OwnerLookupRedirect : Object {
+    private string destination;
+    private int suppress_signals = 0;
+
+    public OwnerLookupRedirect(string destination) {
+        this.destination = destination;
+    }
+
+    public void suppress_owner_events() {
+        AtomicInt.set(ref suppress_signals, 1);
+    }
+
+    public DBusMessage? filter(DBusConnection connection, owned DBusMessage message, bool incoming) {
+        if (incoming && AtomicInt.get(ref suppress_signals) != 0 && message.get_member() == "NameOwnerChanged"
+            && message.get_body().get_child_value(0).get_string() == NAME_A) return null;
+        if (!incoming && message.get_destination() == "org.freedesktop.DBus"
+            && message.get_member() == "GetNameOwner" && message.get_body().get_child_value(0).get_string() == NAME_A) {
+            try {
+                var redirected = message.copy();
+                redirected.set_destination(destination);
+                redirected.set_path("/OwnerLookup");
+                redirected.set_interface("org.mpris.MiniPlayer.TestOwnerLookup");
+                return redirected;
+            } catch (Error error) {
+                assert_not_reached();
+            }
+        }
+        return (owned) message;
+    }
+}
+
+private void test_overlapping_owner_lookups() {
+    try {
+        for (int invalidated = 0; invalidated < 2; invalidated++) {
+            var client = connection();
+            var first = new MockService();
+            var replacement = new MockService();
+            var lookup_bus = connection();
+            var lookup = new MockOwnerLookup();
+            lookup.owner = first.bus.get_unique_name();
+            uint registration = lookup_bus.register_object("/OwnerLookup", lookup);
+            var redirect = new OwnerLookupRedirect(lookup_bus.get_unique_name());
+            uint filter = client.add_filter(redirect.filter);
+            own(first.bus, NAME_A);
+            var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+            wait_until(() => lookup.calls == 1);
+            if (invalidated != 0) {
+                release(first.bus, NAME_A);
+                wait_until(() => manager.ready);
+            }
+            // Model a missed acquisition/replacement event. A fresh snapshot
+            // must resolve the current owner despite the outstanding lookup.
+            redirect.suppress_owner_events();
+            own(replacement.bus, NAME_A, invalidated == 0);
+            lookup.owner = replacement.bus.get_unique_name();
+            manager.list_names.begin();
+            wait_until(() => lookup.calls == 2);
+            lookup.release_first();
+            wait_until(() => lookup.completed == 1);
+            lookup.release_second();
+            wait_until(() => manager.active_player != null && manager.active_player.initialized);
+            assert_cmpstr(manager.active_player.owner, CompareOperator.EQ, replacement.bus.get_unique_name());
+            assert_cmpint(first.root.reads + first.player.reads, CompareOperator.EQ, 0);
+            assert_cmpint(manager.list_players().length, CompareOperator.EQ, 1);
+            manager.shutdown();
+            client.remove_filter(filter);
+            lookup_bus.unregister_object(registration);
+            first.close(); replacement.close(); lookup_bus.close_sync(); client.close_sync();
+            drain();
+        }
+    } catch (Error error) {
+        Test.fail_printf("Overlapping owner lookups: %s", error.message);
     }
 }
 
@@ -788,6 +968,8 @@ public int main(string[] args) {
     Test.add_func("/mpris-dbus/blacklist-startup-instances", test_blacklist_startup_and_instances);
     Test.add_func("/mpris-dbus/application-identifiers", test_application_identifiers);
     Test.add_func("/mpris-dbus/blacklist-dotted-applications", test_blacklist_dotted_applications);
+    Test.add_func("/mpris-dbus/blacklist-application-details", test_blacklist_application_details);
+    Test.add_func("/mpris-dbus/overlapping-owner-lookups", test_overlapping_owner_lookups);
     Test.add_func("/mpris-dbus/blacklist-active-replacement-restore", test_blacklist_active_replacement_and_restore);
     Test.add_func("/mpris-dbus/blacklist-pending-discovery-snapshot", test_blacklist_pending_discovery_and_snapshot);
     return Test.run();

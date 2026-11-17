@@ -6,6 +6,11 @@
       <summary>Ignored players</summary>
       <description>MPRIS application identifiers to ignore, including all instances of each application.</description>
     </key>
+    <key name="blacklisted-player-details" type="a{s(ss)}">
+      <default>{}</default>
+      <summary>Names and icons of ignored players</summary>
+      <description>Saved display names and icon names for ignored MPRIS applications, keyed by application identifier.</description>
+    </key>
     <key name="show-background-notification" type="b">
       <default>true</default>
       <summary>Show a background notification</summary>

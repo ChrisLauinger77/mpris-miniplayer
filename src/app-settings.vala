@@ -9,6 +9,7 @@ namespace MprisMiniPlayer {
         private const string KEY_SHOW_STATUS_INDICATOR = "show-status-indicator";
         private const string KEY_KEEP_QUEUE_OPEN = "keep-queue-open";
         private const string KEY_BLACKLISTED_PLAYERS = "blacklisted-players";
+        private const string KEY_BLACKLISTED_PLAYER_DETAILS = "blacklisted-player-details";
 
         private GLib.Settings? settings;
         private bool fallback_show_background_notification = true;
@@ -23,6 +24,8 @@ namespace MprisMiniPlayer {
         private bool has_keep_queue_open_key = false;
         private bool has_blacklisted_players_key = false;
         private string[] fallback_blacklisted_players = {};
+        private bool has_blacklisted_player_details_key = false;
+        private Variant fallback_blacklisted_player_details = new Variant.array(new VariantType("{s(ss)}"), {});
         private bool syncing = false;
 
         public signal void changed(string key);
@@ -51,6 +54,7 @@ namespace MprisMiniPlayer {
             has_show_status_indicator_key = schema.has_key(KEY_SHOW_STATUS_INDICATOR);
             has_keep_queue_open_key = schema.has_key(KEY_KEEP_QUEUE_OPEN);
             has_blacklisted_players_key = schema.has_key(KEY_BLACKLISTED_PLAYERS);
+            has_blacklisted_player_details_key = schema.has_key(KEY_BLACKLISTED_PLAYER_DETAILS);
             settings.changed.connect(on_settings_changed);
         }
 
@@ -192,6 +196,24 @@ namespace MprisMiniPlayer {
                 } else if (!new Variant.strv(fallback_blacklisted_players).equal(new Variant.strv(value))) {
                     fallback_blacklisted_players = value;
                     changed(KEY_BLACKLISTED_PLAYERS);
+                }
+            }
+        }
+
+        public Variant blacklisted_player_details {
+            owned get {
+                if (settings != null && has_blacklisted_player_details_key) {
+                    return settings.get_value(KEY_BLACKLISTED_PLAYER_DETAILS);
+                }
+                return fallback_blacklisted_player_details;
+            }
+            set {
+                if (!value.is_of_type(new VariantType("a{s(ss)}")) || blacklisted_player_details.equal(value)) return;
+                if (settings != null && has_blacklisted_player_details_key) {
+                    settings.set_value(KEY_BLACKLISTED_PLAYER_DETAILS, value);
+                } else {
+                    fallback_blacklisted_player_details = value;
+                    changed(KEY_BLACKLISTED_PLAYER_DETAILS);
                 }
             }
         }

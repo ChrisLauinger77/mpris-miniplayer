@@ -33,9 +33,11 @@ namespace MprisMiniPlayer {
         private HashTable<string, string> application_names = new HashTable<string, string>(str_hash, str_equal);
         private HashTable<string, string> application_icons = new HashTable<string, string>(str_hash, str_equal);
         private HashTable<string, MprisPlayer> players = new HashTable<string, MprisPlayer>(str_hash, str_equal);
-        // Only outstanding discovery calls need revisions. Owner events update
-        // the registry immediately and invalidate their older lookup replies.
-        private HashTable<string, uint> discovering = new HashTable<string, uint>(str_hash, str_equal);
+        // Each snapshot lookup has its own token. A newer lookup or owner event
+        // supersedes it without letting its eventual reply remove newer work.
+        private HashTable<string, Object> discovering = new HashTable<string, Object>(str_hash, str_equal);
+        private MprisApplication[] applications = {};
+        private bool applications_dirty = true;
         private string published_players = "";
         private string published_details = "";
         private string published_applications = "";
@@ -51,12 +53,15 @@ namespace MprisMiniPlayer {
         public signal void discovery_finished();
         public signal void operation_failed(string operation, Error error);
 
-        public MprisManager(string[] blacklisted_players = {}) {
+        public MprisManager(string[] blacklisted_players = {}, Variant? blacklisted_player_details = null) {
+            restore_application_details(blacklisted_player_details);
             set_blacklisted_players(blacklisted_players);
             start.begin();
         }
 
-        internal MprisManager.with_connection(DBusConnection connection, string[] blacklisted_players = {}) {
+        internal MprisManager.with_connection(DBusConnection connection, string[] blacklisted_players = {},
+            Variant? blacklisted_player_details = null) {
+            restore_application_details(blacklisted_player_details);
             set_blacklisted_players(blacklisted_players);
             start.begin(connection);
         }
@@ -87,23 +92,47 @@ namespace MprisMiniPlayer {
             foreach (var id in ids) if (id != "") blacklisted.insert(id, true);
             if (is_blacklisted(application_id(manual_selection))) manual_selection = "";
             foreach (var name in names) {
+                if (stopped) return;
                 var player = players.lookup(name);
                 if (is_blacklisted(application_id(name))) {
-                    if (player != null) {
-                        remember_application(player);
-                        player.shutdown();
-                        players.remove(name);
-                    }
+                    remove_player(name);
                 } else if (player == null) {
                     add_player(name, owners.lookup(name));
                 }
             }
+            applications_dirty = true;
             // Rebind controls synchronously so an ignored active model cannot
             // receive another command before the next idle reconciliation.
             reconcile();
         }
 
         public MprisApplication[] list_applications() {
+            return applications;
+        }
+
+        public Variant get_blacklisted_player_details() {
+            var details = new VariantBuilder(new VariantType("a{s(ss)}"));
+            foreach (var app in applications) {
+                if (is_blacklisted(app.id) && (application_names.contains(app.id) || application_icons.contains(app.id))) {
+                    details.add("{s(ss)}", app.id, app.display_name, app.icon_name);
+                }
+            }
+            return details.end();
+        }
+
+        private void restore_application_details(Variant? details) {
+            if (details == null || !details.is_of_type(new VariantType("a{s(ss)}"))) return;
+            var entries = details.iterator();
+            string id, display_name, icon_name;
+            while (entries.next("{s(ss)}", out id, out display_name, out icon_name)) {
+                if (display_name != "") application_names.replace(id, display_name);
+                if (icon_name != "") application_icons.replace(id, icon_name);
+            }
+        }
+
+        private void rebuild_applications() {
+            if (!applications_dirty || stopped) return;
+            applications_dirty = false;
             var running = new HashTable<string, bool>(str_hash, str_equal);
             var ids = new HashTable<string, bool>(str_hash, str_equal);
             foreach (var name in names) {
@@ -112,20 +141,49 @@ namespace MprisMiniPlayer {
                 ids.insert(id, true);
             }
             foreach (var id in blacklisted.get_keys()) ids.insert(id, true);
+            // Keep details only while an application is running or ignored.
+            foreach (var id in application_names.get_keys()) if (!ids.contains(id)) application_names.remove(id);
+            foreach (var id in application_icons.get_keys()) if (!ids.contains(id)) application_icons.remove(id);
             var sorted = ids.get_keys();
             sorted.sort(strcmp);
-            MprisApplication[] result = {};
+            MprisApplication[] updated = {};
+            var signature = new StringBuilder();
             foreach (var id in sorted) {
-                result += new MprisApplication(id, application_names.lookup(id) ?? id,
+                var app = new MprisApplication(id, application_names.lookup(id) ?? id,
                     application_icons.lookup(id) ?? "multimedia-player-symbolic", running.contains(id));
+                updated += app;
+                foreach (var field in new string[] { app.id, app.display_name, app.icon_name }) {
+                    signature.append_printf("%u:%s", field.length, field);
+                }
+                signature.append(app.running ? "1" : "0");
+                signature.append(is_blacklisted(app.id) ? "1" : "0");
             }
-            return result;
+            applications = updated;
+            if (published_applications != signature.str) {
+                published_applications = signature.str;
+                applications_changed();
+            }
         }
 
         private void remember_application(MprisPlayer player) {
             string id = application_id(player.bus_name);
-            if (player.identity != "") application_names.replace(id, player.identity);
-            if (player.desktop_entry != "") application_icons.replace(id, player.icon_name());
+            bool changed = false;
+            if (player.identity != "" && application_names.lookup(id) != player.identity) {
+                application_names.replace(id, player.identity);
+                changed = true;
+            }
+            if (player.desktop_entry != "" && application_icons.lookup(id) != player.icon_name()) {
+                application_icons.replace(id, player.icon_name());
+                changed = true;
+            }
+            if (changed) {
+                applications_dirty = true;
+                schedule_reconcile();
+            }
+        }
+
+        private void on_player_identity_changed(Object source, ParamSpec property) {
+            if (!stopped) remember_application((MprisPlayer) source);
         }
 
         private async void start(DBusConnection? connection = null) {
@@ -151,7 +209,7 @@ namespace MprisMiniPlayer {
 
         // Retry the snapshot on the existing connection and subscription. A
         // failed first attempt still releases the startup visibility decision.
-        private async void list_names() {
+        internal async void list_names() {
             if (stopped || !connected || listing_names) return;
             listing_names = true;
             bool failed = false;
@@ -199,20 +257,22 @@ namespace MprisMiniPlayer {
         }
 
         private async void discover(string name) {
-            if (stopped || discovering.contains(name)) return;
-            discovering.insert(name, 1);
+            if (stopped) return;
+            var request = new Object();
+            discovering.replace(name, request);
             try {
                 Variant result = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "GetNameOwner",
                     new Variant("(s)", name), new VariantType("(s)"), DBusCallFlags.NONE, 3000, lifetime);
-                if (!stopped && discovering.lookup(name) == 1) {
+                if (!stopped && discovering.lookup(name) == request) {
                     replace_owner(name, result.get_child_value(0).get_string());
                 }
             } catch (Error error) {
-                if (!stopped && !(error is DBusError.NAME_HAS_NO_OWNER)) {
-                    operation_failed("GetNameOwner(%s)".printf(name), error);
+                if (!stopped && discovering.lookup(name) == request) {
+                    if (error is DBusError.NAME_HAS_NO_OWNER) replace_owner(name, "");
+                    else operation_failed("GetNameOwner(%s)".printf(name), error);
                 }
             }
-            discovering.remove(name);
+            if (discovering.lookup(name) == request) discovering.remove(name);
             if (!stopped && discovering.size() == 0) finish_discovery();
         }
 
@@ -248,6 +308,8 @@ namespace MprisMiniPlayer {
             owners.remove_all();
             application_names.remove_all();
             application_icons.remove_all();
+            applications = {};
+            discovering.remove_all();
             names = {};
             active_player = null;
             active_player_changed();
@@ -258,17 +320,17 @@ namespace MprisMiniPlayer {
         public string[] list_players() {
             string[] result = {};
             foreach (var name in names) {
-                if (players.contains(name)) result += name;
+                if (get_player(name) != null) result += name;
             }
             return result;
         }
 
         public MprisPlayer? get_player(string name) {
-            return players.lookup(name);
+            return is_blacklisted(application_id(name)) ? null : players.lookup(name);
         }
 
         public void select_player(string name) {
-            var player = players.lookup(name);
+            var player = get_player(name);
             if (stopped || player == null || !player.available) return;
             manual_selection = name; // Selecting the current row also pins it.
             switch_active_player(player);
@@ -282,19 +344,14 @@ namespace MprisMiniPlayer {
             string new_owner;
             parameters.get("(sss)", out name, out old_owner, out new_owner);
             if (!name.has_prefix(MPRIS_PREFIX)) return;
-            if (discovering.contains(name)) discovering.replace(name, 2);
+            discovering.remove(name);
             replace_owner(name, new_owner);
         }
 
         private void replace_owner(string name, string owner) {
             if (owners.lookup(name) == owner) return;
-            var old = players.lookup(name);
-            if (old != null) {
-                remember_application(old);
-                old.shutdown();
-                players.remove(name);
-                if (active_player == old) switch_active_player(null);
-            }
+            remove_player(name);
+            if (stopped) return;
             if (owner == "") {
                 owners.remove(name);
                 string[] remaining = {};
@@ -306,13 +363,26 @@ namespace MprisMiniPlayer {
                 owners.replace(name, owner);
                 if (!is_blacklisted(application_id(name))) add_player(name, owner);
             }
+            applications_dirty = true;
             schedule_reconcile();
         }
 
+        private void remove_player(string name) {
+            var player = players.lookup(name);
+            if (player == null) return;
+            remember_application(player);
+            player.shutdown();
+            players.remove(name);
+            if (active_player == player) switch_active_player(null);
+        }
+
         private void add_player(string name, string owner) {
+            if (stopped) return;
             var player = new MprisPlayer(name, owner, bus);
             players.insert(name, player);
             player.changed.connect(schedule_reconcile);
+            player.notify["identity"].connect(on_player_identity_changed);
+            player.notify["desktop-entry"].connect(on_player_identity_changed);
             player.operation_failed.connect(on_player_operation_failed);
         }
 
@@ -340,7 +410,6 @@ namespace MprisMiniPlayer {
             foreach (var name in names) {
                 var player = players.lookup(name);
                 if (player == null) continue;
-                remember_application(player);
                 membership.append_printf("%u:%s%u:%s", name.length, name, player.owner.length, player.owner);
                 // Length-delimited fields avoid collisions from unusual identities.
                 foreach (var field in new string[] { name, player.owner, player.identity,
@@ -371,18 +440,7 @@ namespace MprisMiniPlayer {
                 published_details = signature.str;
                 players_updated();
             }
-            var applications = new StringBuilder();
-            foreach (var app in list_applications()) {
-                foreach (var field in new string[] { app.id, app.display_name, app.icon_name }) {
-                    applications.append_printf("%u:%s", field.length, field);
-                }
-                applications.append(app.running ? "1" : "0");
-                applications.append(is_blacklisted(app.id) ? "1" : "0");
-            }
-            if (published_applications != applications.str) {
-                published_applications = applications.str;
-                applications_changed();
-            }
+            rebuild_applications();
         }
 
         private void switch_active_player(MprisPlayer? player) {

@@ -88,7 +88,9 @@ namespace MprisMiniPlayer {
             status_indicator.set_enabled(app_settings.show_status_indicator);
             start_update_check();
 
-            manager = new MprisManager(app_settings.blacklisted_players);
+            manager = new MprisManager(app_settings.blacklisted_players, app_settings.blacklisted_player_details);
+            manager.applications_changed.connect(sync_blacklisted_player_details);
+            sync_blacklisted_player_details();
             manager.players_changed.connect(on_players_changed);
             manager.players_updated.connect(() => {
                 if (!shutting_down && main_window != null) main_window.refresh_players();
@@ -261,7 +263,7 @@ namespace MprisMiniPlayer {
             if (players_available) {
                 show_window_automatically();
             } else if (main_window != null) {
-                hide_window();
+                hide_window(true);
             }
         }
 
@@ -378,6 +380,7 @@ namespace MprisMiniPlayer {
                     main_window.unminimize();
                 }
             }
+            if (preferences_window != null) preferences_window.transient_for = main_window;
             background_portal.leave_background();
             withdraw_notification(BACKGROUND_NOTIFICATION_ID);
         }
@@ -428,11 +431,13 @@ namespace MprisMiniPlayer {
                 ) != 0;
         }
 
-        private void hide_window() {
+        private void hide_window(bool keep_preferences_visible = false) {
             clear_restore_minimized_source();
             // Keep Preferences independently visible when ignoring the last
             // player makes the main window disappear.
-            if (preferences_window != null) preferences_window.transient_for = null;
+            if (keep_preferences_visible && preferences_window != null && preferences_window.visible) {
+                preferences_window.transient_for = null;
+            }
             if (main_window != null) {
                 main_window.set_visible(false);
             }
@@ -450,6 +455,7 @@ namespace MprisMiniPlayer {
         }
 
         private void present_preferences() {
+            if (shutting_down || manager == null) return;
             if (preferences_window == null) {
                 preferences_window = new PreferencesWindow(this, app_settings, status_indicator, manager);
                 preferences_window.close_request.connect(() => {
@@ -485,7 +491,14 @@ namespace MprisMiniPlayer {
             about_dialog.present(null);
         }
 
+        private void sync_blacklisted_player_details() {
+            if (!shutting_down && manager != null) {
+                app_settings.blacklisted_player_details = manager.get_blacklisted_player_details();
+            }
+        }
+
         private void on_app_settings_changed(string key) {
+            if (shutting_down || key == "blacklisted-player-details") return;
             if (key == "blacklisted-players" && manager != null) {
                 manager.set_blacklisted_players(app_settings.blacklisted_players);
             }

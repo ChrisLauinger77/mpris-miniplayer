@@ -8,6 +8,7 @@ namespace MprisMiniPlayer {
         public IgnoredPlayerRow(string application_id) {
             this.application_id = application_id;
             widget = new Adw.SwitchRow();
+            widget.set_data<string>("application-id", application_id);
             widget.use_markup = false;
             icon.pixel_size = 24;
             widget.add_prefix(icon);
@@ -30,6 +31,7 @@ namespace MprisMiniPlayer {
         private AppSettings app_settings;
         private MprisManager manager;
         private Adw.PreferencesGroup ignored_players_group;
+        private Gtk.ListBox ignored_players_list;
         private Adw.ActionRow no_players_row;
         private HashTable<string, IgnoredPlayerRow> ignored_player_rows =
             new HashTable<string, IgnoredPlayerRow>(str_hash, str_equal);
@@ -145,12 +147,22 @@ namespace MprisMiniPlayer {
             ignored_players_group.description = _("Ignore all instances of these players. Changes apply immediately.");
             page.add(ignored_players_group);
 
+            ignored_players_list = new Gtk.ListBox();
+            ignored_players_list.selection_mode = Gtk.SelectionMode.NONE;
+            ignored_players_list.add_css_class("boxed-list");
+            ignored_players_list.set_sort_func(compare_ignored_rows);
+            ignored_players_group.add(ignored_players_list);
+
             no_players_row = new Adw.ActionRow();
             no_players_row.title = _("No players found");
             no_players_row.subtitle = _("Open a media player to add it to this list.");
             no_players_row.sensitive = false;
-            ignored_players_group.add(no_players_row);
+            ignored_players_list.append(no_players_row);
             sync_ignored_players();
+        }
+
+        private static int compare_ignored_rows(Gtk.ListBoxRow first, Gtk.ListBoxRow second) {
+            return strcmp(first.get_data<string>("application-id") ?? "", second.get_data<string>("application-id") ?? "");
         }
 
         private void sync_ignored_players() {
@@ -160,7 +172,7 @@ namespace MprisMiniPlayer {
             foreach (var application in applications) present.insert(application.id, true);
             foreach (var id in ignored_player_rows.get_keys()) {
                 if (!present.contains(id)) {
-                    ignored_players_group.remove(ignored_player_rows.lookup(id).widget);
+                    ignored_players_list.remove(ignored_player_rows.lookup(id).widget);
                     ignored_player_rows.remove(id);
                 }
             }
@@ -170,9 +182,9 @@ namespace MprisMiniPlayer {
                     row = new IgnoredPlayerRow(application.id);
                     row.toggled.connect(on_ignored_player_toggled);
                     ignored_player_rows.insert(application.id, row);
-                    ignored_players_group.add(row.widget);
+                    ignored_players_list.append(row.widget);
                 }
-                row.update(application, application.id in app_settings.blacklisted_players);
+                row.update(application, manager.is_blacklisted(application.id));
             }
             no_players_row.visible = applications.length == 0;
             syncing_players = false;
@@ -189,6 +201,9 @@ namespace MprisMiniPlayer {
         }
 
         private void sync_rows(string key) {
+            // The manager publishes one catalog update after applying an ignore
+            // change; these settings do not affect the behavior switches.
+            if (key == "blacklisted-players" || key == "blacklisted-player-details") return;
             notification_row.active = app_settings.show_background_notification;
             autostart_row.active = app_settings.start_on_login;
             automatic_visibility_row.active = app_settings.automatic_window_visibility;
@@ -196,7 +211,6 @@ namespace MprisMiniPlayer {
             album_tint_row.active = app_settings.tint_with_album_color;
             keep_queue_open_row.active = app_settings.keep_queue_open;
             sync_status_indicator_row();
-            if (key == "blacklisted-players") sync_ignored_players();
         }
 
         private void sync_status_indicator_row() {
