@@ -88,7 +88,7 @@ namespace MprisMiniPlayer {
             status_indicator.set_enabled(app_settings.show_status_indicator);
             start_update_check();
 
-            manager = new MprisManager();
+            manager = new MprisManager(app_settings.blacklisted_players);
             manager.players_changed.connect(on_players_changed);
             manager.players_updated.connect(() => {
                 if (!shutting_down && main_window != null) main_window.refresh_players();
@@ -430,6 +430,9 @@ namespace MprisMiniPlayer {
 
         private void hide_window() {
             clear_restore_minimized_source();
+            // Keep Preferences independently visible when ignoring the last
+            // player makes the main window disappear.
+            if (preferences_window != null) preferences_window.transient_for = null;
             if (main_window != null) {
                 main_window.set_visible(false);
             }
@@ -448,7 +451,7 @@ namespace MprisMiniPlayer {
 
         private void present_preferences() {
             if (preferences_window == null) {
-                preferences_window = new PreferencesWindow(this, app_settings, status_indicator);
+                preferences_window = new PreferencesWindow(this, app_settings, status_indicator, manager);
                 preferences_window.close_request.connect(() => {
                     preferences_window = null;
                     return false;
@@ -483,6 +486,9 @@ namespace MprisMiniPlayer {
         }
 
         private void on_app_settings_changed(string key) {
+            if (key == "blacklisted-players" && manager != null) {
+                manager.set_blacklisted_players(app_settings.blacklisted_players);
+            }
             if (key == "start-on-login") {
                 if (suppress_next_start_on_login_portal_update) {
                     suppress_next_start_on_login_portal_update = false;

@@ -101,3 +101,16 @@ desktop_state_test = executable(
   c_args: ['-DGETTEXT_PACKAGE="@0@"'.format(gettext_package)],
 )
 test('Autostart and portal state', desktop_state_test)
+
+subdir('tests/schemas')
+blacklist_settings_test = executable(
+  'blacklist-settings-test',
+  [config_vala, 'src/app-settings.vala', 'tests/blacklist-settings-test.vala'],
+  dependencies: dependency('gio-2.0'),
+  vala_args: ['--target-glib=2.66'],
+  c_args: ['-DGETTEXT_PACKAGE="@0@"'.format(gettext_package)],
+)
+test('Player blacklist settings', blacklist_settings_test, env: {
+  'TEST_APP_SCHEMA_DIR': meson.current_build_dir() / 'data',
+  'TEST_LEGACY_SCHEMA_DIR': meson.current_build_dir() / 'tests/schemas',
+})

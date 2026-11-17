@@ -6,7 +6,11 @@ private const string NAME_B = "org.mpris.MediaPlayer2.reliability_b";
 
 [DBus (name = "org.mpris.MediaPlayer2")]
 private class MockRoot : Object {
-    public string identity { owned get { return "Same identity"; } }
+    public string label = "Same identity";
+    public string desktop_id = "";
+    public int reads = 0;
+    public string identity { owned get { reads++; return label; } }
+    public string desktop_entry { owned get { return desktop_id; } }
     public bool has_track_list { get { return false; } }
 }
 
@@ -17,8 +21,9 @@ private class MockPlayer : Object {
     public bool hold_pause = false;
     public int pause_calls = 0;
     public bool fail_pause = false;
+    public int reads = 0;
     private SourceFunc? pause_callback;
-    public string playback_status { owned get { return state; } }
+    public string playback_status { owned get { reads++; return state; } }
     public bool can_control { get { return true; } }
     public bool can_play { get { return true; } }
     public bool can_pause { get { return true; } }
@@ -108,6 +113,231 @@ private class ListNamesFault : Object {
             }
         }
         return (owned) message;
+    }
+}
+
+private class MockService : Object {
+    public DBusConnection bus;
+    public MockRoot root = new MockRoot();
+    public MockPlayer player = new MockPlayer();
+    private uint root_registration;
+    private uint player_registration;
+
+    public MockService() throws Error {
+        bus = connection();
+        root_registration = bus.register_object(PATH, root);
+        player_registration = bus.register_object(PATH, player);
+    }
+
+    public void close() throws Error {
+        bus.unregister_object(player_registration);
+        bus.unregister_object(root_registration);
+        bus.close_sync();
+    }
+}
+
+private MprisMiniPlayer.MprisApplication? find_application(MprisMiniPlayer.MprisManager manager, string id) {
+    foreach (var app in manager.list_applications()) if (app.id == id) return app;
+    return null;
+}
+
+private void test_blacklist_startup_and_instances() {
+    try {
+        var client = connection();
+        var ignored = new MockService();
+        var allowed = new MockService();
+        string instance = NAME_A + ".instance123";
+        string similar = NAME_A + "2";
+        string uppercase = "org.mpris.MediaPlayer2.Reliability_a";
+        own(ignored.bus, NAME_A);
+        own(ignored.bus, instance);
+        own(allowed.bus, NAME_B);
+        own(allowed.bus, similar);
+        own(allowed.bus, uppercase);
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client, { "reliability_a", "offline" });
+        wait_until(() => manager.ready && manager.active_player != null);
+        assert_cmpint(manager.list_players().length, CompareOperator.EQ, 3);
+        assert_null(manager.get_player(NAME_A));
+        assert_null(manager.get_player(instance));
+        assert_nonnull(manager.get_player(similar));
+        assert_nonnull(manager.get_player(uppercase));
+        assert_cmpint(ignored.root.reads, CompareOperator.EQ, 0);
+        assert_cmpint(ignored.player.reads, CompareOperator.EQ, 0);
+        assert_cmpint(manager.list_applications().length, CompareOperator.EQ, 5);
+        assert_true(find_application(manager, "reliability_a").running);
+        assert_false(find_application(manager, "offline").running);
+
+        int membership_changes = 0;
+        ulong membership_handler = manager.players_changed.connect(() => membership_changes++);
+        // Another instance of the ignored application changes only the catalog.
+        own(ignored.bus, NAME_A + ".instance456");
+        release(ignored.bus, NAME_A);
+        release(ignored.bus, instance);
+        // An owner lookup on this connection is a barrier for the preceding events.
+        release(ignored.bus, NAME_A + ".instance456");
+        wait_until(() => !find_application(manager, "reliability_a").running);
+        assert_cmpint(membership_changes, CompareOperator.EQ, 0);
+        assert_cmpint(ignored.player.reads, CompareOperator.EQ, 0);
+        own(ignored.bus, instance);
+        wait_until(() => find_application(manager, "reliability_a").running);
+        manager.set_blacklisted_players({ "offline" });
+        wait_until(() => manager.get_player(instance) != null && manager.get_player(instance).initialized);
+        wait_until(() => find_application(manager, "reliability_a").display_name == "Same identity");
+        assert_cmpint(manager.list_players().length, CompareOperator.EQ, 4);
+        assert_true(ignored.player.reads > 0);
+        assert_cmpstr(find_application(manager, "reliability_a").display_name, CompareOperator.EQ, "Same identity");
+        SignalHandler.disconnect(manager, membership_handler);
+        manager.shutdown();
+        ignored.close(); allowed.close(); client.close_sync();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Blacklist startup and instances: %s", error.message);
+    }
+}
+
+private void test_blacklist_active_replacement_and_restore() {
+    try {
+        var client = connection();
+        var first = new MockService();
+        var second = new MockService();
+        var replacement = new MockService();
+        first.root.label = "First player";
+        first.root.desktop_id = "first-player";
+        second.player.state = "Paused";
+        replacement.player.title = "Replacement";
+        own(first.bus, NAME_A);
+        own(second.bus, NAME_B);
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+        wait_until(() => manager.ready && manager.active_player != null);
+        manager.select_player(NAME_A);
+        var old = manager.active_player;
+        var weak_old = WeakRef(old);
+        first.player.hold_pause = true;
+        old.play_pause();
+        wait_until(() => first.player.pause_calls == 1);
+        manager.set_blacklisted_players({ "reliability_a" });
+        assert_false(old.available);
+        assert_null(manager.get_player(NAME_A));
+        assert_cmpstr(manager.active_player.bus_name, CompareOperator.EQ, NAME_B);
+        manager.select_player(NAME_A);
+        assert_cmpstr(manager.active_player.bus_name, CompareOperator.EQ, NAME_B);
+        old.play_pause();
+        assert_cmpint(first.player.pause_calls, CompareOperator.EQ, 1);
+        first.player.release_pause();
+        old = null;
+        wait_until(() => weak_old.get() == null);
+        assert_cmpstr(find_application(manager, "reliability_a").display_name, CompareOperator.EQ, "First player");
+        assert_cmpstr(find_application(manager, "reliability_a").icon_name, CompareOperator.EQ, "first-player");
+
+        own(replacement.bus, NAME_A, true);
+        // A second name forms a barrier after the blocked owner replacement.
+        own(replacement.bus, NAME_A + ".instance789");
+        release(replacement.bus, NAME_A);
+        wait_until(() => find_application(manager, "reliability_a").running && manager.get_player(NAME_A) == null);
+        drain();
+        assert_cmpint(replacement.root.reads, CompareOperator.EQ, 0);
+        assert_cmpint(replacement.player.reads, CompareOperator.EQ, 0);
+        manager.set_blacklisted_players({});
+        wait_until(() => manager.get_player(NAME_A + ".instance789") != null
+            && manager.get_player(NAME_A + ".instance789").initialized);
+        assert_cmpstr(manager.active_player.owner, CompareOperator.EQ, replacement.bus.get_unique_name());
+        assert_cmpstr(manager.active_player.title, CompareOperator.EQ, "Replacement");
+        manager.set_blacklisted_players({ "reliability_a", "reliability_b" });
+        assert_null(manager.active_player);
+        assert_cmpint(manager.list_players().length, CompareOperator.EQ, 0);
+        release(replacement.bus, NAME_A + ".instance789");
+        wait_until(() => !find_application(manager, "reliability_a").running);
+        // Restoring an offline application removes its saved Preferences row.
+        manager.set_blacklisted_players({ "reliability_b" });
+        assert_null(find_application(manager, "reliability_a"));
+        var weak_manager = WeakRef(manager);
+        manager.shutdown();
+        manager.set_blacklisted_players({});
+        assert_null(manager.active_player);
+        manager = null;
+        wait_until(() => weak_manager.get() == null);
+        first.close(); second.close(); replacement.close(); client.close_sync();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Blacklist active replacement and restore: %s", error.message);
+    }
+}
+
+// Hold one reply on the GDBus worker while the main loop changes the blacklist
+// or shuts down. A deadline prevents a broken test from retaining the worker.
+private class ReplyGate : Object {
+    private string member;
+    private uint serial = 0;
+    private Mutex mutex;
+    private Cond condition;
+    private bool released = false;
+    private int arrived = 0;
+    public bool waiting { get { return AtomicInt.get(ref arrived) != 0; } }
+
+    public ReplyGate(string member) {
+        this.member = member;
+    }
+
+    public void release() {
+        mutex.lock();
+        released = true;
+        condition.signal();
+        mutex.unlock();
+    }
+
+    public DBusMessage? filter(DBusConnection connection, owned DBusMessage message, bool incoming) {
+        if (!incoming && serial == 0 && message.get_member() == member) serial = message.get_serial();
+        if (incoming && serial != 0 && message.get_reply_serial() == serial) {
+            mutex.lock();
+            AtomicInt.set(ref arrived, 1);
+            Idle.add(() => Source.REMOVE);
+            int64 deadline = get_monotonic_time() + 5 * TimeSpan.SECOND;
+            while (!released && condition.wait_until(mutex, deadline)) {}
+            mutex.unlock();
+        }
+        return (owned) message;
+    }
+}
+
+private void test_blacklist_pending_discovery_and_snapshot() {
+    try {
+        foreach (var member in new string[] { "GetNameOwner", "GetAll" }) {
+            for (int shutdown = 0; shutdown < 2; shutdown++) {
+                var client = connection();
+                var server = new MockService();
+                own(server.bus, NAME_A);
+                var gate = new ReplyGate(member);
+                uint filter = client.add_filter(gate.filter);
+                var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+                wait_until(() => gate.waiting);
+                manager.set_blacklisted_players({ "reliability_a" });
+                if (shutdown != 0) manager.shutdown();
+                gate.release();
+                if (shutdown == 0) wait_until(() => manager.ready);
+                drain();
+                assert_null(manager.active_player);
+                assert_null(manager.get_player(NAME_A));
+                assert_cmpint(manager.list_players().length, CompareOperator.EQ, 0);
+                if (member == "GetNameOwner") {
+                    assert_cmpint(server.root.reads, CompareOperator.EQ, 0);
+                    assert_cmpint(server.player.reads, CompareOperator.EQ, 0);
+                }
+                if (shutdown == 0) {
+                    assert_true(find_application(manager, "reliability_a").running);
+                    manager.set_blacklisted_players({});
+                    wait_until(() => manager.active_player != null && manager.active_player.initialized);
+                }
+                manager.shutdown();
+                client.remove_filter(filter);
+                var weak_manager = WeakRef(manager);
+                manager = null;
+                wait_until(() => weak_manager.get() == null);
+                server.close(); client.close_sync();
+                drain();
+            }
+        }
+    } catch (Error error) {
+        Test.fail_printf("Blacklist discovery and snapshot races: %s", error.message);
     }
 }
 
@@ -473,5 +703,8 @@ public int main(string[] args) {
     Test.add_func("/desktop-dbus/portal-restart-close", test_portal_response_restart_and_close);
     Test.add_func("/desktop-dbus/indicator-name-lifetime", test_indicator_name_lifetime);
     Test.add_func("/mpris-dbus/owner-replacement-shutdown", test_owner_replacement_and_shutdown);
+    Test.add_func("/mpris-dbus/blacklist-startup-instances", test_blacklist_startup_and_instances);
+    Test.add_func("/mpris-dbus/blacklist-active-replacement-restore", test_blacklist_active_replacement_and_restore);
+    Test.add_func("/mpris-dbus/blacklist-pending-discovery-snapshot", test_blacklist_pending_discovery_and_snapshot);
     return Test.run();
 }

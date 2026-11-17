@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mpris-miniplayer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 17:44+0100\n"
+"POT-Creation-Date: 2026-11-17 15:33+0100\n"
 "PO-Revision-Date: 2026-06-21 09:39+0200\n"
 "Last-Translator: Christian Lauinger\n"
 "Language-Team: German\n"
@@ -14,7 +14,7 @@ msgstr ""
 
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.desktop.in:2
 #: data/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml.in:6
-#: src/status-indicator.vala:35 src/application.vala:468 src/window.vala:137
+#: src/status-indicator.vala:35 src/application.vala:471 src/window.vala:137
 msgid "MPRIS MiniPlayer"
 msgstr "MPRIS MiniPlayer"
 
@@ -118,8 +118,8 @@ msgstr "Lautstärke wiederherstellen"
 msgid "Compact Mode"
 msgstr "Kompakter Modus"
 
-#: src/status-indicator.vala:647 src/preferences-window.vala:16
-#: src/preferences-window.vala:33 src/window.vala:769
+#: src/status-indicator.vala:647 src/preferences-window.vala:50
+#: src/preferences-window.vala:69 src/window.vala:769
 msgid "Preferences"
 msgstr "Einstellungen"
 
@@ -161,11 +161,11 @@ msgstr "Unerwartete Befehlszeilenargumente.\n"
 msgid "Unknown playback action “%s”.\n"
 msgstr "Unbekannte Wiedergabeaktion „%s“.\n"
 
-#: src/application.vala:641
+#: src/application.vala:647
 msgid "MPRIS MiniPlayer is running in the background"
 msgstr "MPRIS MiniPlayer läuft im Hintergrund"
 
-#: src/application.vala:643
+#: src/application.vala:649
 msgid ""
 "The window will appear automatically when a compatible media player becomes "
 "available."
@@ -173,78 +173,99 @@ msgstr ""
 "Das Fenster erscheint automatisch, sobald ein kompatibler Medienspieler "
 "verfügbar ist."
 
-#: src/application.vala:645
+#: src/application.vala:651
 msgid "Open the window when you want to control a compatible media player."
 msgstr ""
 "Öffne das Fenster, wenn du einen kompatiblen Medienspieler steuern möchtest."
 
-#: src/application.vala:647
+#: src/application.vala:653
 msgid "Open"
 msgstr "Öffnen"
 
-#: src/preferences-window.vala:37
+#: src/preferences-window.vala:23
+#, c-format
+msgid "%s (not running)"
+msgstr "%s (nicht gestartet)"
+
+#: src/preferences-window.vala:73
 msgid "Behavior"
 msgstr "Verhalten"
 
-#: src/preferences-window.vala:41
+#: src/preferences-window.vala:77
 msgid "Show and hide automatically"
 msgstr "Automatisch anzeigen und ausblenden"
 
-#: src/preferences-window.vala:42
+#: src/preferences-window.vala:78
 msgid "Show the window when a player appears and hide it when none remain"
 msgstr ""
 "Das Fenster anzeigen, wenn ein Medienspieler erscheint, und ausblenden, wenn "
 "keiner mehr verfügbar ist"
 
-#: src/preferences-window.vala:50
+#: src/preferences-window.vala:86
 msgid "Background notification"
 msgstr "Hintergrundbenachrichtigung"
 
-#: src/preferences-window.vala:51
+#: src/preferences-window.vala:87
 msgid "Notify when the app starts hidden in the background"
 msgstr "Benachrichtigen, wenn die App versteckt im Hintergrund startet"
 
-#: src/preferences-window.vala:59
+#: src/preferences-window.vala:95
 msgid "Start on login"
 msgstr "Bei Anmeldung starten"
 
-#: src/preferences-window.vala:60
+#: src/preferences-window.vala:96
 msgid "Start MPRIS MiniPlayer automatically when you log in"
 msgstr "MPRIS MiniPlayer automatisch starten, wenn du dich anmeldest"
 
-#: src/preferences-window.vala:70
+#: src/preferences-window.vala:106
 msgid "Compact mode"
 msgstr "Kompakter Modus"
 
-#: src/preferences-window.vala:71
+#: src/preferences-window.vala:107
 msgid "Use a smaller window layout"
 msgstr "Ein kleineres Fensterlayout verwenden"
 
-#: src/preferences-window.vala:79
+#: src/preferences-window.vala:115
 msgid "Tint with album color"
 msgstr "Mit Albumfarbe einfärben"
 
-#: src/preferences-window.vala:80
+#: src/preferences-window.vala:116
 msgid "Use a color from the current album cover"
 msgstr "Eine Farbe des aktuellen Albumcovers verwenden"
 
-#: src/preferences-window.vala:88
+#: src/preferences-window.vala:124
 msgid "Keep player queue open"
 msgstr "Player-Queue geöffnet lassen"
 
-#: src/preferences-window.vala:89
+#: src/preferences-window.vala:125
 msgid "Keep the queue in the player window open after selecting a track"
 msgstr "Die Queue im Player-Fenster nach der Titelauswahl geöffnet lassen"
 
-#: src/preferences-window.vala:97
+#: src/preferences-window.vala:133
 msgid "Status indicator"
 msgstr "Statusanzeige"
 
-#: src/preferences-window.vala:123
+#: src/preferences-window.vala:144
+msgid "Ignored players"
+msgstr "Ignorierte Medienspieler"
+
+#: src/preferences-window.vala:145
+msgid "Ignore all instances of these players. Changes apply immediately."
+msgstr "Alle Instanzen dieser Medienspieler ignorieren. Änderungen werden sofort wirksam."
+
+#: src/preferences-window.vala:149
+msgid "No players found"
+msgstr "Keine Medienspieler gefunden"
+
+#: src/preferences-window.vala:150
+msgid "Open a media player to add it to this list."
+msgstr "Öffnen Sie einen Medienspieler, um ihn dieser Liste hinzuzufügen."
+
+#: src/preferences-window.vala:207
 msgid "Show an indicator when the app is running"
 msgstr "Eine Anzeige zeigen, wenn die Anwendung läuft"
 
-#: src/preferences-window.vala:124
+#: src/preferences-window.vala:208
 msgid "Not supported by this desktop"
 msgstr "Von diesem Desktop nicht unterstützt"
 

@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="io.github.ChrisLauinger.MprisMiniPlayer" path="/io/github/ChrisLauinger/MprisMiniPlayer/">
+    <key name="blacklisted-players" type="as">
+      <default>[]</default>
+      <summary>Ignored players</summary>
+      <description>MPRIS application identifiers to ignore, including all instances of each application.</description>
+    </key>
     <key name="show-background-notification" type="b">
       <default>true</default>
       <summary>Show a background notification</summary>

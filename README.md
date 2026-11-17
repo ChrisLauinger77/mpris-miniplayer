@@ -84,9 +84,15 @@ When it starts without a player, it can stay hidden in the background and show t
 - Adjusts volume by scrolling over the status indicator, with temporary icon feedback and a 100% upper limit
 - Provides status indicator actions for showing or hiding the window, compact mode, preferences, about, and quit
 - Can tint the player with a color from the current album cover
-- Provides preferences for compact mode, album color tint, keeping the queue open, background notifications, automatic visibility, status indicators, and start on login
+- Provides preferences for compact mode, album color tint, keeping the queue open, ignored players, background notifications, automatic visibility, status indicators, and start on login
 - Shows a link in the main menu and status indicator when a newer stable release is available
 - Hides the window on close; use Quit to stop the app
+
+In **Preferences → Ignored players**, enable a player's switch to ignore it.
+This applies immediately to all instances of that application and is remembered
+across restarts. Ignored players do not appear in the player chooser, receive
+controls, or make the window appear automatically. Turn the switch off to restore
+a player, even when it is not running.
 
 ## Build from Source
 
