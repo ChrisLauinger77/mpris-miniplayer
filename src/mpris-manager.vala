@@ -63,8 +63,18 @@ namespace MprisMiniPlayer {
 
         internal static string application_id(string name) {
             string suffix = name.has_prefix(MPRIS_PREFIX) ? name.substring(MPRIS_PREFIX.length) : name;
-            int dot = suffix.index_of_char('.');
-            return dot < 0 ? suffix : suffix.substring(0, dot);
+            int dot = suffix.last_index_of_char('.');
+            if (dot <= 0) return suffix;
+            string instance = suffix.substring(dot + 1);
+            // Dots can belong to the application ID itself (io.bassi.Amberol).
+            // Strip only the conventional trailing .instance<PID> component;
+            // ambiguous or unfamiliar suffixes remain part of the identifier.
+            const string INSTANCE_PREFIX = "instance";
+            if (!instance.has_prefix(INSTANCE_PREFIX) || instance.length == INSTANCE_PREFIX.length) return suffix;
+            for (int i = INSTANCE_PREFIX.length; i < instance.length; i++) {
+                if (!instance[i].isdigit()) return suffix;
+            }
+            return suffix.substring(0, dot);
         }
 
         public bool is_blacklisted(string id) {

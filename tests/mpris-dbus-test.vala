@@ -3,6 +3,10 @@ private const string PATH = "/org/mpris/MediaPlayer2";
 private const string PLAYER_IFACE = "org.mpris.MediaPlayer2.Player";
 private const string NAME_A = "org.mpris.MediaPlayer2.reliability_a";
 private const string NAME_B = "org.mpris.MediaPlayer2.reliability_b";
+private const string AMBEROL_ID = "io.bassi.Amberol";
+private const string OTHER_ID = "io.bassi.OtherPlayer";
+private const string AMBEROL_NAME = "org.mpris.MediaPlayer2.io.bassi.Amberol";
+private const string OTHER_NAME = "org.mpris.MediaPlayer2.io.bassi.OtherPlayer";
 
 [DBus (name = "org.mpris.MediaPlayer2")]
 private class MockRoot : Object {
@@ -139,6 +143,84 @@ private class MockService : Object {
 private MprisMiniPlayer.MprisApplication? find_application(MprisMiniPlayer.MprisManager manager, string id) {
     foreach (var app in manager.list_applications()) if (app.id == id) return app;
     return null;
+}
+
+private void test_application_identifiers() {
+    string[] names = {
+        "vlc", "vlc.instance123", "io.bassi.Amberol", "io.bassi.Amberol.instance123",
+        "io.bassi.OtherPlayer", "org.gnome.Rhythmbox", "io.example.instanceViewer",
+        "io.example.instance", "io.example.instance123x", "io.example.instance123.tools"
+    };
+    string[] expected = {
+        "vlc", "vlc", "io.bassi.Amberol", "io.bassi.Amberol",
+        "io.bassi.OtherPlayer", "org.gnome.Rhythmbox", "io.example.instanceViewer",
+        "io.example.instance", "io.example.instance123x", "io.example.instance123.tools"
+    };
+    for (int i = 0; i < names.length; i++) {
+        assert_cmpstr(MprisMiniPlayer.MprisManager.application_id("org.mpris.MediaPlayer2." + names[i]),
+            CompareOperator.EQ, expected[i]);
+    }
+}
+
+private void test_blacklist_dotted_applications() {
+    try {
+        var client = connection();
+        var amberol = new MockService();
+        var other = new MockService();
+        amberol.root.label = "Amberol";
+        other.root.label = "Other player";
+        other.player.state = "Paused";
+        own(amberol.bus, AMBEROL_NAME);
+        own(amberol.bus, AMBEROL_NAME + ".instance123");
+        own(other.bus, OTHER_NAME);
+        own(other.bus, OTHER_NAME + ".instance234");
+        var manager = new MprisMiniPlayer.MprisManager.with_connection(client);
+        wait_until(() => manager.ready && manager.active_player != null);
+        assert_cmpint(manager.list_applications().length, CompareOperator.EQ, 2);
+        assert_true(find_application(manager, AMBEROL_ID).running);
+        assert_true(find_application(manager, OTHER_ID).running);
+        assert_null(find_application(manager, "io"));
+        var other_model = manager.get_player(OTHER_NAME);
+        manager.select_player(AMBEROL_NAME);
+        manager.set_blacklisted_players({ AMBEROL_ID });
+        assert_null(manager.get_player(AMBEROL_NAME));
+        assert_null(manager.get_player(AMBEROL_NAME + ".instance123"));
+        assert_true(manager.get_player(OTHER_NAME) == other_model);
+        assert_true(other_model.available);
+        assert_cmpint(manager.list_players().length, CompareOperator.EQ, 2);
+        assert_cmpstr(manager.active_player.owner, CompareOperator.EQ, other.bus.get_unique_name());
+        assert_cmpstr(find_application(manager, AMBEROL_ID).display_name, CompareOperator.EQ, "Amberol");
+        assert_cmpstr(find_application(manager, OTHER_ID).display_name, CompareOperator.EQ, "Other player");
+
+        // Simulate a restart with the saved full identifier. Ignored models
+        // must not be created, while the sibling application remains usable.
+        manager.shutdown();
+        int ignored_reads = amberol.player.reads + amberol.root.reads;
+        manager = new MprisMiniPlayer.MprisManager.with_connection(client, { AMBEROL_ID });
+        wait_until(() => manager.ready && manager.active_player != null);
+        assert_cmpint(manager.list_applications().length, CompareOperator.EQ, 2);
+        assert_cmpint(manager.list_players().length, CompareOperator.EQ, 2);
+        assert_null(manager.get_player(AMBEROL_NAME));
+        assert_cmpstr(manager.active_player.owner, CompareOperator.EQ, other.bus.get_unique_name());
+        assert_cmpint(amberol.player.reads + amberol.root.reads, CompareOperator.EQ, ignored_reads);
+        release(amberol.bus, AMBEROL_NAME);
+        release(amberol.bus, AMBEROL_NAME + ".instance123");
+        wait_until(() => !find_application(manager, AMBEROL_ID).running);
+        own(amberol.bus, AMBEROL_NAME + ".instance456");
+        wait_until(() => find_application(manager, AMBEROL_ID).running);
+        assert_null(manager.get_player(AMBEROL_NAME + ".instance456"));
+        assert_cmpint(amberol.player.reads + amberol.root.reads, CompareOperator.EQ, ignored_reads);
+        manager.set_blacklisted_players({ OTHER_ID });
+        wait_until(() => manager.active_player != null && manager.active_player.initialized);
+        assert_cmpstr(manager.active_player.bus_name, CompareOperator.EQ, AMBEROL_NAME + ".instance456");
+        assert_null(manager.get_player(OTHER_NAME));
+        assert_null(manager.get_player(OTHER_NAME + ".instance234"));
+        manager.shutdown();
+        amberol.close(); other.close(); client.close_sync();
+        drain();
+    } catch (Error error) {
+        Test.fail_printf("Blacklist dotted applications: %s", error.message);
+    }
 }
 
 private void test_blacklist_startup_and_instances() {
@@ -704,6 +786,8 @@ public int main(string[] args) {
     Test.add_func("/desktop-dbus/indicator-name-lifetime", test_indicator_name_lifetime);
     Test.add_func("/mpris-dbus/owner-replacement-shutdown", test_owner_replacement_and_shutdown);
     Test.add_func("/mpris-dbus/blacklist-startup-instances", test_blacklist_startup_and_instances);
+    Test.add_func("/mpris-dbus/application-identifiers", test_application_identifiers);
+    Test.add_func("/mpris-dbus/blacklist-dotted-applications", test_blacklist_dotted_applications);
     Test.add_func("/mpris-dbus/blacklist-active-replacement-restore", test_blacklist_active_replacement_and_restore);
     Test.add_func("/mpris-dbus/blacklist-pending-discovery-snapshot", test_blacklist_pending_discovery_and_snapshot);
     return Test.run();

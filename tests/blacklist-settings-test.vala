@@ -78,11 +78,11 @@ private void test_persistence() {
         var schema = load_schema(Environment.get_variable("TEST_APP_SCHEMA_DIR"), SCHEMA_ID);
         var settings = new Settings.full(schema, SettingsBackend.keyfile_settings_backend_new(path, "/", null), null);
         var app_settings = new MprisMiniPlayer.AppSettings.with_settings(settings);
-        app_settings.blacklisted_players = { "vlc", "firefox" };
+        app_settings.blacklisted_players = { "vlc", "io.bassi.Amberol" };
         Settings.sync();
         var restored = new MprisMiniPlayer.AppSettings.with_settings(new Settings.full(schema,
             SettingsBackend.keyfile_settings_backend_new(path, "/", null), null));
-        assert_ids(restored.blacklisted_players, { "vlc", "firefox" });
+        assert_ids(restored.blacklisted_players, { "vlc", "io.bassi.Amberol" });
         File.new_for_path(path).delete();
         File.new_for_path(directory).delete();
     } catch (Error error) {
