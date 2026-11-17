@@ -1,4 +1,9 @@
   <releases>
+    <release version="2.4.0" date="2026-11-17">
+      <description>
+        <p>Let players be ignored in Preferences so they no longer appear or take over the controls.</p>
+      </description>
+    </release>
     <release version="2.3.2" date="2026-11-08">
       <description>
         <p>Add playback controls to the desktop launcher menu.</p>

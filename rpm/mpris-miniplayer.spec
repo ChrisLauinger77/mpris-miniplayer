@@ -1,4 +1,4 @@
-%{!?pkg_version:%global pkg_version 2.3.2}
+%{!?pkg_version:%global pkg_version 2.4.0}
 
 Name:           mpris-miniplayer
 Version:        %{pkg_version}
@@ -51,6 +51,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.ChrisLauing
 %{_datadir}/metainfo/io.github.ChrisLauinger.MprisMiniPlayer.metainfo.xml
 
 %changelog
+* Tue Nov 17 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.4.0-1
+- Let players be ignored in Preferences so they no longer appear or take over the controls
+
 * Sun Nov 08 2026 Christian Lauinger <chrislauinger77@users.noreply.github.com> - 2.3.2-1
 - Add playback controls to the desktop launcher menu
 
