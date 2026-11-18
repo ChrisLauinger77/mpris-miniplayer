@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - '.github/workflows/claude.yml'
   workflow_call:
   workflow_dispatch:
   schedule:
